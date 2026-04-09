@@ -692,79 +692,188 @@ async function loadTransactions() {
   var updated = $('#tx-updated');
   updated.textContent = 'Updated ' + formatTimestamp(new Date().toISOString());
 
-  renderTransactionMonth(txMonths[0]);
-
-  filter.addEventListener('change', function() {
-    renderTransactionMonth(filter.value);
-  });
-}
-
-function renderTransactionMonth(month) {
-  var breakdown = $('#tx-breakdown');
-  var filtered = txData.filter(function(tx) { return tx.date.substring(0, 7) === month; });
-
-  // Group by account
-  var byAccount = {};
-  filtered.forEach(function(tx) {
-    var key = tx.plaid_account_id || 'unknown';
-    if (!byAccount[key]) byAccount[key] = { transactions: [], total: 0 };
-    byAccount[key].transactions.push(tx);
-    byAccount[key].total += tx.amount;
-  });
-
-  // Match account names from cachedAccounts
-  var accountNames = {};
+  // Populate card filter from cached accounts
+  var cardFilter = $('#tx-card-filter');
+  cardFilter.innerHTML = '<option value="all">All Accounts</option>';
   if (cachedAccounts) {
     cachedAccounts.forEach(function(a) {
-      // We don't have plaid_account_id in cachedAccounts directly, so match by name
-      accountNames[a.id] = a.nickname || a.name || 'Account';
+      cardFilter.innerHTML += '<option value="' + a.id + '">' + esc(a.nickname || a.name || 'Account') + '</option>';
     });
   }
 
-  // Calculate month totals
-  var totalSpent = filtered.reduce(function(s, tx) { return tx.amount > 0 ? s + tx.amount : s; }, 0);
-  var totalIncome = filtered.reduce(function(s, tx) { return tx.amount < 0 ? s + Math.abs(tx.amount) : s; }, 0);
+  renderTransactionMonth();
+
+  filter.addEventListener('change', renderTransactionMonth);
+  cardFilter.addEventListener('change', renderTransactionMonth);
+}
+
+var txPieChart = null;
+var activeCategoryFilter = null;
+
+var CATEGORY_COLORS = [
+  '#3C82F6', '#4DE88F', '#E84D4D', '#F59E0B', '#8B5CF6',
+  '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1',
+  '#14B8A6', '#EF4444', '#A855F7', '#22D3EE', '#FB923C'
+];
+
+function renderTransactionMonth() {
+  var month = $('#tx-month-filter').value;
+  var cardId = $('#tx-card-filter').value;
+  var breakdown = $('#tx-breakdown');
+  var legend = $('#tx-category-legend');
+
+  // Filter by month
+  var filtered = txData.filter(function(tx) {
+    return tx.date.substring(0, 7) === month;
+  });
+
+  // Filter by card if set
+  if (cardId !== 'all') {
+    // Match by account_id — we need to find plaid_account_id for this card
+    // Since we store account_id (our DB id) in synced_transactions, match directly
+    filtered = filtered.filter(function(tx) { return tx.account_id === cardId; });
+  }
+
+  // Filter by active category if pie slice clicked
+  var displayTx = filtered;
+  if (activeCategoryFilter) {
+    displayTx = filtered.filter(function(tx) {
+      return normalizeCategory(tx.category) === activeCategoryFilter;
+    });
+  }
+
+  // Expenses only for pie chart (positive amounts = money out)
+  var expenses = filtered.filter(function(tx) { return tx.amount > 0; });
+
+  // Group by category
+  var byCategory = {};
+  expenses.forEach(function(tx) {
+    var cat = normalizeCategory(tx.category);
+    if (!byCategory[cat]) byCategory[cat] = 0;
+    byCategory[cat] += tx.amount;
+  });
+
+  // Sort categories by amount
+  var catEntries = Object.entries(byCategory).sort(function(a, b) { return b[1] - a[1]; });
+  var catLabels = catEntries.map(function(e) { return e[0]; });
+  var catAmounts = catEntries.map(function(e) { return e[1]; });
+  var totalExpenses = catAmounts.reduce(function(s, a) { return s + a; }, 0);
+
+  // Render pie chart
+  var canvas = document.getElementById('tx-pie-chart');
+  if (txPieChart) txPieChart.destroy();
+
+  if (catEntries.length > 0 && typeof Chart !== 'undefined') {
+    txPieChart = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: catLabels,
+        datasets: [{
+          data: catAmounts,
+          backgroundColor: CATEGORY_COLORS.slice(0, catLabels.length),
+          borderWidth: 0,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '55%',
+        animation: { animateRotate: true, duration: 800 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                var pct = ((ctx.parsed / totalExpenses) * 100).toFixed(1);
+                return ctx.label + ': ' + formatMoney(ctx.parsed) + ' (' + pct + '%)';
+              }
+            }
+          }
+        },
+        onClick: function(e, elements) {
+          if (elements.length > 0) {
+            var idx = elements[0].index;
+            var clickedCat = catLabels[idx];
+            if (activeCategoryFilter === clickedCat) {
+              activeCategoryFilter = null;
+            } else {
+              activeCategoryFilter = clickedCat;
+            }
+            renderTransactionMonth();
+          }
+        }
+      }
+    });
+  }
+
+  // Render category legend
+  legend.innerHTML = catEntries.map(function(entry, i) {
+    var cat = entry[0];
+    var amt = entry[1];
+    var pct = totalExpenses > 0 ? ((amt / totalExpenses) * 100).toFixed(0) : 0;
+    var isActive = activeCategoryFilter === cat;
+    return '<div class="cat-legend-item' + (isActive ? ' active' : '') + '" data-cat="' + esc(cat) + '">' +
+      '<span class="cat-dot" style="background:' + CATEGORY_COLORS[i % CATEGORY_COLORS.length] + '"></span>' +
+      '<span class="cat-name">' + esc(cat) + '</span>' +
+      '<span class="cat-pct">' + pct + '%</span>' +
+      '<span class="cat-amt">' + formatMoney(amt) + '</span>' +
+    '</div>';
+  }).join('');
+
+  // Click legend items to filter too
+  legend.querySelectorAll('.cat-legend-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var cat = el.dataset.cat;
+      if (activeCategoryFilter === cat) {
+        activeCategoryFilter = null;
+      } else {
+        activeCategoryFilter = cat;
+      }
+      renderTransactionMonth();
+    });
+  });
+
+  // Month summary
+  var totalSpent = expenses.reduce(function(s, tx) { return s + tx.amount; }, 0);
+  var totalIncome = filtered.filter(function(tx) { return tx.amount < 0; }).reduce(function(s, tx) { return s + Math.abs(tx.amount); }, 0);
 
   var html = '<div class="tx-month-summary">' +
     '<div class="tx-summary-item"><span class="tx-summary-label">Spent</span><span class="tx-summary-value balance-negative">' + formatMoney(totalSpent) + '</span></div>' +
     '<div class="tx-summary-item"><span class="tx-summary-label">Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '</span></div>' +
   '</div>';
 
-  // Render each account group
-  Object.keys(byAccount).forEach(function(accountId) {
-    var group = byAccount[accountId];
-    var acctName = accountId;
-
-    // Try to find a matching cached account by checking plaid_account_id match
-    if (cachedAccounts) {
-      // Since we don't have plaid_account_id decrypted on frontend,
-      // just show merchant grouping instead
-    }
-
-    html += '<div class="tx-account-group">';
-    html += '<div class="tx-account-header">' +
-      '<span class="tx-account-total">' + formatMoney(Math.abs(group.total)) + '</span>' +
+  // Render transactions
+  displayTx.forEach(function(tx) {
+    html += '<div class="tx-row">' +
+      '<div class="tx-info">' +
+        '<span class="tx-merchant">' + esc(tx.merchant_name || tx.name || 'Unknown') + '</span>' +
+        '<span class="tx-category">' + esc(normalizeCategory(tx.category)) + '</span>' +
+      '</div>' +
+      '<div class="tx-right">' +
+        '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
+          (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
+        '</span>' +
+        '<span class="tx-date">' + new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
+      '</div>' +
     '</div>';
-
-    group.transactions.forEach(function(tx) {
-      html += '<div class="tx-row">' +
-        '<div class="tx-info">' +
-          '<span class="tx-merchant">' + esc(tx.merchant_name || tx.name || 'Unknown') + '</span>' +
-          '<span class="tx-category">' + esc((tx.category || '').replace(/_/g, ' ').toLowerCase()) + '</span>' +
-        '</div>' +
-        '<div class="tx-right">' +
-          '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
-            (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
-          '</span>' +
-          '<span class="tx-date">' + new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
-        '</div>' +
-      '</div>';
-    });
-
-    html += '</div>';
   });
 
+  if (activeCategoryFilter) {
+    html = '<button class="tx-clear-filter" onclick="window._clearCatFilter()">Showing: ' + esc(activeCategoryFilter) + ' (tap to clear)</button>' + html;
+  }
+
   breakdown.innerHTML = html;
+}
+
+window._clearCatFilter = function() {
+  activeCategoryFilter = null;
+  renderTransactionMonth();
+};
+
+function normalizeCategory(cat) {
+  if (!cat) return 'Other';
+  return cat.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
 }
 
 // Load transactions when switching to that tab

@@ -108,10 +108,17 @@
         <p>Connect an account to see transactions</p>
       </div>
       <div id="tx-content" hidden>
-        <div class="tx-header">
-          <span id="tx-updated" class="tx-updated"></span>
+        <div class="tx-filters">
           <select id="tx-month-filter" class="app-select"></select>
+          <select id="tx-card-filter" class="app-select">
+            <option value="all">All Accounts</option>
+          </select>
         </div>
+        <span id="tx-updated" class="tx-updated"></span>
+        <div class="tx-chart-wrap">
+          <canvas id="tx-pie-chart"></canvas>
+        </div>
+        <div id="tx-category-legend"></div>
         <div id="tx-breakdown"></div>
       </div>
     </main>
