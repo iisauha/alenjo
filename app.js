@@ -393,7 +393,12 @@ async function openPlaidLink(products) {
         await loadAccounts();
         showLoading(false);
       },
-      onExit: function() {}
+      onExit: function(err) {
+        showLoading(false);
+        if (err) {
+          showError('Connection failed: ' + (err.display_message || err.error_message || 'Please try again'));
+        }
+      }
     });
 
     handler.open();
@@ -403,11 +408,11 @@ async function openPlaidLink(products) {
   }
 }
 
-btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions', 'liabilities']); });
-btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions', 'liabilities']); });
+btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions']); });
+btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions']); });
 if ($('#btn-connect-investments')) $('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
 if ($('#btn-add-investment')) $('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
-if ($('#btn-connect-loans')) $('#btn-connect-loans').addEventListener('click', function() { openPlaidLink(['transactions', 'liabilities']); });
+if ($('#btn-connect-loans')) $('#btn-connect-loans').addEventListener('click', function() { openPlaidLink(['transactions']); });
 
 // ============================================
 // LOAD ACCOUNTS
