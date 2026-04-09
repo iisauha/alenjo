@@ -403,8 +403,8 @@ async function openPlaidLink(products) {
   }
 }
 
-btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions']); });
-btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions']); });
+btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions', 'liabilities']); });
+btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions', 'liabilities']); });
 if ($('#btn-connect-investments')) $('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
 if ($('#btn-add-investment')) $('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
 if ($('#btn-connect-loans')) $('#btn-connect-loans').addEventListener('click', function() { openPlaidLink(['liabilities']); });
@@ -1000,39 +1000,39 @@ function accountCard(account, type) {
 
   // Liabilities detail for credit cards
   var liabHtml = '';
-  if (type === 'credit' && cachedLiabilities) {
-    var liab = cachedLiabilities.find(function(l) { return l.account_id === account.id; });
-    if (liab) {
-      var limit = account.balance_limit ? parseFloat(account.balance_limit) : 0;
-      var used = bal.amount;
-      var utilPct = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+  if (type === 'credit') {
+    var limit = account.balance_limit ? parseFloat(account.balance_limit) : 0;
+    var used = bal.amount;
+
+    // Always show utilization bar from account data (no liabilities product needed)
+    if (limit > 0) {
+      var utilPct = Math.min((used / limit) * 100, 100);
       var utilClass = utilPct > 75 ? 'util-high' : utilPct > 30 ? 'util-mid' : 'util-low';
-
-      liabHtml = '<div class="card-liabilities">';
-
-      // Utilization bar
-      if (limit > 0) {
-        liabHtml += '<div class="liab-util-wrap">' +
+      liabHtml = '<div class="card-liabilities">' +
+        '<div class="liab-util-wrap">' +
           '<div class="liab-util-bar"><div class="liab-util-fill ' + utilClass + '" style="width:' + utilPct.toFixed(1) + '%"></div></div>' +
           '<div class="liab-util-labels"><span>' + formatMoney(used) + ' / ' + formatMoney(limit) + '</span><span>' + utilPct.toFixed(0) + '% used</span></div>' +
         '</div>';
+
+      // Show detailed liabilities data if available from Plaid Liabilities product
+      var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
+      if (liab) {
+        var details = '';
+        if (liab.apr_purchase) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + parseFloat(liab.apr_purchase).toFixed(2) + '%</span></div>';
+        if (liab.minimum_payment_amount) details += '<div class="liab-detail"><span>Min Payment</span><span>$' + parseFloat(liab.minimum_payment_amount).toFixed(2) + '</span></div>';
+        if (liab.next_payment_due_date) {
+          var dueDate = new Date(liab.next_payment_due_date + 'T00:00:00');
+          var now = new Date();
+          var daysUntil = Math.ceil((dueDate - now) / 86400000);
+          var dueClass = daysUntil <= 3 ? 'liab-urgent' : daysUntil <= 7 ? 'liab-soon' : '';
+          details += '<div class="liab-detail ' + dueClass + '"><span>Due</span><span>' + formatLiabDate(liab.next_payment_due_date) + (daysUntil >= 0 ? ' (' + daysUntil + 'd)' : ' (overdue)') + '</span></div>';
+        }
+        if (liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>$' + parseFloat(liab.last_payment_amount).toFixed(2) + '</span></div>';
+        if (liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>$' + parseFloat(liab.last_statement_balance).toFixed(2) + '</span></div>';
+        if (liab.is_overdue) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
+        if (details) liabHtml += details;
       }
 
-      var details = '';
-      if (liab.apr_purchase) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + parseFloat(liab.apr_purchase).toFixed(2) + '%</span></div>';
-      if (liab.minimum_payment_amount) details += '<div class="liab-detail"><span>Min Payment</span><span>$' + parseFloat(liab.minimum_payment_amount).toFixed(2) + '</span></div>';
-      if (liab.next_payment_due_date) {
-        var dueDate = new Date(liab.next_payment_due_date + 'T00:00:00');
-        var now = new Date();
-        var daysUntil = Math.ceil((dueDate - now) / 86400000);
-        var dueClass = daysUntil <= 3 ? 'liab-urgent' : daysUntil <= 7 ? 'liab-soon' : '';
-        details += '<div class="liab-detail ' + dueClass + '"><span>Due</span><span>' + formatLiabDate(liab.next_payment_due_date) + (daysUntil >= 0 ? ' (' + daysUntil + 'd)' : ' (overdue)') + '</span></div>';
-      }
-      if (liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>$' + parseFloat(liab.last_payment_amount).toFixed(2) + '</span></div>';
-      if (liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>$' + parseFloat(liab.last_statement_balance).toFixed(2) + '</span></div>';
-      if (liab.is_overdue) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
-
-      if (details) liabHtml += details;
       liabHtml += '</div>';
     }
   }
