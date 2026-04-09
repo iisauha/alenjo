@@ -185,44 +185,15 @@ btnAddAccount.addEventListener('click', openPlaidLink);
 // LOAD ACCOUNTS
 // ============================================
 async function loadAccounts() {
-  var result = await sb
-    .from('accounts')
-    .select('id, type, subtype, is_hidden, name_enc, mask_enc, balance_current_enc, balance_available_enc, balance_limit_enc, official_name_enc, plaid_item_id, plaid_items (institution_name_enc)')
-    .eq('is_hidden', false)
-    .order('created_at', { ascending: true });
+  var result = await sb.rpc('get_user_accounts');
 
   if (result.error) {
     console.error('Error loading accounts:', result.error);
     return;
   }
 
-  var decrypted = await Promise.all(result.data.map(async function(a) {
-    var fields = await decryptFields({
-      name: a.name_enc,
-      mask: a.mask_enc,
-      balance_current: a.balance_current_enc,
-      balance_available: a.balance_available_enc,
-      balance_limit: a.balance_limit_enc,
-      institution: a.plaid_items ? a.plaid_items.institution_name_enc : null
-    });
-    return Object.assign({}, a, fields);
-  }));
-
-  cachedAccounts = decrypted;
-  renderAccounts(decrypted);
-}
-
-async function decryptFields(encFields) {
-  var result = {};
-  var entries = Object.entries(encFields);
-  for (var i = 0; i < entries.length; i++) {
-    var key = entries[i][0];
-    var val = entries[i][1];
-    if (!val) { result[key] = null; continue; }
-    var rpcResult = await sb.rpc('decrypt_text', { cipher: val });
-    result[key] = rpcResult.error ? null : rpcResult.data;
-  }
-  return result;
+  cachedAccounts = result.data || [];
+  renderAccounts(cachedAccounts);
 }
 
 // ============================================
