@@ -407,7 +407,7 @@ btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transacti
 btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions', 'liabilities']); });
 if ($('#btn-connect-investments')) $('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
 if ($('#btn-add-investment')) $('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
-if ($('#btn-connect-loans')) $('#btn-connect-loans').addEventListener('click', function() { openPlaidLink(['liabilities']); });
+if ($('#btn-connect-loans')) $('#btn-connect-loans').addEventListener('click', function() { openPlaidLink(['transactions', 'liabilities']); });
 
 // ============================================
 // LOAD ACCOUNTS
