@@ -608,7 +608,7 @@ nicknameInput.addEventListener('keydown', function(e) {
 // ============================================
 var txData = [];
 var txMonths = [];
-var txSynced = false;
+var TX_SYNC_COOLDOWN = 30 * 60 * 1000; // 30 minutes
 
 async function loadTransactions() {
   var txEmpty = $('#tx-empty');
@@ -622,32 +622,7 @@ async function loadTransactions() {
     return;
   }
 
-  // Show loading, hide others
-  txLoadingEl.hidden = false;
   txEmpty.hidden = true;
-  txContent.hidden = true;
-
-  // Only sync from Plaid once per session
-  if (!txSynced) {
-    txSynced = true;
-    try {
-      var sessionResult = await sb.auth.getSession();
-      var session = sessionResult.data.session;
-      if (session) {
-        await fetch(SUPABASE_URL + '/functions/v1/sync-transactions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + session.access_token,
-            'apikey': SUPABASE_ANON_KEY
-          }
-        });
-      }
-    } catch (e) {
-      console.error('Sync error:', e);
-    }
-  }
-
   txLoadingEl.hidden = true;
 
   // Fetch transactions from DB (last 12 months)
@@ -662,9 +637,36 @@ async function loadTransactions() {
     .order('date', { ascending: false });
 
   if (result.error || !result.data || result.data.length === 0) {
+    // No cached data — need to sync first
+    var lastTxSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
+    if (Date.now() - lastTxSync > TX_SYNC_COOLDOWN) {
+      localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
+      txLoadingEl.hidden = false;
+      txEmpty.hidden = true;
+      try {
+        var sessionResult = await sb.auth.getSession();
+        var session = sessionResult.data.session;
+        if (session) {
+          await fetch(SUPABASE_URL + '/functions/v1/sync-transactions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + session.access_token,
+              'apikey': SUPABASE_ANON_KEY
+            }
+          });
+        }
+        txLoadingEl.hidden = true;
+        // Retry loading after sync
+        return loadTransactions();
+      } catch (e) {
+        console.error('Initial sync error:', e);
+      }
+      txLoadingEl.hidden = true;
+    }
     txEmpty.hidden = false;
     txContent.hidden = true;
-    txEmpty.querySelector('p').textContent = result.data && result.data.length === 0 ? 'No transactions yet. Data may take a few minutes to sync.' : 'Error loading transactions.';
+    txEmpty.querySelector('p').textContent = 'No transactions yet. Try again in a moment.';
     return;
   }
 
@@ -672,10 +674,13 @@ async function loadTransactions() {
   txEmpty.hidden = true;
   txContent.hidden = false;
 
-  // Build month list
+  // Build month list — always include current month
   var monthSet = {};
+  var now = new Date();
+  var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  monthSet[currentMonth] = true;
   txData.forEach(function(tx) {
-    var m = tx.date.substring(0, 7); // YYYY-MM
+    var m = tx.date.substring(0, 7);
     monthSet[m] = true;
   });
   txMonths = Object.keys(monthSet).sort().reverse();
@@ -692,12 +697,14 @@ async function loadTransactions() {
   var updated = $('#tx-updated');
   updated.textContent = 'Updated ' + formatTimestamp(new Date().toISOString());
 
-  // Populate card filter from cached accounts
+  // Populate card filter using plaid_account_id for matching
   var cardFilter = $('#tx-card-filter');
   cardFilter.innerHTML = '<option value="all">All Accounts</option>';
   if (cachedAccounts) {
     cachedAccounts.forEach(function(a) {
-      cardFilter.innerHTML += '<option value="' + a.id + '">' + esc(a.nickname || a.name || 'Account') + '</option>';
+      if (a.plaid_account_id) {
+        cardFilter.innerHTML += '<option value="' + esc(a.plaid_account_id) + '">' + esc(a.nickname || a.name || 'Account') + '</option>';
+      }
     });
   }
 
@@ -705,6 +712,47 @@ async function loadTransactions() {
 
   filter.addEventListener('change', renderTransactionMonth);
   cardFilter.addEventListener('change', renderTransactionMonth);
+
+  // Background sync from Plaid (throttled, non-blocking)
+  var lastTxSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
+  if (Date.now() - lastTxSync > TX_SYNC_COOLDOWN) {
+    localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
+    syncInBackground();
+  }
+}
+
+async function syncInBackground() {
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    if (!session) return;
+
+    await fetch(SUPABASE_URL + '/functions/v1/sync-transactions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+      }
+    });
+
+    // Reload data after sync
+    var cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 12);
+    var result = await sb
+      .from('synced_transactions')
+      .select('*')
+      .gte('date', cutoff.toISOString().split('T')[0])
+      .order('date', { ascending: false });
+
+    if (!result.error && result.data && result.data.length > 0) {
+      txData = result.data;
+      renderTransactionMonth();
+      $('#tx-updated').textContent = 'Updated just now';
+    }
+  } catch (e) {
+    console.error('Background sync error:', e);
+  }
 }
 
 var txPieChart = null;
@@ -727,11 +775,9 @@ function renderTransactionMonth() {
     return tx.date.substring(0, 7) === month;
   });
 
-  // Filter by card if set
+  // Filter by card using plaid_account_id
   if (cardId !== 'all') {
-    // Match by account_id — we need to find plaid_account_id for this card
-    // Since we store account_id (our DB id) in synced_transactions, match directly
-    filtered = filtered.filter(function(tx) { return tx.account_id === cardId; });
+    filtered = filtered.filter(function(tx) { return tx.plaid_account_id === cardId; });
   }
 
   // Filter by active category if pie slice clicked
