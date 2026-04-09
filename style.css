@@ -366,10 +366,14 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(11, 22, 40, 0.8);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   z-index: 100;
+}
+
+.loading-overlay.visible {
+  display: flex;
 }
 
 .spinner {

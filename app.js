@@ -279,7 +279,7 @@ function esc(str) {
 }
 
 function showLoading(show) {
-  loading.hidden = !show;
+  loading.classList.toggle('visible', show);
 }
 
 // ============================================
