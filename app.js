@@ -644,7 +644,7 @@ async function loadTransactions() {
 
   // Fetch transactions from DB (last 12 months)
   var cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 12);
+  cutoff.setMonth(cutoff.getMonth() - 3);
   var cutoffStr = cutoff.toISOString().split('T')[0];
 
   var result = await sb
@@ -959,7 +959,7 @@ async function loadRecurring() {
   // Reuse txData if already loaded, otherwise fetch
   if (txData.length === 0) {
     var cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 12);
+    cutoff.setMonth(cutoff.getMonth() - 3);
     var cutoffStr = cutoff.toISOString().split('T')[0];
     var result = await sb
       .from('synced_transactions')
