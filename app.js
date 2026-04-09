@@ -602,30 +602,45 @@ function renderAccounts(accounts) {
   invInvestmentsSection.hidden = investments.length === 0;
 
   renderSection($('#list-inv-savings'), savings, 'bank');
-  var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
-  $('#inv-savings-total').textContent = formatMoney(savingsSum);
-  $('#inv-savings-total').className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
-
   renderSection($('#list-inv-investments'), investments, 'bank');
-  var investSum = investments.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
-  $('#inv-investments-total').textContent = formatMoney(investSum);
-  $('#inv-investments-total').className = 'section-total balance-positive';
+  updateInvestmentTotals(savings, investments, hasInvAccounts);
 
-  // Portfolio total
-  var portfolioTotal = savingsSum + investSum;
-  $('#inv-total-value').textContent = formatMoney(portfolioTotal);
-  $('#inv-total-value').className = 'net-cash-value balance-positive';
-  $('#inv-total-card').hidden = !hasInvAccounts;
-
-  // Load holdings then re-render investment cards with holdings inside
+  // Load holdings then re-render investment cards with consistent balances
   if (investments.length > 0 && !cachedHoldings) {
     loadHoldings().then(function() {
       renderSection($('#list-inv-investments'), investments, 'bank');
+      updateInvestmentTotals(savings, investments, hasInvAccounts);
     });
   }
 
   updateSyncInfo();
   renderAccountsSettings();
+}
+
+function updateInvestmentTotals(savings, investments, hasInvAccounts) {
+  var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
+  $('#inv-savings-total').textContent = formatMoney(savingsSum);
+  $('#inv-savings-total').className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
+
+  var investSum = 0;
+  investments.forEach(function(a) {
+    if (cachedHoldings) {
+      var holdingsVal = 0;
+      cachedHoldings.forEach(function(h) {
+        if (h.account_id === a.id) holdingsVal += h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
+      });
+      investSum += holdingsVal > 0 ? holdingsVal : getDisplayBalance(a, 'bank').amount;
+    } else {
+      investSum += getDisplayBalance(a, 'bank').amount;
+    }
+  });
+  $('#inv-investments-total').textContent = formatMoney(investSum);
+  $('#inv-investments-total').className = 'section-total balance-positive';
+
+  var portfolioTotal = savingsSum + investSum;
+  $('#inv-total-value').textContent = formatMoney(portfolioTotal);
+  $('#inv-total-value').className = 'net-cash-value balance-positive';
+  $('#inv-total-card').hidden = !hasInvAccounts;
 }
 
 function renderAccountsSettings() {
@@ -760,6 +775,19 @@ function accountCard(account, type) {
   var syncTs = account.plaid_last_checked_at || account.balance_last_updated_at;
   var timestamp = formatTimestamp(syncTs);
   var displayName = account.nickname || account.name || 'Account';
+
+  // For investment accounts, override balance with sum of holdings for consistency
+  if (account.type === 'investment' && cachedHoldings) {
+    var holdingsSum = 0;
+    cachedHoldings.forEach(function(h) {
+      if (h.account_id === account.id) {
+        holdingsSum += h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
+      }
+    });
+    if (holdingsSum > 0) {
+      bal = { amount: holdingsSum, label: 'Holdings' };
+    }
+  }
 
   var holdingsHtml = '';
   if (account.type === 'investment' && cachedHoldings) {
