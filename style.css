@@ -320,9 +320,6 @@ body {
   justify-content: space-between;
   padding: 1rem 1.25rem;
   background-color: var(--bg-card);
-  background-repeat: no-repeat;
-  background-position: right 1rem center;
-  background-size: 48px 48px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   transition: border-color 0.2s;
@@ -330,16 +327,15 @@ body {
   overflow: hidden;
 }
 
-.account-card::after {
+.account-card.has-logo::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: inherit;
-  background-color: transparent;
-  background-size: 48px 48px;
-  background-position: right 1rem center;
+  background-image: var(--logo-url);
   background-repeat: no-repeat;
-  opacity: 0.12;
+  background-position: center center;
+  background-size: contain;
+  opacity: 0.06;
   pointer-events: none;
 }
 

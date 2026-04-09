@@ -357,9 +357,10 @@ function renderAccounts(accounts) {
 function accountCard(account, type) {
   var bal = getDisplayBalance(account, type);
   var logoUrl = getLogoUrl(account);
-  var bgStyle = logoUrl ? ' style="background-image: url(\'' + logoUrl + '\')"' : '';
+  var bgStyle = logoUrl ? ' style="--logo-url: url(\'' + logoUrl + '\')"' : '';
+  var timestamp = formatTimestamp(account.balance_last_updated_at);
 
-  return '<div class="account-card"' + bgStyle + '>' +
+  return '<div class="account-card' + (logoUrl ? ' has-logo' : '') + '"' + bgStyle + '>' +
     '<div class="account-info">' +
       '<span class="account-name">' + esc(account.name || 'Account') + '</span>' +
       (account.mask ? '<span class="account-mask">' + esc(account.subtype || '') + ' ****' + esc(account.mask) + '</span>' : '') +
@@ -367,9 +368,25 @@ function accountCard(account, type) {
     '</div>' +
     '<div class="account-balance">' +
       '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
-      '<div class="label">' + bal.label + '</div>' +
+      '<div class="label">' + timestamp + '</div>' +
     '</div>' +
   '</div>';
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return '';
+  var d = new Date(ts);
+  var now = new Date();
+  var diff = now - d;
+  // Under 1 minute
+  if (diff < 60000) return 'Just now';
+  // Under 1 hour
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+  // Under 24 hours
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+  // Otherwise show date + time
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
 // ============================================
