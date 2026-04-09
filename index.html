@@ -9,7 +9,9 @@
   <title>Alenjo</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="alenjo.png">
-  <link rel="stylesheet" href="style.css">
+  <script>var _v = Math.floor(Date.now() / 300000);</script>
+  <link rel="stylesheet" id="app-css">
+  <script>document.getElementById('app-css').href = 'style.css?v=' + _v;</script>
 </head>
 <body>
 
@@ -101,7 +103,7 @@
     };
   </script>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
-  <script src="app.js"></script>
+  <script>document.write('<script src="app.js?v=' + _v + '"><\/script>');</script>
   <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" async></script>
 </body>
 </html>
