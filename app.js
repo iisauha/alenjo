@@ -149,7 +149,7 @@ function showScreen(name) {
 // ============================================
 balanceToggle.addEventListener('click', function() {
   showAvailable = !showAvailable;
-  balanceToggle.textContent = showAvailable ? 'Showing: Available' : 'Showing: After Pending';
+  balanceToggle.textContent = showAvailable ? 'Posted' : 'After Pending';
   if (cachedAccounts) renderAccounts(cachedAccounts);
 });
 
@@ -268,6 +268,77 @@ async function refreshBalances() {
 }
 
 // ============================================
+// LOGO.DEV
+// ============================================
+var LOGO_KEY = 'pk_H4uo3XF8R0iZtbgE3TDSgQ';
+var DOMAIN_MAP = {
+  'american express': 'amex.com',
+  'amex': 'amex.com',
+  'chase': 'chase.com',
+  'bank of america': 'bankofamerica.com',
+  'wells fargo': 'wellsfargo.com',
+  'citi': 'citi.com',
+  'citibank': 'citi.com',
+  'capital one': 'capitalone.com',
+  'us bank': 'usbank.com',
+  'pnc': 'pnc.com',
+  'td bank': 'td.com',
+  'discover': 'discover.com',
+  'ally': 'ally.com',
+  'usaa': 'usaa.com',
+  'navy federal': 'navyfederal.org',
+  'sofi': 'sofi.com',
+  'marcus': 'marcus.com',
+  'barclays': 'barclays.com',
+  'synchrony': 'synchrony.com',
+  'apple': 'apple.com'
+};
+
+function getLogoUrl(institution) {
+  if (!institution) return null;
+  var lower = institution.toLowerCase().trim();
+  var domain = DOMAIN_MAP[lower];
+  if (!domain) {
+    // Try removing common suffixes and guess domain
+    domain = lower.replace(/\s*(bank|credit union|financial|federal)\s*/gi, '').trim().replace(/\s+/g, '') + '.com';
+  }
+  return 'https://img.logo.dev/' + domain + '?token=' + LOGO_KEY + '&size=80&format=png';
+}
+
+// ============================================
+// BALANCE HELPERS
+// ============================================
+function getDisplayBalance(account, type) {
+  var current = parseFloat(account.balance_current || 0);
+  var available = account.balance_available != null ? parseFloat(account.balance_available) : null;
+  var limit = account.balance_limit != null ? parseFloat(account.balance_limit) : null;
+
+  if (type === 'credit') {
+    if (showAvailable) {
+      // Current: what's posted (currently owe)
+      return { amount: current, label: 'Posted' };
+    } else {
+      // After pending: limit - available = total after pending settle
+      if (limit != null && available != null) {
+        return { amount: limit - available, label: 'After Pending' };
+      }
+      return { amount: current, label: 'Posted' };
+    }
+  } else {
+    if (showAvailable) {
+      // Current: posted balance
+      return { amount: current, label: 'Current' };
+    } else {
+      // After pending: available balance reflects pending holds
+      if (available != null) {
+        return { amount: available, label: 'After Pending' };
+      }
+      return { amount: current, label: 'Current' };
+    }
+  }
+}
+
+// ============================================
 // RENDER ACCOUNTS
 // ============================================
 function renderAccounts(accounts) {
@@ -284,44 +355,34 @@ function renderAccounts(accounts) {
   // Banks
   listBanks.innerHTML = banks.map(function(a) { return accountCard(a, 'bank'); }).join('');
   var bankSum = banks.reduce(function(s, a) {
-    var bal = showAvailable ? (a.balance_available || a.balance_current) : a.balance_current;
-    return s + parseFloat(bal || 0);
+    return s + getDisplayBalance(a, 'bank').amount;
   }, 0);
   banksTotal.textContent = formatMoney(bankSum);
   banksTotal.className = 'section-total ' + (bankSum >= 0 ? 'balance-positive' : 'balance-negative');
 
   // Credit Cards
   listCredit.innerHTML = credits.map(function(a) { return accountCard(a, 'credit'); }).join('');
-  var creditSum = credits.reduce(function(s, a) { return s + parseFloat(a.balance_current || 0); }, 0);
+  var creditSum = credits.reduce(function(s, a) {
+    return s + getDisplayBalance(a, 'credit').amount;
+  }, 0);
   creditTotal.textContent = formatMoney(creditSum);
   creditTotal.className = 'section-total balance-negative';
 }
 
 function accountCard(account, type) {
-  var balanceLabel, displayBalance;
+  var bal = getDisplayBalance(account, type);
+  var logoUrl = getLogoUrl(account.institution);
+  var bgStyle = logoUrl ? ' style="background-image: url(\'' + logoUrl + '\')"' : '';
 
-  if (type === 'credit') {
-    displayBalance = parseFloat(account.balance_current || 0);
-    balanceLabel = 'Owed';
-  } else {
-    if (showAvailable) {
-      displayBalance = parseFloat(account.balance_available || account.balance_current || 0);
-      balanceLabel = 'Available';
-    } else {
-      displayBalance = parseFloat(account.balance_current || 0);
-      balanceLabel = 'Current';
-    }
-  }
-
-  return '<div class="account-card">' +
+  return '<div class="account-card"' + bgStyle + '>' +
     '<div class="account-info">' +
       '<span class="account-name">' + esc(account.name || 'Account') + '</span>' +
       (account.mask ? '<span class="account-mask">' + esc(account.subtype || '') + ' ****' + esc(account.mask) + '</span>' : '') +
       (account.institution ? '<span class="account-institution">' + esc(account.institution) + '</span>' : '') +
     '</div>' +
     '<div class="account-balance">' +
-      '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(displayBalance) + '</div>' +
-      '<div class="label">' + balanceLabel + '</div>' +
+      '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
+      '<div class="label">' + bal.label + '</div>' +
     '</div>' +
   '</div>';
 }

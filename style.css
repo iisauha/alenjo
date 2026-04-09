@@ -319,14 +319,33 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.25rem;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 48px 48px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   transition: border-color 0.2s;
+  position: relative;
+  overflow: hidden;
 }
 
-.account-card:hover {
-  border-color: var(--accent);
+.account-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  background-color: transparent;
+  background-size: 48px 48px;
+  background-position: right 1rem center;
+  background-repeat: no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.account-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .account-info {
