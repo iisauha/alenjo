@@ -1,16 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alenjo</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0B1628">
+  <title>Alenjo</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="alenjo.png">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <img src="alenjo.png" alt="Alenjo" class="logo">
-        <h1>Alenjo</h1>
-        <p>Coming soon.</p>
+
+  <!-- LOGIN SCREEN -->
+  <div id="screen-login" class="screen active">
+    <div class="login-container">
+      <img src="alenjo.png" alt="Alenjo" class="login-logo">
+      <h1 class="login-title">Alenjo</h1>
+
+      <div id="auth-error" class="auth-error" hidden></div>
+
+      <form id="auth-form" autocomplete="on">
+        <input type="email" id="auth-email" placeholder="Email" required autocomplete="email">
+        <input type="password" id="auth-password" placeholder="Password" required autocomplete="current-password">
+        <button type="submit" id="auth-submit" class="btn-primary">Sign In</button>
+      </form>
+
+      <p class="auth-toggle">
+        <span id="auth-toggle-text">Don't have an account?</span>
+        <a href="#" id="auth-toggle-link">Sign Up</a>
+      </p>
     </div>
+  </div>
+
+  <!-- SNAPSHOT SCREEN -->
+  <div id="screen-snapshot" class="screen">
+    <header class="app-header">
+      <img src="alenjo.png" alt="Alenjo" class="header-logo">
+      <h1>Snapshot</h1>
+      <button id="btn-logout" class="btn-icon" title="Sign Out">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </header>
+
+    <main class="snapshot-content">
+      <!-- Connect Account CTA -->
+      <div id="connect-cta" class="connect-cta">
+        <p>Connect your bank to get started</p>
+        <button id="btn-connect-plaid" class="btn-primary">Connect Account</button>
+      </div>
+
+      <!-- Bank Accounts Section -->
+      <section class="account-section" id="section-banks">
+        <div class="section-header">
+          <h2>Banks</h2>
+          <span class="section-total" id="banks-total"></span>
+        </div>
+        <div class="account-list" id="list-banks"></div>
+      </section>
+
+      <!-- Credit Cards Section -->
+      <section class="account-section" id="section-credit">
+        <div class="section-header">
+          <h2>Credit Cards</h2>
+          <span class="section-total" id="credit-total"></span>
+        </div>
+        <div class="account-list" id="list-credit"></div>
+      </section>
+
+      <button id="btn-add-account" class="btn-secondary">+ Connect Another Account</button>
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-screen="snapshot">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        </svg>
+        <span>Snapshot</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Loading overlay -->
+  <div id="loading" class="loading-overlay" hidden>
+    <div class="spinner"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
