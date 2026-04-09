@@ -562,45 +562,45 @@ function accountCard(account, type) {
   '</div>';
 }
 
-// Nickname editing
+// Nickname editing via modal
+var nicknameModal = $('#nickname-modal');
+var nicknameInput = $('#nickname-input');
+var editingAccountId = null;
+
 document.addEventListener('click', function(e) {
   var nameEl = e.target.closest('.account-name');
   if (!nameEl || !nameEl.dataset.id) return;
+  editingAccountId = nameEl.dataset.id;
+  nicknameInput.value = nameEl.textContent;
+  nicknameModal.classList.add('visible');
+  nicknameInput.focus();
+  nicknameInput.select();
+});
 
-  var accountId = nameEl.dataset.id;
-  var current = nameEl.textContent;
-  var input = document.createElement('input');
-  input.type = 'text';
-  input.value = current;
-  input.className = 'nickname-input';
-  input.maxLength = 40;
-  nameEl.replaceWith(input);
-  input.focus();
-  input.select();
-
-  function save() {
-    var newName = input.value.trim();
-    if (newName && newName !== current) {
-      sb.from('accounts').update({ nickname: newName }).eq('id', accountId).then(function() {
-        if (cachedAccounts) {
-          cachedAccounts.forEach(function(a) {
-            if (a.id === accountId) a.nickname = newName;
-          });
-        }
-      });
-    }
-    var span = document.createElement('span');
-    span.className = 'account-name';
-    span.dataset.id = accountId;
-    span.textContent = newName || current;
-    input.replaceWith(span);
+$('#nickname-save').addEventListener('click', function() {
+  var newName = nicknameInput.value.trim();
+  if (newName && editingAccountId) {
+    sb.from('accounts').update({ nickname: newName }).eq('id', editingAccountId).then(function() {
+      if (cachedAccounts) {
+        cachedAccounts.forEach(function(a) {
+          if (a.id === editingAccountId) a.nickname = newName;
+        });
+        renderAccounts(cachedAccounts);
+      }
+    });
   }
+  nicknameModal.classList.remove('visible');
+  editingAccountId = null;
+});
 
-  input.addEventListener('blur', save);
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { input.value = current; input.blur(); }
-  });
+$('#nickname-cancel').addEventListener('click', function() {
+  nicknameModal.classList.remove('visible');
+  editingAccountId = null;
+});
+
+nicknameInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); $('#nickname-save').click(); }
+  if (e.key === 'Escape') { $('#nickname-cancel').click(); }
 });
 
 // ============================================
