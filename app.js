@@ -61,10 +61,13 @@ var btnConnectPlaid = $('#btn-connect-plaid');
 var btnAddAccount = $('#btn-add-account');
 var connectCta = $('#connect-cta');
 var sectionBanks = $('#section-banks');
+var sectionSavings = $('#section-savings');
 var sectionCredit = $('#section-credit');
 var listBanks = $('#list-banks');
+var listSavings = $('#list-savings');
 var listCredit = $('#list-credit');
 var banksTotal = $('#banks-total');
+var savingsTotal = $('#savings-total');
 var creditTotal = $('#credit-total');
 var loading = $('#loading');
 var balanceToggle = $('#balance-toggle');
@@ -327,29 +330,33 @@ function getDisplayBalance(account, type) {
 // RENDER ACCOUNTS
 // ============================================
 function renderAccounts(accounts) {
-  var banks = accounts.filter(function(a) { return a.type === 'depository'; });
+  var banks = accounts.filter(function(a) { return a.type === 'depository' && a.subtype !== 'savings'; });
+  var savings = accounts.filter(function(a) { return a.type === 'depository' && a.subtype === 'savings'; });
   var credits = accounts.filter(function(a) { return a.type === 'credit'; });
 
   var hasAccounts = accounts.length > 0;
   connectCta.hidden = hasAccounts;
   btnAddAccount.hidden = !hasAccounts;
   sectionBanks.hidden = banks.length === 0;
+  sectionSavings.hidden = savings.length === 0;
   sectionCredit.hidden = credits.length === 0;
   balanceToggle.hidden = !hasAccounts;
 
-  // Banks
+  // Banks (checking, etc.)
   listBanks.innerHTML = banks.map(function(a) { return accountCard(a, 'bank'); }).join('');
-  var bankSum = banks.reduce(function(s, a) {
-    return s + getDisplayBalance(a, 'bank').amount;
-  }, 0);
+  var bankSum = banks.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
   banksTotal.textContent = formatMoney(bankSum);
   banksTotal.className = 'section-total ' + (bankSum >= 0 ? 'balance-positive' : 'balance-negative');
 
+  // Savings
+  listSavings.innerHTML = savings.map(function(a) { return accountCard(a, 'bank'); }).join('');
+  var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
+  savingsTotal.textContent = formatMoney(savingsSum);
+  savingsTotal.className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
+
   // Credit Cards
   listCredit.innerHTML = credits.map(function(a) { return accountCard(a, 'credit'); }).join('');
-  var creditSum = credits.reduce(function(s, a) {
-    return s + getDisplayBalance(a, 'credit').amount;
-  }, 0);
+  var creditSum = credits.reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
   creditTotal.textContent = formatMoney(creditSum);
   creditTotal.className = 'section-total balance-negative';
 }
