@@ -757,22 +757,40 @@ function accountCard(account, type) {
     var acctHoldings = cachedHoldings.filter(function(h) { return h.account_id === account.id; });
     if (acctHoldings.length > 0) {
       acctHoldings.sort(function(a, b) { return (b.institution_value || 0) - (a.institution_value || 0); });
-      holdingsHtml = '<div class="card-holdings">';
+      holdingsHtml = '<div class="card-holdings"><div class="card-holdings-label">Holdings</div>';
+      var totalValue = 0;
+      acctHoldings.forEach(function(h) {
+        var value = h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
+        totalValue += value;
+      });
       acctHoldings.forEach(function(h) {
         var value = h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
         var gain = h.cost_basis ? value - h.cost_basis : null;
         var gainPct = h.cost_basis && h.cost_basis > 0 ? ((value - h.cost_basis) / h.cost_basis * 100) : null;
-        var gainClass = gain !== null ? (gain >= 0 ? 'balance-positive' : 'balance-negative') : '';
+        var gainClass = gain !== null ? (gain >= 0 ? 'holding-up' : 'holding-down') : '';
         var ticker = h.ticker_symbol || '';
         var name = h.security_name || 'Unknown';
+        var pct = totalValue > 0 ? (value / totalValue * 100) : 0;
+        var isCash = ticker === 'CUR:USD';
+        var displayTicker = isCash ? 'USD' : (ticker || name);
+        var displayName = isCash ? 'Cash' : (ticker ? name : '');
+        var price = h.institution_price || h.close_price || 0;
+
         holdingsHtml += '<div class="card-holding-row">' +
           '<div class="card-holding-left">' +
-            '<span class="card-holding-ticker">' + esc(ticker || name) + '</span>' +
-            '<span class="card-holding-qty">' + parseFloat(h.quantity).toFixed(4) + ' shares</span>' +
+            '<div class="card-holding-header">' +
+              '<span class="card-holding-ticker">' + esc(displayTicker) + '</span>' +
+              (displayName ? '<span class="card-holding-name">' + esc(displayName) + '</span>' : '') +
+            '</div>' +
+            '<span class="card-holding-meta">' +
+              (isCash ? '' : parseFloat(h.quantity).toFixed(4) + ' shares') +
+              (!isCash && price ? ' @ $' + parseFloat(price).toFixed(2) : '') +
+            '</span>' +
           '</div>' +
           '<div class="card-holding-right">' +
             '<span class="card-holding-value">' + formatMoney(value) + '</span>' +
-            (gain !== null ? '<span class="card-holding-gain ' + gainClass + '">' + (gain >= 0 ? '+' : '-') + formatMoney(gain) + '</span>' : '') +
+            (gainPct !== null ? '<span class="card-holding-change ' + gainClass + '">' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(2) + '%</span>' : '') +
+            '<div class="card-holding-bar"><div class="card-holding-fill" style="width:' + pct.toFixed(1) + '%"></div></div>' +
           '</div>' +
         '</div>';
       });
