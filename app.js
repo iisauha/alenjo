@@ -680,11 +680,12 @@ function updateInvestmentTotals(savings, investments, hasInvAccounts) {
 function renderAccountsSettings() {
   var section = $('#section-accounts');
   var list = $('#accounts-list');
+  // Always show section -- disconnect button needed even when accounts are hidden
+  section.hidden = false;
   if (!cachedAccounts || cachedAccounts.length === 0) {
-    section.hidden = true;
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:0.75rem">No visible accounts. Use Disconnect All to remove hidden items from Plaid.</p>';
     return;
   }
-  section.hidden = false;
   list.innerHTML = cachedAccounts.map(function(a) {
     var name = a.nickname || a.name || 'Account';
     var typeLabel = a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
