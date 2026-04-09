@@ -1051,6 +1051,7 @@ function accountCard(account, type) {
 
       // Show detailed liabilities data if available from Plaid Liabilities product
       var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
+      console.log('[DEBUG LIAB] Card:', account.institution || 'unknown', '| account_id:', account.id, '| liab found:', !!liab, '| data:', liab ? { apr: liab.apr_purchase, min_pay: liab.minimum_payment_amount, due: liab.next_payment_due_date, last_pay: liab.last_payment_amount, stmt_bal: liab.last_statement_balance, overdue: liab.is_overdue } : 'NONE');
       if (liab) {
         var details = '';
         if (liab.apr_purchase) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + parseFloat(liab.apr_purchase).toFixed(2) + '%</span></div>';
