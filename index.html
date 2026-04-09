@@ -93,8 +93,15 @@
     <div class="spinner"></div>
   </div>
 
-  <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
+  <script>
+    window.onerror = function(msg, src, line) {
+      var el = document.getElementById('auth-error');
+      if (el) { el.textContent = 'Error: ' + msg; el.hidden = false; }
+      console.error('JS Error:', msg, src, line);
+    };
+  </script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
   <script src="app.js"></script>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" async></script>
 </body>
 </html>
