@@ -701,13 +701,17 @@ async function loadTransactions() {
     return '<option value="' + m + '">' + label + '</option>';
   }).join('');
 
-  // Show actual last sync time from plaid_items
+  // Show Plaid's real freshness time (when bank data was last updated)
   var updated = $('#tx-updated');
-  var lastSyncResult = await sb.from('plaid_items').select('tx_last_synced_at').order('tx_last_synced_at', { ascending: false }).limit(1);
-  if (lastSyncResult.data && lastSyncResult.data[0] && lastSyncResult.data[0].tx_last_synced_at) {
-    updated.textContent = 'Synced ' + formatTimestamp(lastSyncResult.data[0].tx_last_synced_at);
-  } else {
-    updated.textContent = '';
+  var freshResult = await sb.from('plaid_items').select('plaid_last_checked_at, tx_last_synced_at').order('plaid_last_checked_at', { ascending: false, nullsFirst: false }).limit(1);
+  if (freshResult.data && freshResult.data[0]) {
+    var plaidTime = freshResult.data[0].plaid_last_checked_at;
+    var syncTime = freshResult.data[0].tx_last_synced_at;
+    if (plaidTime) {
+      updated.textContent = 'Bank data from ' + formatTimestamp(plaidTime);
+    } else if (syncTime) {
+      updated.textContent = 'Synced ' + formatTimestamp(syncTime);
+    }
   }
 
   // Populate card filter using plaid_account_id for matching
