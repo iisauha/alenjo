@@ -4,7 +4,7 @@
 const SUPABASE_URL = 'https://itkufrockebnlzcroigc.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0a3Vmcm9ja2Vibmx6Y3JvaWdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTczNjYsImV4cCI6MjA5MTI3MzM2Nn0.mhOwZBwegogIb-yjYzxS4ROQdc4Tc8xLMNlHcDfozzI';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================
 // DOM REFS
@@ -56,9 +56,9 @@ authForm.addEventListener('submit', async (e) => {
 
   let result;
   if (isSignUp) {
-    result = await supabase.auth.signUp({ email, password });
+    result = await sb.auth.signUp({ email, password });
   } else {
-    result = await supabase.auth.signInWithPassword({ email, password });
+    result = await sb.auth.signInWithPassword({ email, password });
   }
 
   if (result.error) {
@@ -82,11 +82,11 @@ authForm.addEventListener('submit', async (e) => {
 });
 
 btnLogout.addEventListener('click', async () => {
-  await supabase.auth.signOut();
+  await sb.auth.signOut();
 });
 
 // Listen for auth state changes
-supabase.auth.onAuthStateChange((event, session) => {
+sb.auth.onAuthStateChange((event, session) => {
   if (session?.user) {
     currentUser = session.user;
     showScreen('snapshot');
@@ -112,7 +112,7 @@ async function openPlaidLink() {
   showLoading(true);
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(`${SUPABASE_URL}/functions/v1/plaid-link`, {
       method: 'POST',
       headers: {
@@ -161,7 +161,7 @@ btnAddAccount.addEventListener('click', openPlaidLink);
 // LOAD ACCOUNTS
 // ============================================
 async function loadAccounts() {
-  const { data: accounts, error } = await supabase
+  const { data: accounts, error } = await sb
     .from('accounts')
     .select(`
       id,
@@ -207,7 +207,7 @@ async function decryptFields(encFields) {
   const result = {};
   for (const [key, val] of Object.entries(encFields)) {
     if (!val) { result[key] = null; continue; }
-    const { data, error } = await supabase.rpc('decrypt_text', { cipher: val });
+    const { data, error } = await sb.rpc('decrypt_text', { cipher: val });
     result[key] = error ? null : data;
   }
   return result;
@@ -297,7 +297,7 @@ if ('serviceWorker' in navigator) {
 // INIT - check existing session
 // ============================================
 (async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await sb.auth.getSession();
   if (session?.user) {
     currentUser = session.user;
     showScreen('snapshot');
