@@ -1,13 +1,13 @@
 :root {
-  --bg: #0B1628;
-  --bg-card: #111D32;
-  --bg-input: #0F1A2E;
-  --accent: #4D8FE8;
-  --accent-hover: #5A9BF4;
+  --bg: #070C16;
+  --bg-card: #0E1525;
+  --bg-input: #0B1120;
+  --accent: #3C82F6;
+  --accent-hover: #4B91FF;
   --text: #E8ECF1;
   --text-muted: #6B7B95;
   --text-dim: #3D4F6A;
-  --border: #1A2A44;
+  --border: #151F30;
   --danger: #E84D4D;
   --success: #4DE88F;
   --radius: 12px;
@@ -408,7 +408,7 @@ body {
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(11, 22, 40, 0.8);
+  background: rgba(7, 12, 22, 0.85);
   display: none;
   align-items: center;
   justify-content: center;

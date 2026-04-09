@@ -149,7 +149,7 @@ function showScreen(name) {
 // ============================================
 balanceToggle.addEventListener('click', function() {
   showAvailable = !showAvailable;
-  balanceToggle.textContent = showAvailable ? 'Current' : 'After Pending';
+  balanceToggle.textContent = showAvailable ? 'Showing: Available' : 'Showing: After Pending';
   if (cachedAccounts) renderAccounts(cachedAccounts);
 });
 
@@ -231,6 +231,40 @@ async function loadAccounts() {
 
   cachedAccounts = result.data || [];
   renderAccounts(cachedAccounts);
+
+  // Refresh balances from Plaid in the background
+  if (cachedAccounts.length > 0) {
+    refreshBalances();
+  }
+}
+
+async function refreshBalances() {
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    if (!session) return;
+
+    var res = await fetch(SUPABASE_URL + '/functions/v1/refresh-balances', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+      }
+    });
+
+    var data = await res.json();
+    if (data.success && data.updated > 0) {
+      // Reload with fresh balances
+      var result = await sb.rpc('get_user_accounts');
+      if (!result.error) {
+        cachedAccounts = result.data || [];
+        renderAccounts(cachedAccounts);
+      }
+    }
+  } catch (err) {
+    console.error('Balance refresh error:', err);
+  }
 }
 
 // ============================================

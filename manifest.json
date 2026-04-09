@@ -4,8 +4,8 @@
   "description": "Personal Finance Manager",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0B1628",
-  "theme_color": "#4D8FE8",
+  "background_color": "#070C16",
+  "theme_color": "#3C82F6",
   "orientation": "portrait",
   "icons": [
     {
