@@ -959,3 +959,21 @@ body {
   font-size: 0.6rem;
   color: var(--text-dim);
 }
+
+.tx-pending-badge {
+  display: inline-block;
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+
+.tx-auth-date {
+  color: var(--text-dim);
+  font-size: 0.55rem;
+}

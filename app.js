@@ -892,6 +892,17 @@ function renderTransactionMonth() {
 
   // Render transactions
   displayTx.forEach(function(tx) {
+    var authDate = tx.authorized_date ? formatTxDate(tx.authorized_date) : null;
+    var postDate = formatTxDate(tx.date);
+    var dateHtml = '';
+    if (tx.pending) {
+      dateHtml = '<span class="tx-pending-badge">Pending</span> ' + (authDate || postDate);
+    } else if (authDate && authDate !== postDate) {
+      dateHtml = postDate + ' <span class="tx-auth-date">(auth ' + authDate + ')</span>';
+    } else {
+      dateHtml = postDate;
+    }
+
     html += '<div class="tx-row">' +
       '<div class="tx-info">' +
         '<span class="tx-merchant">' + esc(tx.merchant_name || tx.name || 'Unknown') + '</span>' +
@@ -901,7 +912,7 @@ function renderTransactionMonth() {
         '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
           (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
         '</span>' +
-        '<span class="tx-date">' + new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
+        '<span class="tx-date">' + dateHtml + '</span>' +
       '</div>' +
     '</div>';
   });
@@ -917,6 +928,13 @@ window._clearCatFilter = function() {
   activeCategoryFilter = null;
   renderTransactionMonth();
 };
+
+function formatTxDate(dateStr) {
+  if (!dateStr) return '';
+  var parts = dateStr.split('-');
+  var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
+}
 
 function normalizeCategory(cat) {
   if (!cat) return 'Other';
