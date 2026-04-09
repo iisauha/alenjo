@@ -776,6 +776,18 @@ body {
   font-weight: 600;
 }
 
+.sync-info-total {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-bottom: none;
+  padding-top: 0.6rem;
+  margin-top: 0.2rem;
+}
+
+.sync-info-total span:last-child {
+  color: #fff;
+  font-size: 0.85rem;
+}
+
 .settings-hint {
   color: var(--text-dim);
   font-size: 0.75rem;

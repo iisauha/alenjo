@@ -602,6 +602,22 @@ function updateSyncInfo() {
     '<div class="sync-info-row"><span>Plaid calls per hour</span><span>~' + callsPerHour + '</span></div>' +
     '<div class="sync-info-row"><span>Plaid limit per item</span><span>30/min</span></div>' +
     '<div class="sync-info-row"><span>Last synced</span><span data-ts="' + (lastSync ? new Date(lastSync).toISOString() : '') + '" data-ts-prefix="">' + lastSyncText + '</span></div>';
+
+  // Billing estimate
+  var billingSection = $('#section-billing');
+  var billingEl = $('#billing-info');
+  billingSection.hidden = false;
+
+  var txRate = 0.30;
+  var recurringRate = 0.15;
+  var perAccountTotal = txRate + recurringRate;
+  var monthlyEstimate = accountCount * perAccountTotal;
+
+  billingEl.innerHTML =
+    '<div class="sync-info-row"><span>Connected accounts</span><span>' + accountCount + '</span></div>' +
+    '<div class="sync-info-row"><span>Transactions</span><span>' + accountCount + ' x $' + txRate.toFixed(2) + ' = $' + (accountCount * txRate).toFixed(2) + '</span></div>' +
+    '<div class="sync-info-row"><span>Recurring Transactions</span><span>' + accountCount + ' x $' + recurringRate.toFixed(2) + ' = $' + (accountCount * recurringRate).toFixed(2) + '</span></div>' +
+    '<div class="sync-info-row sync-info-total"><span>Estimated monthly total</span><span>$' + monthlyEstimate.toFixed(2) + '/mo</span></div>';
 }
 
 function renderSection(listEl, items, type) {
@@ -1560,54 +1576,33 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 });
 
 // ============================================
-// AI CHAT
+// AI CHAT (inline on Snapshot)
 // ============================================
-var chatPanel = $('#chat-panel');
-var chatFab = $('#chat-fab');
-var chatMessages = $('#chat-messages');
+var chatSection = $('#chat-section');
 var chatForm = $('#chat-form');
 var chatInput = $('#chat-input');
+var chatResponse = $('#chat-response');
 var chatCooldown = $('#chat-cooldown');
 var chatHistory = [];
 var chatSending = false;
 
-// Show FAB when user has accounts
 function updateChatFab() {
-  chatFab.hidden = !cachedAccounts || cachedAccounts.length === 0;
+  chatSection.hidden = !cachedAccounts || cachedAccounts.length === 0;
 }
-
-chatFab.addEventListener('click', function() {
-  chatPanel.hidden = false;
-  chatFab.hidden = true;
-  chatInput.focus();
-  if (chatMessages.children.length === 0) {
-    appendChatMessage('assistant', 'Hey! I can help you understand your finances, sort transactions, or answer questions about your spending. What would you like to know?');
-  }
-});
-
-$('#chat-close').addEventListener('click', function() {
-  chatPanel.hidden = true;
-  updateChatFab();
-});
 
 chatForm.addEventListener('submit', async function(e) {
   e.preventDefault();
   var text = chatInput.value.trim();
   if (!text || chatSending) return;
 
-  appendChatMessage('user', text);
-  chatInput.value = '';
   chatSending = true;
   $('#chat-send').disabled = true;
-
-  // Show typing indicator
-  var typingEl = document.createElement('div');
-  typingEl.className = 'chat-msg chat-msg-assistant';
-  typingEl.innerHTML = '<div class="chat-bubble chat-typing"><span></span><span></span><span></span></div>';
-  chatMessages.appendChild(typingEl);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  chatResponse.hidden = false;
+  chatResponse.className = 'chat-response chat-response-loading';
+  chatResponse.innerHTML = '<div class="chat-typing"><span></span><span></span><span></span></div>';
 
   chatHistory.push({ role: 'user', content: text });
+  chatInput.value = '';
 
   try {
     var sessionResult = await sb.auth.getSession();
@@ -1626,25 +1621,20 @@ chatForm.addEventListener('submit', async function(e) {
 
     var data = await res.json();
 
-    // Remove typing indicator
-    if (typingEl.parentNode) typingEl.remove();
-
     if (res.status === 429) {
       if (data.error === 'rate_limit') {
-        var secs = data.retry_after || 60;
-        showChatCooldown(secs);
-        chatHistory.pop();
+        showChatCooldown(data.retry_after || 60);
       } else {
-        appendChatMessage('assistant', data.message || 'Daily limit reached. Try again tomorrow.');
-        chatHistory.pop();
+        showChatResponse(data.message || 'Daily limit reached. Try again tomorrow.');
       }
+      chatHistory.pop();
       chatSending = false;
       $('#chat-send').disabled = false;
       return;
     }
 
     if (data.error) {
-      appendChatMessage('assistant', 'Something went wrong. Try again.');
+      showChatResponse('Something went wrong. Try again.');
       chatHistory.pop();
       chatSending = false;
       $('#chat-send').disabled = false;
@@ -1652,7 +1642,7 @@ chatForm.addEventListener('submit', async function(e) {
     }
 
     var aiMsg = data.message || 'Done.';
-    appendChatMessage('assistant', aiMsg);
+    showChatResponse(aiMsg);
     chatHistory.push({ role: 'model', content: JSON.stringify({ message: aiMsg, actions: data.actions || [] }) });
 
     // Apply actions if any
@@ -1672,13 +1662,12 @@ chatForm.addEventListener('submit', async function(e) {
         }
       }
       if (applied > 0) {
-        appendChatMessage('assistant', 'Applied ' + applied + ' action' + (applied > 1 ? 's' : '') + ' to your transactions.');
+        showChatResponse(aiMsg + '\n\nApplied ' + applied + ' action' + (applied > 1 ? 's' : '') + '.');
         renderTransactionMonth();
       }
     }
   } catch (err) {
-    if (typingEl.parentNode) typingEl.remove();
-    appendChatMessage('assistant', 'Connection error. Try again.');
+    showChatResponse('Connection error. Try again.');
     chatHistory.pop();
     console.error('Chat error:', err);
   }
@@ -1687,21 +1676,17 @@ chatForm.addEventListener('submit', async function(e) {
   $('#chat-send').disabled = false;
 });
 
-function appendChatMessage(role, text) {
-  var msg = document.createElement('div');
-  msg.className = 'chat-msg chat-msg-' + role;
-  var bubble = document.createElement('div');
-  bubble.className = 'chat-bubble';
-  bubble.textContent = text;
-  msg.appendChild(bubble);
-  chatMessages.appendChild(msg);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+function showChatResponse(text) {
+  chatResponse.hidden = false;
+  chatResponse.className = 'chat-response';
+  chatResponse.textContent = text;
 }
 
 function showChatCooldown(seconds) {
   chatCooldown.hidden = false;
   chatInput.disabled = true;
   $('#chat-send').disabled = true;
+  chatResponse.hidden = true;
   var remaining = seconds;
 
   function tick() {
