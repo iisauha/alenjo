@@ -308,33 +308,29 @@ body {
   letter-spacing: -0.3px;
 }
 
-/* Horizontal scroll — one card at a time */
+/* Horizontal scroll — one card at a time, no peeking */
 .account-list {
   display: flex;
-  gap: 0.75rem;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 0.25rem;
-  margin: 0 -1.25rem;
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
 }
 
 .account-list::-webkit-scrollbar {
   display: none;
 }
 
-/* Card — one visible at a time, full width */
+/* Card — exact full width of parent */
 .account-card {
-  flex: 0 0 calc(100% - 1.25rem);
+  flex: 0 0 100%;
   display: flex;
   flex-direction: column;
   padding: 1.25rem;
   background: linear-gradient(145deg, #111D32 0%, #0C1424 100%);
   border-radius: 16px;
   border: 1px solid var(--border);
-  scroll-snap-align: center;
+  scroll-snap-align: start;
   gap: 0.75rem;
 }
 

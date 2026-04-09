@@ -234,6 +234,7 @@ async function loadAccounts() {
 
   cachedAccounts = result.data || [];
   renderAccounts(cachedAccounts);
+  resolveLogos();
 
   // Refresh balances from Plaid in the background
   if (cachedAccounts.length > 0) {
@@ -274,23 +275,48 @@ async function refreshBalances() {
 // LOGO.DEV
 // ============================================
 var LOGO_KEY = 'pk_H4uo3XF8R0iZtbgE3TDSgQ';
-function getDomain(institutionUrl) {
-  if (!institutionUrl) return null;
-  try {
-    var url = institutionUrl;
-    if (url.indexOf('://') === -1) url = 'https://' + url;
-    var hostname = new URL(url).hostname;
-    // Strip www. prefix
-    return hostname.replace(/^www\./, '');
-  } catch (e) {
-    return null;
+var logoCache = {};
+
+async function resolveLogos() {
+  // Find all institution names that need logos
+  if (!cachedAccounts) return;
+  var names = [];
+  cachedAccounts.forEach(function(a) {
+    if (a.institution && !logoCache[a.institution]) {
+      var clean = a.institution.replace(/\s*-\s*(Personal|Online|Banking|Credit|Checking|Savings).*$/i, '').trim();
+      if (names.indexOf(clean) === -1) names.push(clean);
+      logoCache[a.institution] = 'pending';
+    }
+  });
+
+  for (var i = 0; i < names.length; i++) {
+    try {
+      var res = await fetch('https://api.logo.dev/search?q=' + encodeURIComponent(names[i]) + '&token=' + LOGO_KEY);
+      var data = await res.json();
+      if (data && data.length > 0 && data[0].domain) {
+        var imgUrl = 'https://img.logo.dev/' + data[0].domain + '?token=' + LOGO_KEY + '&size=80&format=png';
+        // Map all accounts with this institution to this logo
+        cachedAccounts.forEach(function(a) {
+          if (a.institution) {
+            var clean = a.institution.replace(/\s*-\s*(Personal|Online|Banking|Credit|Checking|Savings).*$/i, '').trim();
+            if (clean === names[i]) logoCache[a.institution] = imgUrl;
+          }
+        });
+      }
+    } catch (e) {
+      // silently fail
+    }
   }
+
+  // Re-render with logos
+  if (cachedAccounts) renderAccounts(cachedAccounts);
 }
 
 function getLogoUrl(account) {
-  var domain = getDomain(account.institution_url);
-  if (!domain) return null;
-  return 'https://img.logo.dev/' + domain + '?token=' + LOGO_KEY + '&size=80&format=png';
+  if (!account.institution) return null;
+  var cached = logoCache[account.institution];
+  if (!cached || cached === 'pending') return null;
+  return cached;
 }
 
 // ============================================
