@@ -215,47 +215,64 @@ body {
 .app-header {
   display: flex;
   align-items: center;
-  padding: 1rem 1.25rem;
-  padding-top: max(1rem, env(safe-area-inset-top));
-  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  padding-top: max(0.75rem, env(safe-area-inset-top));
   border-bottom: 1px solid var(--border);
 }
 
-.header-logo {
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.header-avatar {
   width: 32px;
   height: 32px;
-  object-fit: contain;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
 }
 
-.app-header h1 {
-  flex: 1;
-  font-size: 1.25rem;
+.header-name {
+  font-size: 0.9rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.btn-icon {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: var(--radius-sm);
-  transition: color 0.2s;
-}
-
-.btn-icon:hover {
-  color: var(--text);
+.header-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 /* ================================
-   SNAPSHOT CONTENT
+   TAB CONTENT
    ================================ */
-.snapshot-content {
+.tab-content {
+  display: none;
   flex: 1;
   overflow-y: auto;
   padding: 0.75rem 1.25rem;
   padding-bottom: 5rem;
 }
+
+.tab-content.active {
+  display: block;
+}
+
+/* ================================
+   SNAPSHOT CONTENT
+   ================================ */
+/* (snapshot-content replaced by .tab-content) */
 
 .balance-toggle {
   display: inline-block;
@@ -533,4 +550,274 @@ body {
   padding: 1.5rem;
   color: var(--text-dim);
   font-size: 0.9rem;
+}
+
+/* ================================
+   SHARED UI
+   ================================ */
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.6rem;
+}
+
+.app-input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.app-input:focus {
+  border-color: var(--accent);
+}
+
+.app-select {
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236B7B95' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+
+.btn-primary-sm {
+  padding: 0.45rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary-sm {
+  padding: 0.4rem 0.85rem;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-danger {
+  width: 100%;
+  padding: 0.8rem;
+  background: rgba(232, 77, 77, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(232, 77, 77, 0.3);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: rgba(232, 77, 77, 0.2);
+}
+
+/* ================================
+   SETTINGS
+   ================================ */
+.settings-section {
+  margin-bottom: 1.5rem;
+}
+
+.settings-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.settings-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.settings-field {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.settings-field label {
+  display: none;
+}
+
+.settings-field .app-input {
+  flex: 1;
+}
+
+.settings-hint {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.tab-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.tab-order-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.tab-order-item:active {
+  cursor: grabbing;
+  border-color: var(--accent);
+}
+
+.tab-order-arrows {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tab-order-arrows button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.2rem;
+}
+
+/* ================================
+   INVESTING
+   ================================ */
+.investing-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.investing-filters .app-select {
+  flex: 1;
+}
+
+.investing-section {
+  margin-bottom: 1.5rem;
+}
+
+.investing-section canvas {
+  width: 100% !important;
+  margin-bottom: 1rem;
+  border-radius: var(--radius);
+}
+
+.holding-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.holding-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.holding-symbol {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.holding-name {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.holding-value {
+  text-align: right;
+}
+
+.holding-amount {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.holding-shares {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.tx-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tx-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.tx-type {
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.tx-name {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tx-date {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.tx-amount {
+  font-weight: 600;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
 }

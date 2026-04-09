@@ -47,8 +47,6 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // DOM REFS
 // ============================================
 var $ = function(sel) { return document.querySelector(sel); };
-var screenLogin = $('#screen-login');
-var screenSnapshot = $('#screen-snapshot');
 var authForm = $('#auth-form');
 var authEmail = $('#auth-email');
 var authPassword = $('#auth-password');
@@ -56,9 +54,9 @@ var authSubmit = $('#auth-submit');
 var authError = $('#auth-error');
 var authToggleText = $('#auth-toggle-text');
 var authToggleLink = $('#auth-toggle-link');
-var btnLogout = $('#btn-logout');
 var btnConnectPlaid = $('#btn-connect-plaid');
 var btnAddAccount = $('#btn-add-account');
+var btnConnectInvesting = $('#btn-connect-investing');
 var connectCta = $('#connect-cta');
 var sectionBanks = $('#section-banks');
 var sectionSavings = $('#section-savings');
@@ -71,10 +69,14 @@ var savingsTotal = $('#savings-total');
 var creditTotal = $('#credit-total');
 var loading = $('#loading');
 var balanceToggle = $('#balance-toggle');
+var headerAvatar = $('#header-avatar');
+var headerName = $('#header-name');
 
 var isSignUp = false;
 var currentUser = null;
-var showAvailable = true; // true = available/current, false = after pending
+var userProfile = null;
+var showAvailable = true;
+var cachedAccounts = null;
 
 // ============================================
 // AUTH
@@ -112,9 +114,9 @@ authForm.addEventListener('submit', async function(e) {
 
   if (isSignUp && result.data && result.data.user && !result.data.session) {
     authError.textContent = 'Check your email to confirm your account.';
-    authError.style.borderColor = 'rgba(77, 143, 232, 0.3)';
-    authError.style.background = 'rgba(77, 143, 232, 0.1)';
-    authError.style.color = '#4D8FE8';
+    authError.style.borderColor = 'rgba(60, 130, 246, 0.3)';
+    authError.style.background = 'rgba(60, 130, 246, 0.1)';
+    authError.style.color = '#3C82F6';
     authError.hidden = false;
     authSubmit.disabled = false;
     return;
@@ -123,14 +125,11 @@ authForm.addEventListener('submit', async function(e) {
   authSubmit.disabled = false;
 });
 
-btnLogout.addEventListener('click', async function() {
-  await sb.auth.signOut();
-});
-
 sb.auth.onAuthStateChange(function(event, session) {
   if (session && session.user) {
     currentUser = session.user;
-    showScreen('snapshot');
+    showScreen('app');
+    loadProfile();
     loadAccounts();
   } else {
     currentUser = null;
@@ -140,29 +139,166 @@ sb.auth.onAuthStateChange(function(event, session) {
 });
 
 // ============================================
-// SCREENS
+// SCREENS & TABS
 // ============================================
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   $('#screen-' + name).classList.add('active');
 }
 
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  var tab = $('#tab-' + tabName);
+  if (tab) tab.classList.add('active');
+  var nav = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
+  if (nav) nav.classList.add('active');
+}
+
+// Bottom nav clicks
+document.getElementById('bottom-nav').addEventListener('click', function(e) {
+  var btn = e.target.closest('.nav-item');
+  if (!btn) return;
+  switchTab(btn.dataset.tab);
+});
+
+// ============================================
+// PROFILE
+// ============================================
+async function loadProfile() {
+  var result = await sb.from('profiles').select('display_name, avatar_url, tab_order').eq('id', currentUser.id).single();
+  if (result.error) {
+    console.error('Profile load error:', result.error);
+    return;
+  }
+  userProfile = result.data;
+  updateHeaderProfile();
+  updateSettingsProfile();
+  applyTabOrder();
+}
+
+function updateHeaderProfile() {
+  if (!userProfile) return;
+  headerName.textContent = userProfile.display_name || '';
+  if (userProfile.avatar_url) {
+    headerAvatar.style.backgroundImage = 'url(' + userProfile.avatar_url + ')';
+  }
+}
+
+function updateSettingsProfile() {
+  if (!userProfile) return;
+  var nameInput = $('#settings-name');
+  var avatar = $('#settings-avatar');
+  if (nameInput) nameInput.value = userProfile.display_name || '';
+  if (avatar && userProfile.avatar_url) {
+    avatar.style.backgroundImage = 'url(' + userProfile.avatar_url + ')';
+  }
+}
+
+function applyTabOrder() {
+  if (!userProfile || !userProfile.tab_order) return;
+  var nav = document.getElementById('bottom-nav');
+  var order = userProfile.tab_order;
+  order.forEach(function(tabName) {
+    var btn = nav.querySelector('[data-tab="' + tabName + '"]');
+    if (btn) nav.appendChild(btn);
+  });
+  renderTabOrder();
+}
+
+// Save name
+$('#btn-save-name').addEventListener('click', async function() {
+  var name = $('#settings-name').value.trim();
+  if (!name) return;
+  await sb.from('profiles').update({ display_name: name }).eq('id', currentUser.id);
+  userProfile.display_name = name;
+  updateHeaderProfile();
+});
+
+// Avatar upload
+$('#btn-change-avatar').addEventListener('click', function() {
+  $('#avatar-upload').click();
+});
+
+$('#avatar-upload').addEventListener('change', async function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  showLoading(true);
+
+  var path = currentUser.id + '/avatar.' + file.name.split('.').pop();
+  var uploadResult = await sb.storage.from('avatars').upload(path, file, { upsert: true });
+
+  if (uploadResult.error) {
+    console.error('Upload error:', uploadResult.error);
+    showLoading(false);
+    return;
+  }
+
+  var urlResult = sb.storage.from('avatars').getPublicUrl(path);
+  var avatarUrl = urlResult.data.publicUrl + '?v=' + Date.now();
+
+  await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
+  userProfile.avatar_url = avatarUrl;
+  updateHeaderProfile();
+  updateSettingsProfile();
+  showLoading(false);
+});
+
+// Tab reorder
+function renderTabOrder() {
+  var list = $('#tab-order-list');
+  if (!list || !userProfile) return;
+  var order = userProfile.tab_order || ['snapshot', 'investing', 'settings'];
+  var labels = { snapshot: 'Snapshot', investing: 'Investing', settings: 'Settings' };
+
+  list.innerHTML = order.map(function(tab, i) {
+    return '<div class="tab-order-item" data-tab="' + tab + '">' +
+      '<span>' + labels[tab] + '</span>' +
+      '<div class="tab-order-arrows">' +
+        (i > 0 ? '<button data-dir="up" data-tab="' + tab + '">&#9650;</button>' : '<button disabled>&#9650;</button>') +
+        (i < order.length - 1 ? '<button data-dir="down" data-tab="' + tab + '">&#9660;</button>' : '<button disabled>&#9660;</button>') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.tab-order-arrows button[data-dir]');
+  if (!btn || !userProfile) return;
+  var tab = btn.dataset.tab;
+  var dir = btn.dataset.dir;
+  var order = userProfile.tab_order || ['snapshot', 'investing', 'settings'];
+  var idx = order.indexOf(tab);
+  if (idx === -1) return;
+  var newIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (newIdx < 0 || newIdx >= order.length) return;
+  order.splice(idx, 1);
+  order.splice(newIdx, 0, tab);
+  userProfile.tab_order = order;
+  sb.from('profiles').update({ tab_order: order }).eq('id', currentUser.id);
+  applyTabOrder();
+});
+
+// Logout from settings
+$('#btn-settings-logout').addEventListener('click', async function() {
+  await sb.auth.signOut();
+});
+
 // ============================================
 // BALANCE TOGGLE
 // ============================================
 balanceToggle.addEventListener('click', function() {
   showAvailable = !showAvailable;
-  balanceToggle.textContent = showAvailable ? 'Posted' : 'After Pending';
+  balanceToggle.textContent = showAvailable ? 'Current' : 'After Pending';
   if (cachedAccounts) renderAccounts(cachedAccounts);
 });
-
-var cachedAccounts = null;
 
 // ============================================
 // PLAID LINK
 // ============================================
-async function openPlaidLink() {
+async function openPlaidLink(products) {
   showLoading(true);
+  products = products || ['transactions'];
 
   try {
     var sessionResult = await sb.auth.getSession();
@@ -175,7 +311,7 @@ async function openPlaidLink() {
     var res = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
       method: 'POST',
       headers: headers,
-      body: JSON.stringify({ action: 'create_link_token' })
+      body: JSON.stringify({ action: 'create_link_token', products: products })
     });
 
     var data = await res.json();
@@ -192,7 +328,7 @@ async function openPlaidLink() {
       token: data.link_token,
       onSuccess: async function(publicToken, metadata) {
         showLoading(true);
-        var exchangeRes = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+        await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
           method: 'POST',
           headers: headers,
           body: JSON.stringify({
@@ -201,10 +337,6 @@ async function openPlaidLink() {
             institution: metadata.institution
           })
         });
-        var exchangeData = await exchangeRes.json();
-        if (!exchangeRes.ok) {
-          showError('Failed to connect: ' + (exchangeData.detail || exchangeData.error));
-        }
         await loadAccounts();
         showLoading(false);
       },
@@ -218,8 +350,9 @@ async function openPlaidLink() {
   }
 }
 
-btnConnectPlaid.addEventListener('click', openPlaidLink);
-btnAddAccount.addEventListener('click', openPlaidLink);
+btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions']); });
+btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions']); });
+btnConnectInvesting.addEventListener('click', function() { openPlaidLink(['investments']); });
 
 // ============================================
 // LOAD ACCOUNTS
@@ -236,7 +369,6 @@ async function loadAccounts() {
   renderAccounts(cachedAccounts);
   resolveLogos();
 
-  // Refresh balances from Plaid in the background
   if (cachedAccounts.length > 0) {
     refreshBalances();
   }
@@ -259,7 +391,6 @@ async function refreshBalances() {
 
     var data = await res.json();
     if (data.success && data.updated > 0) {
-      // Reload with fresh balances
       var result = await sb.rpc('get_user_accounts');
       if (!result.error) {
         cachedAccounts = result.data || [];
@@ -277,7 +408,6 @@ async function refreshBalances() {
 var LOGO_KEY = 'pk_H4uo3XF8R0iZtbgE3TDSgQ';
 async function resolveLogos() {
   if (!cachedAccounts) return;
-  // Check if any accounts are missing logos
   var needsResolve = cachedAccounts.some(function(a) { return a.institution && !a.institution_logo_domain; });
   if (!needsResolve) return;
 
@@ -296,7 +426,6 @@ async function resolveLogos() {
     });
     var data = await res.json();
     if (data.resolved > 0) {
-      // Reload accounts with the new logo domains
       var result = await sb.rpc('get_user_accounts');
       if (!result.error) {
         cachedAccounts = result.data || [];
@@ -323,10 +452,8 @@ function getDisplayBalance(account, type) {
 
   if (type === 'credit') {
     if (showAvailable) {
-      // Current: what's posted (currently owe)
       return { amount: current, label: 'Posted' };
     } else {
-      // After pending: limit - available = total after pending settle
       if (limit != null && available != null) {
         return { amount: limit - available, label: 'After Pending' };
       }
@@ -334,10 +461,8 @@ function getDisplayBalance(account, type) {
     }
   } else {
     if (showAvailable) {
-      // Current: posted balance
       return { amount: current, label: 'Current' };
     } else {
-      // After pending: available balance reflects pending holds
       if (available != null) {
         return { amount: available, label: 'After Pending' };
       }
@@ -362,19 +487,16 @@ function renderAccounts(accounts) {
   sectionCredit.hidden = credits.length === 0;
   balanceToggle.hidden = !hasAccounts;
 
-  // Banks (checking, etc.)
   renderSection(listBanks, banks, 'bank');
   var bankSum = banks.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
   banksTotal.textContent = formatMoney(bankSum);
   banksTotal.className = 'section-total ' + (bankSum >= 0 ? 'balance-positive' : 'balance-negative');
 
-  // Savings
   renderSection(listSavings, savings, 'bank');
   var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
   savingsTotal.textContent = formatMoney(savingsSum);
   savingsTotal.className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
 
-  // Credit Cards
   renderSection(listCredit, credits, 'credit');
   var creditSum = credits.reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
   creditTotal.textContent = formatMoney(creditSum);
@@ -382,16 +504,12 @@ function renderAccounts(accounts) {
 }
 
 function renderSection(listEl, items, type) {
-  // Sort by balance, highest first
   var sorted = items.slice().sort(function(a, b) {
-    var balA = getDisplayBalance(a, type).amount;
-    var balB = getDisplayBalance(b, type).amount;
-    return Math.abs(balB) - Math.abs(balA);
+    return Math.abs(getDisplayBalance(b, type).amount) - Math.abs(getDisplayBalance(a, type).amount);
   });
 
   listEl.innerHTML = sorted.map(function(a) { return accountCard(a, type); }).join('');
 
-  // Add scroll dots if more than 1 card
   var dotsEl = listEl.parentElement.querySelector('.scroll-dots');
   if (dotsEl) dotsEl.remove();
 
@@ -406,11 +524,9 @@ function renderSection(listEl, items, type) {
     listEl.parentElement.appendChild(dots);
 
     listEl.addEventListener('scroll', function() {
-      var scrollLeft = listEl.scrollLeft;
-      var cardWidth = listEl.firstElementChild ? listEl.firstElementChild.offsetWidth + 12 : 1;
-      var idx = Math.round(scrollLeft / cardWidth);
-      var allDots = dots.querySelectorAll('.scroll-dot');
-      allDots.forEach(function(d, j) {
+      var cardWidth = listEl.firstElementChild ? listEl.firstElementChild.offsetWidth : 1;
+      var idx = Math.round(listEl.scrollLeft / cardWidth);
+      dots.querySelectorAll('.scroll-dot').forEach(function(d, j) {
         d.classList.toggle('active', j === idx);
       });
     });
@@ -437,7 +553,7 @@ function accountCard(account, type) {
   '</div>';
 }
 
-// Nickname editing — tap account name to edit
+// Nickname editing
 document.addEventListener('click', function(e) {
   var nameEl = e.target.closest('.account-name');
   if (!nameEl || !nameEl.dataset.id) return;
@@ -457,7 +573,6 @@ document.addEventListener('click', function(e) {
     var newName = input.value.trim();
     if (newName && newName !== current) {
       sb.from('accounts').update({ nickname: newName }).eq('id', accountId).then(function() {
-        // Update cache
         if (cachedAccounts) {
           cachedAccounts.forEach(function(a) {
             if (a.id === accountId) a.nickname = newName;
@@ -479,25 +594,26 @@ document.addEventListener('click', function(e) {
   });
 });
 
-function formatTimestamp(ts) {
-  if (!ts) return '';
-  var d = new Date(ts);
-  var now = new Date();
-  var diff = now - d;
-  // Under 1 minute
-  if (diff < 60000) return 'Just now';
-  // Under 1 hour
-  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
-  // Under 24 hours
-  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
-  // Otherwise show date + time
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
-    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-}
+// ============================================
+// INVESTING (placeholder — will populate when data exists)
+// ============================================
+// TODO: Edge function for /investments/holdings/get and /investments/transactions/get
+// For now the tab shows the connect brokerage CTA
 
 // ============================================
 // UTILS
 // ============================================
+function formatTimestamp(ts) {
+  if (!ts) return '';
+  var d = new Date(ts);
+  var diff = Date.now() - d;
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
 function formatMoney(amount) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -543,7 +659,8 @@ if ('serviceWorker' in navigator) {
   var result = await sb.auth.getSession();
   if (result.data.session && result.data.session.user) {
     currentUser = result.data.session.user;
-    showScreen('snapshot');
+    showScreen('app');
+    loadProfile();
     loadAccounts();
   } else if (checkBetaAccess()) {
     showScreen('login');

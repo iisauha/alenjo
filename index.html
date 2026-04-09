@@ -51,33 +51,26 @@
     </div>
   </div>
 
-  <!-- SNAPSHOT SCREEN -->
-  <div id="screen-snapshot" class="screen">
+  <!-- APP SHELL (shared header + nav for all app screens) -->
+  <div id="screen-app" class="screen">
     <header class="app-header">
+      <div class="header-user">
+        <div id="header-avatar" class="header-avatar"></div>
+        <span id="header-name" class="header-name"></span>
+      </div>
       <img src="alenjo.png" alt="Alenjo" class="header-logo">
-      <h1>Snapshot</h1>
-      <button id="btn-logout" class="btn-icon" title="Sign Out">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-      </button>
     </header>
 
-    <main class="snapshot-content">
+    <!-- SNAPSHOT TAB -->
+    <main id="tab-snapshot" class="tab-content active">
       <div id="snapshot-error" class="auth-error" hidden></div>
-
-      <!-- Balance Toggle -->
       <button id="balance-toggle" class="balance-toggle" hidden>Current</button>
 
-      <!-- Connect Account CTA -->
       <div id="connect-cta" class="connect-cta">
         <p>Connect your bank to get started</p>
         <button id="btn-connect-plaid" class="btn-primary">Connect Account</button>
       </div>
 
-      <!-- Checking / Bank Accounts Section -->
       <section class="account-section" id="section-banks">
         <div class="section-header">
           <h2>Banks</h2>
@@ -86,7 +79,6 @@
         <div class="account-list" id="list-banks"></div>
       </section>
 
-      <!-- Savings Section -->
       <section class="account-section" id="section-savings">
         <div class="section-header">
           <h2>Savings</h2>
@@ -95,7 +87,6 @@
         <div class="account-list" id="list-savings"></div>
       </section>
 
-      <!-- Credit Cards Section -->
       <section class="account-section" id="section-credit">
         <div class="section-header">
           <h2>Credit Cards</h2>
@@ -107,14 +98,83 @@
       <button id="btn-add-account" class="btn-secondary">+ Connect Another Account</button>
     </main>
 
+    <!-- INVESTING TAB -->
+    <main id="tab-investing" class="tab-content">
+      <div id="investing-empty" class="connect-cta">
+        <p>Connect a brokerage to see your investments</p>
+        <button id="btn-connect-investing" class="btn-primary">Connect Brokerage</button>
+      </div>
+      <div id="investing-content" hidden>
+        <div class="investing-filters">
+          <select id="investing-account-filter" class="app-select">
+            <option value="all">All Accounts</option>
+          </select>
+          <select id="investing-period-filter" class="app-select">
+            <option value="3">Last 3 Months</option>
+            <option value="6">Last 6 Months</option>
+            <option value="12" selected>Last 12 Months</option>
+            <option value="24">Last 24 Months</option>
+          </select>
+        </div>
+        <div id="investing-holdings" class="investing-section">
+          <h2 class="section-label">Holdings</h2>
+          <canvas id="holdings-chart" height="200"></canvas>
+          <div id="holdings-list"></div>
+        </div>
+        <div id="investing-transactions" class="investing-section">
+          <h2 class="section-label">Transactions</h2>
+          <div id="investing-tx-list"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- SETTINGS TAB -->
+    <main id="tab-settings" class="tab-content">
+      <div class="settings-section">
+        <h2 class="section-label">Profile</h2>
+        <div class="settings-avatar-row">
+          <div id="settings-avatar" class="settings-avatar"></div>
+          <button id="btn-change-avatar" class="btn-secondary-sm">Change Photo</button>
+          <input type="file" id="avatar-upload" accept="image/*" hidden>
+        </div>
+        <div class="settings-field">
+          <label>Display Name</label>
+          <input type="text" id="settings-name" class="app-input" placeholder="Your name" maxlength="40">
+          <button id="btn-save-name" class="btn-primary-sm">Save</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h2 class="section-label">Tab Order</h2>
+        <p class="settings-hint">Drag to reorder your tabs</p>
+        <div id="tab-order-list" class="tab-order-list"></div>
+      </div>
+
+      <div class="settings-section">
+        <button id="btn-settings-logout" class="btn-danger">Log Out</button>
+      </div>
+    </main>
+
     <!-- Bottom Nav -->
-    <nav class="bottom-nav">
-      <button class="nav-item active" data-screen="snapshot">
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="nav-item active" data-tab="snapshot">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
           <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
         </svg>
         <span>Snapshot</span>
+      </button>
+      <button class="nav-item" data-tab="investing">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        <span>Investing</span>
+      </button>
+      <button class="nav-item" data-tab="settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
       </button>
     </nav>
   </div>
@@ -126,12 +186,13 @@
 
   <script>
     window.onerror = function(msg, src, line) {
-      var el = document.getElementById('auth-error');
+      var el = document.getElementById('auth-error') || document.getElementById('snapshot-error');
       if (el) { el.textContent = 'Error: ' + msg; el.hidden = false; }
       console.error('JS Error:', msg, src, line);
     };
   </script>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" async></script>
   <script>document.write('<script src="app.js?v=' + _v + '"><\/script>');</script>
   <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" async></script>
 </body>
