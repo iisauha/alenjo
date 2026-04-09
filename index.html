@@ -123,6 +123,24 @@
       </div>
     </main>
 
+    <!-- RECURRING TAB -->
+    <main id="tab-recurring" class="tab-content">
+      <div id="rec-empty" class="connect-cta">
+        <p>Connect an account to see recurring charges</p>
+      </div>
+      <div id="rec-content" hidden>
+        <div class="tx-filters">
+          <select id="rec-month-filter" class="app-select"></select>
+          <select id="rec-card-filter" class="app-select">
+            <option value="all">All Accounts</option>
+          </select>
+        </div>
+        <div id="rec-summary"></div>
+        <div id="rec-income-section"></div>
+        <div id="rec-expense-section"></div>
+      </div>
+    </main>
+
     <!-- SETTINGS TAB -->
     <main id="tab-settings" class="tab-content">
       <div class="settings-section">
@@ -164,6 +182,13 @@
           <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
         </svg>
         <span>Transactions</span>
+      </button>
+      <button class="nav-item" data-tab="recurring">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        <span>Recurring</span>
       </button>
       <button class="nav-item" data-tab="settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

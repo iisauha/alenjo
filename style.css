@@ -981,3 +981,68 @@ body {
   color: var(--text-dim);
   font-size: 0.55rem;
 }
+
+/* ================================
+   RECURRING TAB
+   ================================ */
+.rec-section {
+  margin-bottom: 1.25rem;
+}
+
+.rec-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.rec-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(21, 31, 48, 0.5);
+}
+
+.rec-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.rec-merchant {
+  font-weight: 500;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-freq {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.rec-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.rec-amount {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.rec-avg {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}

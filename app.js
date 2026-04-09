@@ -199,6 +199,13 @@ function applyTabOrder() {
   if (!userProfile || !userProfile.tab_order) return;
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
+  // Ensure new tabs are present in saved order
+  if (order.indexOf('recurring') === -1) {
+    var txIdx = order.indexOf('transactions');
+    order.splice(txIdx !== -1 ? txIdx + 1 : order.length - 1, 0, 'recurring');
+    userProfile.tab_order = order;
+    sb.from('profiles').update({ tab_order: order }).eq('id', currentUser.id);
+  }
   order.forEach(function(tabName) {
     var btn = nav.querySelector('[data-tab="' + tabName + '"]');
     if (btn) nav.appendChild(btn);
@@ -248,8 +255,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = userProfile.tab_order || ['snapshot', 'transactions', 'settings'];
-  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', settings: 'Settings' };
+  var order = userProfile.tab_order || ['snapshot', 'transactions', 'recurring', 'settings'];
+  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', recurring: 'Recurring', settings: 'Settings' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +
@@ -267,7 +274,7 @@ document.addEventListener('click', function(e) {
   if (!btn || !userProfile) return;
   var tab = btn.dataset.tab;
   var dir = btn.dataset.dir;
-  var order = userProfile.tab_order || ['snapshot', 'transactions', 'settings'];
+  var order = userProfile.tab_order || ['snapshot', 'transactions', 'recurring', 'settings'];
   var idx = order.indexOf(tab);
   if (idx === -1) return;
   var newIdx = dir === 'up' ? idx - 1 : idx + 1;
@@ -927,6 +934,229 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
   var btn = e.target.closest('.nav-item');
   if (btn && btn.dataset.tab === 'transactions' && txData.length === 0) {
     loadTransactions();
+  }
+});
+
+// ============================================
+// RECURRING
+// ============================================
+var recData = [];
+var recLoaded = false;
+
+async function loadRecurring() {
+  var recEmpty = $('#rec-empty');
+  var recContent = $('#rec-content');
+
+  if (!cachedAccounts || cachedAccounts.length === 0) {
+    recEmpty.hidden = false;
+    recContent.hidden = true;
+    return;
+  }
+
+  // Reuse txData if already loaded, otherwise fetch
+  if (txData.length === 0) {
+    var cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 12);
+    var cutoffStr = cutoff.toISOString().split('T')[0];
+    var result = await sb
+      .from('synced_transactions')
+      .select('*')
+      .gte('date', cutoffStr)
+      .order('date', { ascending: false });
+    if (result.error || !result.data || result.data.length === 0) {
+      recEmpty.hidden = false;
+      recContent.hidden = true;
+      recEmpty.querySelector('p').textContent = 'No transaction data yet. Visit Transactions first to sync.';
+      return;
+    }
+    recData = result.data;
+  } else {
+    recData = txData;
+  }
+
+  recEmpty.hidden = true;
+  recContent.hidden = false;
+
+  // Build month list
+  var monthSet = {};
+  var now = new Date();
+  var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  monthSet[currentMonth] = true;
+  recData.forEach(function(tx) {
+    monthSet[tx.date.substring(0, 7)] = true;
+  });
+  var recMonths = Object.keys(monthSet).sort().reverse();
+
+  var filter = $('#rec-month-filter');
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  filter.innerHTML = recMonths.map(function(m) {
+    var parts = m.split('-');
+    var label = monthNames[parseInt(parts[1]) - 1] + ' ' + parts[0];
+    return '<option value="' + m + '">' + label + '</option>';
+  }).join('');
+
+  var cardFilter = $('#rec-card-filter');
+  cardFilter.innerHTML = '<option value="all">All Accounts</option>';
+  if (cachedAccounts) {
+    cachedAccounts.forEach(function(a) {
+      if (a.plaid_account_id) {
+        cardFilter.innerHTML += '<option value="' + esc(a.plaid_account_id) + '">' + esc(a.nickname || a.name || 'Account') + '</option>';
+      }
+    });
+  }
+
+  renderRecurring();
+
+  filter.addEventListener('change', renderRecurring);
+  cardFilter.addEventListener('change', renderRecurring);
+  recLoaded = true;
+}
+
+function detectRecurring(transactions) {
+  // Group by normalized merchant name
+  var byMerchant = {};
+  transactions.forEach(function(tx) {
+    var key = (tx.merchant_name || tx.name || 'Unknown').toLowerCase().trim();
+    if (!byMerchant[key]) byMerchant[key] = { name: tx.merchant_name || tx.name || 'Unknown', txs: [] };
+    byMerchant[key].txs.push(tx);
+  });
+
+  var recurring = [];
+  Object.keys(byMerchant).forEach(function(key) {
+    var group = byMerchant[key];
+    // Find distinct months this merchant appears in
+    var months = {};
+    group.txs.forEach(function(tx) {
+      months[tx.date.substring(0, 7)] = true;
+    });
+    var monthCount = Object.keys(months).length;
+    // Recurring = appears in 2+ distinct months
+    if (monthCount >= 2) {
+      // Determine if income or expense based on majority of transactions
+      var totalAmount = group.txs.reduce(function(s, tx) { return s + tx.amount; }, 0);
+      var avgAmount = totalAmount / group.txs.length;
+      var isIncome = avgAmount < 0;
+      recurring.push({
+        merchant: group.name,
+        isIncome: isIncome,
+        monthCount: monthCount,
+        avgAmount: Math.abs(avgAmount),
+        txsByMonth: group.txs.reduce(function(acc, tx) {
+          var m = tx.date.substring(0, 7);
+          if (!acc[m]) acc[m] = [];
+          acc[m].push(tx);
+          return acc;
+        }, {}),
+        allTxs: group.txs
+      });
+    }
+  });
+
+  return recurring;
+}
+
+function renderRecurring() {
+  var month = $('#rec-month-filter').value;
+  var cardId = $('#rec-card-filter').value;
+  var summaryEl = $('#rec-summary');
+  var incomeEl = $('#rec-income-section');
+  var expenseEl = $('#rec-expense-section');
+
+  // Filter by card
+  var filtered = recData;
+  if (cardId !== 'all') {
+    filtered = filtered.filter(function(tx) { return tx.plaid_account_id === cardId; });
+  }
+
+  var allRecurring = detectRecurring(filtered);
+
+  // Split into income and expenses that have activity in the selected month
+  var incomeItems = [];
+  var expenseItems = [];
+
+  allRecurring.forEach(function(item) {
+    var monthTxs = item.txsByMonth[month];
+    if (!monthTxs || monthTxs.length === 0) return;
+    var monthTotal = monthTxs.reduce(function(s, tx) { return s + tx.amount; }, 0);
+    var entry = {
+      merchant: item.merchant,
+      amount: Math.abs(monthTotal),
+      count: monthTxs.length,
+      monthCount: item.monthCount,
+      avgAmount: item.avgAmount,
+      txs: monthTxs
+    };
+    if (item.isIncome) {
+      incomeItems.push(entry);
+    } else {
+      expenseItems.push(entry);
+    }
+  });
+
+  // Sort by amount descending
+  incomeItems.sort(function(a, b) { return b.amount - a.amount; });
+  expenseItems.sort(function(a, b) { return b.amount - a.amount; });
+
+  var totalIncome = incomeItems.reduce(function(s, i) { return s + i.amount; }, 0);
+  var totalExpenses = expenseItems.reduce(function(s, i) { return s + i.amount; }, 0);
+
+  // Summary
+  summaryEl.innerHTML = '<div class="tx-month-summary">' +
+    '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '</span></div>' +
+    '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Costs</span><span class="tx-summary-value balance-negative">' + formatMoney(totalExpenses) + '</span></div>' +
+  '</div>';
+
+  // Render income section
+  if (incomeItems.length > 0) {
+    var incHtml = '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
+    incomeItems.forEach(function(item) {
+      incHtml += renderRecurringRow(item, true);
+    });
+    incHtml += '</div>';
+    incomeEl.innerHTML = incHtml;
+  } else {
+    incomeEl.innerHTML = '';
+  }
+
+  // Render expense section
+  if (expenseItems.length > 0) {
+    var expHtml = '<div class="rec-section"><h3 class="rec-section-title balance-negative">Costs</h3>';
+    expenseItems.forEach(function(item) {
+      expHtml += renderRecurringRow(item, false);
+    });
+    expHtml += '</div>';
+    expenseEl.innerHTML = expHtml;
+  } else {
+    expenseEl.innerHTML = '';
+  }
+
+  // Empty state for this month
+  if (incomeItems.length === 0 && expenseItems.length === 0) {
+    incomeEl.innerHTML = '<div class="empty-state">No recurring transactions found for this month</div>';
+  }
+}
+
+function renderRecurringRow(item, isIncome) {
+  var freq = item.monthCount >= 10 ? 'Monthly' : item.monthCount + ' months';
+  return '<div class="rec-row">' +
+    '<div class="rec-info">' +
+      '<span class="rec-merchant">' + esc(item.merchant) + '</span>' +
+      '<span class="rec-freq">' + freq + (item.count > 1 ? ' (' + item.count + 'x this month)' : '') + '</span>' +
+    '</div>' +
+    '<div class="rec-right">' +
+      '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
+        (isIncome ? '+' : '-') + formatMoney(item.amount) +
+      '</span>' +
+      '<span class="rec-avg">avg ' + formatMoney(item.avgAmount) + '/mo</span>' +
+    '</div>' +
+  '</div>';
+}
+
+// Load recurring when switching to that tab
+document.getElementById('bottom-nav').addEventListener('click', function(e) {
+  var btn = e.target.closest('.nav-item');
+  if (btn && btn.dataset.tab === 'recurring' && !recLoaded) {
+    loadRecurring();
   }
 });
 
