@@ -366,12 +366,12 @@ body {
   flex: 0 0 100%;
   display: flex;
   flex-direction: column;
-  padding: 0.85rem 1rem;
+  padding: 0.7rem 0.9rem;
   background: linear-gradient(145deg, #111D32 0%, #0C1424 100%);
   border-radius: 14px;
   border: 1px solid var(--border);
   scroll-snap-align: start;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 /* Top row: name left, balance right */
@@ -436,14 +436,20 @@ body {
   letter-spacing: 1px;
 }
 
-/* Logo below mask */
+/* Logo container — centered below mask */
+.account-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.4rem 0;
+}
+
 .account-logo {
-  height: 32px;
+  height: 44px;
   width: auto;
-  max-width: 140px;
+  max-width: 180px;
   object-fit: contain;
-  align-self: flex-start;
-  margin-top: 0.15rem;
+  display: block;
 }
 
 /* Nickname inline edit */
@@ -719,73 +725,91 @@ body {
   padding: 0.2rem;
 }
 
+/* (investing section removed — replaced by transactions) */
+
 /* ================================
-   INVESTING
+   TRANSACTIONS TAB
    ================================ */
-.investing-filters {
+.tx-loading {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
-.investing-filters .app-select {
-  flex: 1;
-}
-
-.investing-section {
-  margin-bottom: 1.5rem;
-}
-
-.investing-section canvas {
-  width: 100% !important;
-  margin-bottom: 1rem;
-  border-radius: var(--radius);
-}
-
-.holding-row {
+.tx-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.6rem 0;
+  margin-bottom: 1rem;
+}
+
+.tx-updated {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.tx-month-summary {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.tx-summary-item {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.tx-summary-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tx-summary-value {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.tx-account-group {
+  margin-bottom: 1rem;
+}
+
+.tx-account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.3rem;
   border-bottom: 1px solid var(--border);
 }
 
-.holding-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.holding-symbol {
+.tx-account-name {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
-.holding-name {
-  font-size: 0.7rem;
-  color: var(--text-dim);
-}
-
-.holding-value {
-  text-align: right;
-}
-
-.holding-amount {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.holding-shares {
-  font-size: 0.7rem;
-  color: var(--text-dim);
+.tx-account-total {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .tx-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(21, 31, 48, 0.5);
 }
 
 .tx-info {
@@ -796,28 +820,35 @@ body {
   flex: 1;
 }
 
-.tx-type {
+.tx-merchant {
   font-weight: 500;
-  font-size: 0.8rem;
-  text-transform: capitalize;
-}
-
-.tx-name {
-  font-size: 0.7rem;
-  color: var(--text-dim);
+  font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tx-date {
+.tx-category {
   font-size: 0.65rem;
   color: var(--text-dim);
+  text-transform: capitalize;
+}
+
+.tx-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
 }
 
 .tx-amount {
   font-weight: 600;
   font-size: 0.85rem;
-  flex-shrink: 0;
-  margin-left: 0.5rem;
+}
+
+.tx-date {
+  font-size: 0.6rem;
+  color: var(--text-dim);
 }

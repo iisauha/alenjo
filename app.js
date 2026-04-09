@@ -56,7 +56,7 @@ var authToggleText = $('#auth-toggle-text');
 var authToggleLink = $('#auth-toggle-link');
 var btnConnectPlaid = $('#btn-connect-plaid');
 var btnAddAccount = $('#btn-add-account');
-var btnConnectInvesting = $('#btn-connect-investing');
+// (removed investing button ref)
 var connectCta = $('#connect-cta');
 var sectionBanks = $('#section-banks');
 var sectionSavings = $('#section-savings');
@@ -248,8 +248,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = userProfile.tab_order || ['snapshot', 'investing', 'settings'];
-  var labels = { snapshot: 'Snapshot', investing: 'Investing', settings: 'Settings' };
+  var order = userProfile.tab_order || ['snapshot', 'transactions', 'settings'];
+  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', settings: 'Settings' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +
@@ -267,7 +267,7 @@ document.addEventListener('click', function(e) {
   if (!btn || !userProfile) return;
   var tab = btn.dataset.tab;
   var dir = btn.dataset.dir;
-  var order = userProfile.tab_order || ['snapshot', 'investing', 'settings'];
+  var order = userProfile.tab_order || ['snapshot', 'transactions', 'settings'];
   var idx = order.indexOf(tab);
   if (idx === -1) return;
   var newIdx = dir === 'up' ? idx - 1 : idx + 1;
@@ -352,7 +352,7 @@ async function openPlaidLink(products) {
 
 btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions']); });
 btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions']); });
-btnConnectInvesting.addEventListener('click', function() { openPlaidLink(['investments']); });
+// (removed investing connect)
 
 // ============================================
 // LOAD ACCOUNTS
@@ -366,13 +366,6 @@ async function loadAccounts() {
   }
 
   cachedAccounts = result.data || [];
-  // DEBUG: show first account's keys and logo domain
-  if (cachedAccounts.length > 0) {
-    var a = cachedAccounts[0];
-    var debugEl = document.getElementById('snapshot-error');
-    debugEl.textContent = 'DEBUG keys: ' + Object.keys(a).join(', ') + ' | logo_domain: ' + JSON.stringify(a.institution_logo_domain);
-    debugEl.hidden = false;
-  }
   renderAccounts(cachedAccounts);
   resolveLogos();
 
@@ -556,7 +549,7 @@ function accountCard(account, type) {
     '</div>' +
     '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
     (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
-    (logoUrl ? '<img class="account-logo" src="' + logoUrl + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="account-debug" style="color:#E84D4D;font-size:0.6rem;">no logo: ' + esc(account.institution_logo_domain || 'null') + '</span>') +
+    (logoUrl ? '<div class="account-logo-wrap"><img class="account-logo" src="' + logoUrl + '" alt=""></div>' : '') +
   '</div>';
 }
 
@@ -602,10 +595,169 @@ document.addEventListener('click', function(e) {
 });
 
 // ============================================
-// INVESTING (placeholder — will populate when data exists)
+// TRANSACTIONS
 // ============================================
-// TODO: Edge function for /investments/holdings/get and /investments/transactions/get
-// For now the tab shows the connect brokerage CTA
+var txData = [];
+var txMonths = [];
+
+async function loadTransactions() {
+  var txEmpty = $('#tx-empty');
+  var txContent = $('#tx-content');
+  var txLoadingEl = $('#tx-loading');
+
+  if (!cachedAccounts || cachedAccounts.length === 0) {
+    txEmpty.hidden = false;
+    txContent.hidden = true;
+    return;
+  }
+
+  // Sync from Plaid first
+  txLoadingEl.hidden = false;
+  txEmpty.hidden = true;
+
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    if (!session) return;
+
+    await fetch(SUPABASE_URL + '/functions/v1/sync-transactions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+      }
+    });
+  } catch (e) {
+    console.error('Sync error:', e);
+  }
+
+  txLoadingEl.hidden = true;
+
+  // Fetch transactions from DB (last 12 months)
+  var cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 12);
+  var cutoffStr = cutoff.toISOString().split('T')[0];
+
+  var result = await sb
+    .from('synced_transactions')
+    .select('*')
+    .gte('date', cutoffStr)
+    .order('date', { ascending: false });
+
+  if (result.error || !result.data || result.data.length === 0) {
+    txEmpty.hidden = false;
+    txContent.hidden = true;
+    txEmpty.querySelector('p').textContent = result.data && result.data.length === 0 ? 'No transactions yet. Data may take a few minutes to sync.' : 'Error loading transactions.';
+    return;
+  }
+
+  txData = result.data;
+  txEmpty.hidden = true;
+  txContent.hidden = false;
+
+  // Build month list
+  var monthSet = {};
+  txData.forEach(function(tx) {
+    var m = tx.date.substring(0, 7); // YYYY-MM
+    monthSet[m] = true;
+  });
+  txMonths = Object.keys(monthSet).sort().reverse();
+
+  // Populate month filter
+  var filter = $('#tx-month-filter');
+  filter.innerHTML = txMonths.map(function(m) {
+    var d = new Date(m + '-01');
+    var label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return '<option value="' + m + '">' + label + '</option>';
+  }).join('');
+
+  // Show updated time
+  var updated = $('#tx-updated');
+  updated.textContent = 'Updated ' + formatTimestamp(new Date().toISOString());
+
+  renderTransactionMonth(txMonths[0]);
+
+  filter.addEventListener('change', function() {
+    renderTransactionMonth(filter.value);
+  });
+}
+
+function renderTransactionMonth(month) {
+  var breakdown = $('#tx-breakdown');
+  var filtered = txData.filter(function(tx) { return tx.date.substring(0, 7) === month; });
+
+  // Group by account
+  var byAccount = {};
+  filtered.forEach(function(tx) {
+    var key = tx.plaid_account_id || 'unknown';
+    if (!byAccount[key]) byAccount[key] = { transactions: [], total: 0 };
+    byAccount[key].transactions.push(tx);
+    byAccount[key].total += tx.amount;
+  });
+
+  // Match account names from cachedAccounts
+  var accountNames = {};
+  if (cachedAccounts) {
+    cachedAccounts.forEach(function(a) {
+      // We don't have plaid_account_id in cachedAccounts directly, so match by name
+      accountNames[a.id] = a.nickname || a.name || 'Account';
+    });
+  }
+
+  // Calculate month totals
+  var totalSpent = filtered.reduce(function(s, tx) { return tx.amount > 0 ? s + tx.amount : s; }, 0);
+  var totalIncome = filtered.reduce(function(s, tx) { return tx.amount < 0 ? s + Math.abs(tx.amount) : s; }, 0);
+
+  var html = '<div class="tx-month-summary">' +
+    '<div class="tx-summary-item"><span class="tx-summary-label">Spent</span><span class="tx-summary-value balance-negative">' + formatMoney(totalSpent) + '</span></div>' +
+    '<div class="tx-summary-item"><span class="tx-summary-label">Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '</span></div>' +
+  '</div>';
+
+  // Render each account group
+  Object.keys(byAccount).forEach(function(accountId) {
+    var group = byAccount[accountId];
+    var acctName = accountId;
+
+    // Try to find a matching cached account by checking plaid_account_id match
+    if (cachedAccounts) {
+      // Since we don't have plaid_account_id decrypted on frontend,
+      // just show merchant grouping instead
+    }
+
+    html += '<div class="tx-account-group">';
+    html += '<div class="tx-account-header">' +
+      '<span class="tx-account-total">' + formatMoney(Math.abs(group.total)) + '</span>' +
+    '</div>';
+
+    group.transactions.forEach(function(tx) {
+      html += '<div class="tx-row">' +
+        '<div class="tx-info">' +
+          '<span class="tx-merchant">' + esc(tx.merchant_name || tx.name || 'Unknown') + '</span>' +
+          '<span class="tx-category">' + esc((tx.category || '').replace(/_/g, ' ').toLowerCase()) + '</span>' +
+        '</div>' +
+        '<div class="tx-right">' +
+          '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
+            (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
+          '</span>' +
+          '<span class="tx-date">' + new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
+        '</div>' +
+      '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  breakdown.innerHTML = html;
+}
+
+// Load transactions when switching to that tab
+document.getElementById('bottom-nav').addEventListener('click', function(e) {
+  var btn = e.target.closest('.nav-item');
+  if (btn && btn.dataset.tab === 'transactions' && txData.length === 0) {
+    loadTransactions();
+  }
+});
 
 // ============================================
 // UTILS
