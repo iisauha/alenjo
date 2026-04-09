@@ -685,11 +685,12 @@ async function loadTransactions() {
   });
   txMonths = Object.keys(monthSet).sort().reverse();
 
-  // Populate month filter
+  // Populate month filter — parse YYYY-MM directly to avoid timezone issues
   var filter = $('#tx-month-filter');
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   filter.innerHTML = txMonths.map(function(m) {
-    var d = new Date(m + '-01');
-    var label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    var parts = m.split('-');
+    var label = monthNames[parseInt(parts[1]) - 1] + ' ' + parts[0];
     return '<option value="' + m + '">' + label + '</option>';
   }).join('');
 
