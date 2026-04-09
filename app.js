@@ -372,7 +372,50 @@ async function loadAccounts() {
   renderAccounts(cachedAccounts);
   resolveLogos();
 
+  // Background sync (includes balance update via free /accounts/get)
+  if (cachedAccounts.length > 0) {
+    throttledSync();
+  }
+
   loadingAccounts = false;
+}
+
+var TX_SYNC_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+var syncInFlight = false;
+
+function throttledSync() {
+  if (syncInFlight) return;
+  var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
+  if (Date.now() - lastSync < TX_SYNC_COOLDOWN) return;
+  syncInFlight = true;
+  localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
+  backgroundSync().finally(function() { syncInFlight = false; });
+}
+
+async function backgroundSync() {
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    if (!session) return;
+
+    await fetch(SUPABASE_URL + '/functions/v1/sync-transactions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+      }
+    });
+
+    // Reload accounts with fresh balances
+    var result = await sb.rpc('get_user_accounts');
+    if (!result.error) {
+      cachedAccounts = result.data || [];
+      renderAccounts(cachedAccounts);
+    }
+  } catch (e) {
+    console.error('Background sync error:', e);
+  }
 }
 
 // ============================================
@@ -517,7 +560,7 @@ function accountCard(account, type) {
       '<span class="account-name" data-id="' + account.id + '">' + esc(displayName) + '</span>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
-        '<div class="label">' + timestamp + '</div>' +
+        '<div class="label">' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
     '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
@@ -678,46 +721,7 @@ async function loadTransactions() {
   filter.addEventListener('change', renderTransactionMonth);
   cardFilter.addEventListener('change', renderTransactionMonth);
 
-  // Background sync from Plaid (throttled, non-blocking)
-  var lastTxSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
-  if (Date.now() - lastTxSync > TX_SYNC_COOLDOWN) {
-    localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
-    syncInBackground();
-  }
-}
-
-async function syncInBackground() {
-  try {
-    var sessionResult = await sb.auth.getSession();
-    var session = sessionResult.data.session;
-    if (!session) return;
-
-    await fetch(SUPABASE_URL + '/functions/v1/sync-transactions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-        'apikey': SUPABASE_ANON_KEY
-      }
-    });
-
-    // Reload data after sync
-    var cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 12);
-    var result = await sb
-      .from('synced_transactions')
-      .select('*')
-      .gte('date', cutoff.toISOString().split('T')[0])
-      .order('date', { ascending: false });
-
-    if (!result.error && result.data && result.data.length > 0) {
-      txData = result.data;
-      renderTransactionMonth();
-      $('#tx-updated').textContent = 'Updated just now';
-    }
-  } catch (e) {
-    console.error('Background sync error:', e);
-  }
+  // Background sync is handled by throttledSync() from loadAccounts
 }
 
 var txPieChart = null;
