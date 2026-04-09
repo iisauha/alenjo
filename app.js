@@ -275,48 +275,42 @@ async function refreshBalances() {
 // LOGO.DEV
 // ============================================
 var LOGO_KEY = 'pk_H4uo3XF8R0iZtbgE3TDSgQ';
-var logoCache = {};
-
 async function resolveLogos() {
-  // Find all institution names that need logos
   if (!cachedAccounts) return;
-  var names = [];
-  cachedAccounts.forEach(function(a) {
-    if (a.institution && !logoCache[a.institution]) {
-      var clean = a.institution.replace(/\s*-\s*(Personal|Online|Banking|Credit|Checking|Savings).*$/i, '').trim();
-      if (names.indexOf(clean) === -1) names.push(clean);
-      logoCache[a.institution] = 'pending';
-    }
-  });
+  // Check if any accounts are missing logos
+  var needsResolve = cachedAccounts.some(function(a) { return a.institution && !a.institution_logo_domain; });
+  if (!needsResolve) return;
 
-  for (var i = 0; i < names.length; i++) {
-    try {
-      var res = await fetch('https://api.logo.dev/search?q=' + encodeURIComponent(names[i]) + '&token=' + LOGO_KEY);
-      var data = await res.json();
-      if (data && data.length > 0 && data[0].domain) {
-        var imgUrl = 'https://img.logo.dev/' + data[0].domain + '?token=' + LOGO_KEY + '&size=80&format=png';
-        // Map all accounts with this institution to this logo
-        cachedAccounts.forEach(function(a) {
-          if (a.institution) {
-            var clean = a.institution.replace(/\s*-\s*(Personal|Online|Banking|Credit|Checking|Savings).*$/i, '').trim();
-            if (clean === names[i]) logoCache[a.institution] = imgUrl;
-          }
-        });
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    if (!session) return;
+
+    var res = await fetch(SUPABASE_URL + '/functions/v1/resolve-logos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
       }
-    } catch (e) {
-      // silently fail
+    });
+    var data = await res.json();
+    if (data.resolved > 0) {
+      // Reload accounts with the new logo domains
+      var result = await sb.rpc('get_user_accounts');
+      if (!result.error) {
+        cachedAccounts = result.data || [];
+        renderAccounts(cachedAccounts);
+      }
     }
+  } catch (e) {
+    console.error('Logo resolve error:', e);
   }
-
-  // Re-render with logos
-  if (cachedAccounts) renderAccounts(cachedAccounts);
 }
 
 function getLogoUrl(account) {
-  if (!account.institution) return null;
-  var cached = logoCache[account.institution];
-  if (!cached || cached === 'pending') return null;
-  return cached;
+  if (!account.institution_logo_domain) return null;
+  return 'https://img.logo.dev/' + account.institution_logo_domain + '?token=' + LOGO_KEY + '&size=80&format=png';
 }
 
 // ============================================
