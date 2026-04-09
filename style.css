@@ -371,15 +371,22 @@ body {
   border-radius: 14px;
   border: 1px solid var(--border);
   scroll-snap-align: start;
-  gap: 0.15rem;
 }
 
-/* Top row: name left, balance right */
+/* Top row: left info + right balance */
 .account-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.account-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .account-name {
@@ -392,7 +399,31 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   cursor: pointer;
-  flex: 1;
+}
+
+/* Institution name */
+.account-institution {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.3px;
+}
+
+/* Card mask */
+.account-mask {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  letter-spacing: 1px;
+}
+
+/* Logo — div with background-image (img tags fail on mobile Safari) */
+.account-logo {
+  height: 36px;
+  max-width: 140px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: left center;
+  margin-top: 0.15rem;
 }
 
 .account-balance {
@@ -419,31 +450,6 @@ body {
 
 .balance-positive {
   color: var(--success);
-}
-
-/* Institution name */
-.account-institution {
-  color: var(--text-dim);
-  font-size: 0.7rem;
-  letter-spacing: 0.3px;
-}
-
-/* Card mask */
-.account-mask {
-  color: var(--text-dim);
-  font-size: 0.7rem;
-  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-  letter-spacing: 1px;
-}
-
-/* Logo — div with background-image (img tags fail on mobile Safari) */
-.account-logo {
-  height: 40px;
-  max-width: 160px;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: left center;
-  margin-top: 0.3rem;
 }
 
 /* Nickname inline edit */

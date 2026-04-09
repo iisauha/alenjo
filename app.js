@@ -559,20 +559,23 @@ function renderSection(listEl, items, type) {
 function accountCard(account, type) {
   var bal = getDisplayBalance(account, type);
   var logoUrl = getLogoUrl(account);
-  var timestamp = formatTimestamp(account.balance_last_updated_at);
+  var syncTs = account.plaid_last_checked_at || account.balance_last_updated_at;
+  var timestamp = formatTimestamp(syncTs);
   var displayName = account.nickname || account.name || 'Account';
 
   return '<div class="account-card" data-id="' + account.id + '">' +
     '<div class="account-top">' +
-      '<span class="account-name" data-id="' + account.id + '">' + esc(displayName) + '</span>' +
+      '<div class="account-left">' +
+        '<span class="account-name" data-id="' + account.id + '">' + esc(displayName) + '</span>' +
+        '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
+        (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
+        (logoUrl ? '<div class="account-logo" style="background-image:url(' + logoUrl + ')"></div>' : '') +
+      '</div>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
-        '<div class="label"' + (account.balance_last_updated_at ? ' data-ts="' + account.balance_last_updated_at + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
+        '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
-    '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
-    (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
-    (logoUrl ? '<div class="account-logo" style="background-image:url(' + logoUrl + ')"></div>' : '') +
   '</div>';
 }
 
@@ -977,24 +980,6 @@ async function loadRecurring() {
   recEmpty.hidden = true;
   recContent.hidden = false;
 
-  // Build month list
-  var monthSet = {};
-  var now = new Date();
-  var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  monthSet[currentMonth] = true;
-  recData.forEach(function(tx) {
-    monthSet[tx.date.substring(0, 7)] = true;
-  });
-  var recMonths = Object.keys(monthSet).sort().reverse();
-
-  var filter = $('#rec-month-filter');
-  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  filter.innerHTML = recMonths.map(function(m) {
-    var parts = m.split('-');
-    var label = monthNames[parseInt(parts[1]) - 1] + ' ' + parts[0];
-    return '<option value="' + m + '">' + label + '</option>';
-  }).join('');
-
   var cardFilter = $('#rec-card-filter');
   cardFilter.innerHTML = '<option value="all">All Accounts</option>';
   if (cachedAccounts) {
@@ -1007,7 +992,6 @@ async function loadRecurring() {
 
   renderRecurring();
 
-  filter.addEventListener('change', renderRecurring);
   cardFilter.addEventListener('change', renderRecurring);
   recLoaded = true;
 }
@@ -1024,39 +1008,48 @@ function detectRecurring(transactions) {
   var recurring = [];
   Object.keys(byMerchant).forEach(function(key) {
     var group = byMerchant[key];
-    // Find distinct months this merchant appears in
-    var months = {};
+
+    // Get per-month totals (one total per month)
+    var monthTotals = {};
     group.txs.forEach(function(tx) {
-      months[tx.date.substring(0, 7)] = true;
+      var m = tx.date.substring(0, 7);
+      if (!monthTotals[m]) monthTotals[m] = 0;
+      monthTotals[m] += tx.amount;
     });
-    var monthCount = Object.keys(months).length;
-    // Recurring = appears in 2+ distinct months
-    if (monthCount >= 2) {
-      // Determine if income or expense based on majority of transactions
-      var totalAmount = group.txs.reduce(function(s, tx) { return s + tx.amount; }, 0);
-      var avgAmount = totalAmount / group.txs.length;
-      var isIncome = avgAmount < 0;
-      recurring.push({
-        merchant: group.name,
-        isIncome: isIncome,
-        monthCount: monthCount,
-        avgAmount: Math.abs(avgAmount),
-        txsByMonth: group.txs.reduce(function(acc, tx) {
-          var m = tx.date.substring(0, 7);
-          if (!acc[m]) acc[m] = [];
-          acc[m].push(tx);
-          return acc;
-        }, {}),
-        allTxs: group.txs
-      });
-    }
+    var months = Object.keys(monthTotals);
+    if (months.length < 2) return;
+
+    // Check amount consistency: each month's total must be within 20% of the median
+    var amounts = months.map(function(m) { return Math.abs(monthTotals[m]); });
+    var sorted = amounts.slice().sort(function(a, b) { return a - b; });
+    var median = sorted[Math.floor(sorted.length / 2)];
+    if (median === 0) return;
+    var threshold = median * 0.20;
+    var consistent = amounts.every(function(a) { return Math.abs(a - median) <= threshold; });
+    if (!consistent) return;
+
+    var totalAmount = group.txs.reduce(function(s, tx) { return s + tx.amount; }, 0);
+    var avgAmount = totalAmount / months.length; // per-month average
+    var isIncome = avgAmount < 0;
+
+    // Find the most recent transaction date
+    var lastDate = group.txs.reduce(function(latest, tx) {
+      return tx.date > latest ? tx.date : latest;
+    }, '');
+
+    recurring.push({
+      merchant: group.name,
+      isIncome: isIncome,
+      monthCount: months.length,
+      amount: Math.abs(avgAmount),
+      lastDate: lastDate
+    });
   });
 
   return recurring;
 }
 
 function renderRecurring() {
-  var month = $('#rec-month-filter').value;
   var cardId = $('#rec-card-filter').value;
   var summaryEl = $('#rec-summary');
   var incomeEl = $('#rec-income-section');
@@ -1070,28 +1063,8 @@ function renderRecurring() {
 
   var allRecurring = detectRecurring(filtered);
 
-  // Split into income and expenses that have activity in the selected month
-  var incomeItems = [];
-  var expenseItems = [];
-
-  allRecurring.forEach(function(item) {
-    var monthTxs = item.txsByMonth[month];
-    if (!monthTxs || monthTxs.length === 0) return;
-    var monthTotal = monthTxs.reduce(function(s, tx) { return s + tx.amount; }, 0);
-    var entry = {
-      merchant: item.merchant,
-      amount: Math.abs(monthTotal),
-      count: monthTxs.length,
-      monthCount: item.monthCount,
-      avgAmount: item.avgAmount,
-      txs: monthTxs
-    };
-    if (item.isIncome) {
-      incomeItems.push(entry);
-    } else {
-      expenseItems.push(entry);
-    }
-  });
+  var incomeItems = allRecurring.filter(function(r) { return r.isIncome; });
+  var expenseItems = allRecurring.filter(function(r) { return !r.isIncome; });
 
   // Sort by amount descending
   incomeItems.sort(function(a, b) { return b.amount - a.amount; });
@@ -1102,8 +1075,8 @@ function renderRecurring() {
 
   // Summary
   summaryEl.innerHTML = '<div class="tx-month-summary">' +
-    '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '</span></div>' +
-    '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Costs</span><span class="tx-summary-value balance-negative">' + formatMoney(totalExpenses) + '</span></div>' +
+    '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '/mo</span></div>' +
+    '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Costs</span><span class="tx-summary-value balance-negative">' + formatMoney(totalExpenses) + '/mo</span></div>' +
   '</div>';
 
   // Render income section
@@ -1130,9 +1103,8 @@ function renderRecurring() {
     expenseEl.innerHTML = '';
   }
 
-  // Empty state for this month
   if (incomeItems.length === 0 && expenseItems.length === 0) {
-    incomeEl.innerHTML = '<div class="empty-state">No recurring transactions found for this month</div>';
+    incomeEl.innerHTML = '<div class="empty-state">No recurring transactions detected yet</div>';
   }
 }
 
@@ -1141,13 +1113,13 @@ function renderRecurringRow(item, isIncome) {
   return '<div class="rec-row">' +
     '<div class="rec-info">' +
       '<span class="rec-merchant">' + esc(item.merchant) + '</span>' +
-      '<span class="rec-freq">' + freq + (item.count > 1 ? ' (' + item.count + 'x this month)' : '') + '</span>' +
+      '<span class="rec-freq">' + freq + ' -- last ' + formatTxDate(item.lastDate) + '</span>' +
     '</div>' +
     '<div class="rec-right">' +
       '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
         (isIncome ? '+' : '-') + formatMoney(item.amount) +
       '</span>' +
-      '<span class="rec-avg">avg ' + formatMoney(item.avgAmount) + '/mo</span>' +
+      '<span class="rec-avg">/mo</span>' +
     '</div>' +
   '</div>';
 }
