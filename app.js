@@ -272,26 +272,59 @@ async function refreshBalances() {
 // ============================================
 var LOGO_KEY = 'pk_H4uo3XF8R0iZtbgE3TDSgQ';
 var DOMAIN_MAP = {
-  'american express': 'amex.com',
-  'amex': 'amex.com',
+  'american express': 'americanexpress.com',
+  'amex': 'americanexpress.com',
   'chase': 'chase.com',
+  'jpmorgan chase': 'chase.com',
   'bank of america': 'bankofamerica.com',
   'wells fargo': 'wellsfargo.com',
-  'citi': 'citi.com',
-  'citibank': 'citi.com',
+  'citi': 'citibank.com',
+  'citibank': 'citibank.com',
   'capital one': 'capitalone.com',
   'us bank': 'usbank.com',
+  'u.s. bank': 'usbank.com',
   'pnc': 'pnc.com',
-  'td bank': 'td.com',
+  'pnc bank': 'pnc.com',
+  'td bank': 'tdbank.com',
+  'td': 'tdbank.com',
   'discover': 'discover.com',
   'ally': 'ally.com',
+  'ally bank': 'ally.com',
   'usaa': 'usaa.com',
   'navy federal': 'navyfederal.org',
+  'navy federal credit union': 'navyfederal.org',
   'sofi': 'sofi.com',
   'marcus': 'marcus.com',
+  'marcus by goldman sachs': 'marcus.com',
+  'goldman sachs': 'goldmansachs.com',
   'barclays': 'barclays.com',
-  'synchrony': 'synchrony.com',
-  'apple': 'apple.com'
+  'synchrony': 'synchronybank.com',
+  'synchrony bank': 'synchronybank.com',
+  'apple': 'apple.com',
+  'apple card': 'apple.com',
+  'charles schwab': 'schwab.com',
+  'schwab': 'schwab.com',
+  'fidelity': 'fidelity.com',
+  'vanguard': 'vanguard.com',
+  'robinhood': 'robinhood.com',
+  'chime': 'chime.com',
+  'paypal': 'paypal.com',
+  'venmo': 'venmo.com',
+  'citizens bank': 'citizensbank.com',
+  'citizens': 'citizensbank.com',
+  'huntington': 'huntington.com',
+  'huntington bank': 'huntington.com',
+  'regions': 'regions.com',
+  'regions bank': 'regions.com',
+  'truist': 'truist.com',
+  'fifth third': '53.com',
+  'fifth third bank': '53.com',
+  'keybank': 'key.com',
+  'm&t bank': 'mtb.com',
+  'bmo': 'bmo.com',
+  'hsbc': 'hsbc.com',
+  'comenity': 'comenity.net',
+  'comenity bank': 'comenity.net'
 };
 
 function getLogoUrl(institution) {
@@ -299,8 +332,17 @@ function getLogoUrl(institution) {
   var lower = institution.toLowerCase().trim();
   var domain = DOMAIN_MAP[lower];
   if (!domain) {
-    // Try removing common suffixes and guess domain
-    domain = lower.replace(/\s*(bank|credit union|financial|federal)\s*/gi, '').trim().replace(/\s+/g, '') + '.com';
+    // Try partial matches
+    var keys = Object.keys(DOMAIN_MAP);
+    for (var i = 0; i < keys.length; i++) {
+      if (lower.indexOf(keys[i]) !== -1 || keys[i].indexOf(lower) !== -1) {
+        domain = DOMAIN_MAP[keys[i]];
+        break;
+      }
+    }
+  }
+  if (!domain) {
+    domain = lower.replace(/\s+/g, '') + '.com';
   }
   return 'https://img.logo.dev/' + domain + '?token=' + LOGO_KEY + '&size=80&format=png';
 }
