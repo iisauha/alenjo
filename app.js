@@ -609,7 +609,6 @@ function renderAccounts(accounts) {
     $('#holdings-section').hidden = true;
   }
 
-  updateChatFab();
   updateSyncInfo();
 }
 
@@ -1682,130 +1681,6 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 // ============================================
 // AI CHAT (inline on Snapshot)
 // ============================================
-var chatSection = $('#chat-section');
-var chatForm = $('#chat-form');
-var chatInput = $('#chat-input');
-var chatResponse = $('#chat-response');
-var chatCooldown = $('#chat-cooldown');
-var chatHistory = [];
-var chatSending = false;
-
-function updateChatFab() {
-  chatSection.hidden = !cachedAccounts || cachedAccounts.length === 0;
-}
-
-chatForm.addEventListener('submit', async function(e) {
-  e.preventDefault();
-  var text = chatInput.value.trim();
-  if (!text || chatSending) return;
-
-  chatSending = true;
-  $('#chat-send').disabled = true;
-  chatResponse.hidden = false;
-  chatResponse.className = 'chat-response chat-response-loading';
-  chatResponse.innerHTML = '<div class="chat-typing"><span></span><span></span><span></span></div>';
-
-  chatHistory.push({ role: 'user', content: text });
-  chatInput.value = '';
-
-  try {
-    var sessionResult = await sb.auth.getSession();
-    var session = sessionResult.data.session;
-    if (!session) throw new Error('Not logged in');
-
-    var res = await fetch(SUPABASE_URL + '/functions/v1/ai-chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-        'apikey': SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ messages: chatHistory })
-    });
-
-    var data = await res.json();
-
-    if (res.status === 429) {
-      if (data.error === 'rate_limit') {
-        showChatCooldown(data.retry_after || 60);
-      } else {
-        showChatResponse(data.message || 'Daily limit reached. Try again tomorrow.');
-      }
-      chatHistory.pop();
-      chatSending = false;
-      $('#chat-send').disabled = false;
-      return;
-    }
-
-    if (data.error) {
-      showChatResponse('Something went wrong. Try again.');
-      chatHistory.pop();
-      chatSending = false;
-      $('#chat-send').disabled = false;
-      return;
-    }
-
-    var aiMsg = data.message || 'Done.';
-    showChatResponse(aiMsg);
-    chatHistory.push({ role: 'model', content: JSON.stringify({ message: aiMsg, actions: data.actions || [] }) });
-
-    // Apply actions if any
-    if (data.actions && data.actions.length > 0) {
-      var applied = 0;
-      for (var i = 0; i < data.actions.length; i++) {
-        var act = data.actions[i];
-        if (!act.transaction_id || !act.action_type) continue;
-        try {
-          await saveTxAction(act.transaction_id, act.action_type, {
-            splitWays: act.split_ways || null,
-            categoryOverride: act.category_override || null
-          }, true);
-          applied++;
-        } catch (err) {
-          console.error('Failed to apply action:', err);
-        }
-      }
-      if (applied > 0) {
-        showChatResponse(aiMsg + '\n\nApplied ' + applied + ' action' + (applied > 1 ? 's' : '') + '.');
-        renderTransactionMonth();
-      }
-    }
-  } catch (err) {
-    showChatResponse('Connection error. Try again.');
-    chatHistory.pop();
-    console.error('Chat error:', err);
-  }
-
-  chatSending = false;
-  $('#chat-send').disabled = false;
-});
-
-function showChatResponse(text) {
-  chatResponse.hidden = false;
-  chatResponse.className = 'chat-response';
-  chatResponse.textContent = text;
-}
-
-function showChatCooldown(seconds) {
-  chatCooldown.hidden = false;
-  chatInput.disabled = true;
-  $('#chat-send').disabled = true;
-  chatResponse.hidden = true;
-  var remaining = seconds;
-
-  function tick() {
-    chatCooldown.textContent = 'Rate limit reached. Try again in ' + remaining + 's';
-    if (remaining <= 0) {
-      chatCooldown.hidden = true;
-      chatInput.disabled = false;
-      $('#chat-send').disabled = false;
-      return;
-    }
-    remaining--;
-    setTimeout(tick, 1000);
-  }
-  tick();
-}
 
 // ============================================
 // UTILS
