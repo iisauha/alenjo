@@ -549,7 +549,7 @@ function accountCard(account, type) {
     '</div>' +
     '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
     (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
-    (logoUrl ? '<img class="account-logo" src="' + logoUrl + '" alt="" onerror="this.style.display=\'none\'">' : '') +
+    (logoUrl ? '<img class="account-logo" src="' + logoUrl + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="account-debug" style="color:#E84D4D;font-size:0.6rem;">no logo: ' + esc(account.institution_logo_domain || 'null') + '</span>') +
   '</div>';
 }
 
