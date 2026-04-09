@@ -1066,6 +1066,8 @@ function accountCard(account, type) {
         if (liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>$' + parseFloat(liab.last_statement_balance).toFixed(2) + '</span></div>';
         if (liab.is_overdue) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
         if (details) liabHtml += details;
+      } else {
+        liabHtml += '<div class="liab-detail liab-unavailable"><span>Card details not available from this institution</span></div>';
       }
 
       liabHtml += '</div>';

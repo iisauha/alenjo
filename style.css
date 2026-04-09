@@ -1062,6 +1062,16 @@ body {
   color: #F59E0B;
 }
 
+.liab-detail.liab-unavailable {
+  justify-content: center;
+}
+
+.liab-detail.liab-unavailable span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
 /* Loans tab */
 .loans-list {
   display: flex;
