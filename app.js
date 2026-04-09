@@ -618,12 +618,12 @@ async function loadTransactions() {
   if (!cachedAccounts || cachedAccounts.length === 0) {
     txEmpty.hidden = false;
     txContent.hidden = true;
-    txLoadingEl.hidden = true;
+    txLoadingEl.classList.remove('visible');
     return;
   }
 
   txEmpty.hidden = true;
-  txLoadingEl.hidden = true;
+  txLoadingEl.classList.remove('visible');
 
   // Fetch transactions from DB (last 12 months)
   var cutoff = new Date();
@@ -641,7 +641,7 @@ async function loadTransactions() {
     var lastTxSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
     if (Date.now() - lastTxSync > TX_SYNC_COOLDOWN) {
       localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
-      txLoadingEl.hidden = false;
+      txLoadingEl.classList.add('visible');
       txEmpty.hidden = true;
       try {
         var sessionResult = await sb.auth.getSession();
@@ -656,13 +656,13 @@ async function loadTransactions() {
             }
           });
         }
-        txLoadingEl.hidden = true;
+        txLoadingEl.classList.remove('visible');
         // Retry loading after sync
         return loadTransactions();
       } catch (e) {
         console.error('Initial sync error:', e);
       }
-      txLoadingEl.hidden = true;
+      txLoadingEl.classList.remove('visible');
     }
     txEmpty.hidden = false;
     txContent.hidden = true;

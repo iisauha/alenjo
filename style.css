@@ -768,13 +768,17 @@ body {
    TRANSACTIONS TAB
    ================================ */
 .tx-loading {
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
   padding: 3rem 1rem;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+.tx-loading.visible {
+  display: flex;
 }
 
 .tx-filters {
