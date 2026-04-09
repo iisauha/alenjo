@@ -573,45 +573,18 @@ function renderAccounts(accounts) {
 }
 
 function updateSyncInfo() {
-  var section = $('#section-sync-info');
-  var infoEl = $('#sync-info');
-  if (!cachedAccounts || cachedAccounts.length === 0) {
-    section.hidden = true;
-    return;
-  }
-  section.hidden = false;
-
-  var institutions = {};
-  cachedAccounts.forEach(function(a) {
-    if (a.institution) institutions[a.institution] = true;
-  });
-  var bankCount = Object.keys(institutions).length || 1;
-  var accountCount = cachedAccounts.length;
-  var cooldownMs = getSyncCooldown();
-  var cooldownMin = Math.round(cooldownMs / 60000);
-  var callsPerSync = bankCount * 3;
-  var callsPerHour = Math.round((60 / cooldownMin) * callsPerSync);
-  var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
-  var lastSyncText = lastSync ? formatTimestamp(new Date(lastSync).toISOString()) : 'Never';
-
-  infoEl.innerHTML =
-    '<div class="sync-info-row"><span>Connected accounts</span><span>' + accountCount + '</span></div>' +
-    '<div class="sync-info-row"><span>Bank connections</span><span>' + bankCount + '</span></div>' +
-    '<div class="sync-info-row"><span>Refresh interval</span><span>Every ' + cooldownMin + ' min</span></div>' +
-    '<div class="sync-info-row"><span>Plaid calls per sync</span><span>' + callsPerSync + '</span></div>' +
-    '<div class="sync-info-row"><span>Plaid calls per hour</span><span>~' + callsPerHour + '</span></div>' +
-    '<div class="sync-info-row"><span>Plaid limit per item</span><span>30/min</span></div>' +
-    '<div class="sync-info-row"><span>Last synced</span><span data-ts="' + (lastSync ? new Date(lastSync).toISOString() : '') + '" data-ts-prefix="">' + lastSyncText + '</span></div>';
-
-  // Billing estimate
   var billingSection = $('#section-billing');
   var billingEl = $('#billing-info');
+  if (!cachedAccounts || cachedAccounts.length === 0) {
+    billingSection.hidden = true;
+    return;
+  }
   billingSection.hidden = false;
 
+  var accountCount = cachedAccounts.length;
   var txRate = 0.30;
   var recurringRate = 0.15;
-  var perAccountTotal = txRate + recurringRate;
-  var monthlyEstimate = accountCount * perAccountTotal;
+  var monthlyEstimate = accountCount * (txRate + recurringRate);
 
   billingEl.innerHTML =
     '<div class="sync-info-row"><span>Connected accounts</span><span>' + accountCount + '</span></div>' +
