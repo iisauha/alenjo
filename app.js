@@ -353,7 +353,24 @@ async function openPlaidLink(products) {
       token: data.link_token,
       onSuccess: async function(publicToken, metadata) {
         showLoading(true);
-        await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+
+        // Check for duplicate institution before exchanging token (per Plaid docs)
+        var dupeCheck = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({
+            action: 'check_duplicate',
+            institution: metadata.institution
+          })
+        });
+        var dupeData = await dupeCheck.json();
+        if (dupeData.duplicate) {
+          showError(dupeData.message || 'This institution is already connected.');
+          showLoading(false);
+          return;
+        }
+
+        var exchangeRes = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
           method: 'POST',
           headers: headers,
           body: JSON.stringify({
@@ -362,6 +379,12 @@ async function openPlaidLink(products) {
             institution: metadata.institution
           })
         });
+        var exchangeData = await exchangeRes.json();
+        if (exchangeData.error === 'duplicate') {
+          showError(exchangeData.message || 'This institution is already connected.');
+          showLoading(false);
+          return;
+        }
         await loadAccounts();
         showLoading(false);
       },
