@@ -64,6 +64,24 @@ body {
   width: 100%;
 }
 
+.beta-label {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 0.75rem;
+}
+
+.beta-desc {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  max-width: 280px;
+}
+
 .login-logo {
   width: 80px;
   height: 80px;

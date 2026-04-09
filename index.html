@@ -15,8 +15,23 @@
 </head>
 <body>
 
+  <!-- BETA GATE -->
+  <div id="screen-beta" class="screen active">
+    <div class="login-container">
+      <img src="alenjo.png" alt="Alenjo" class="login-logo">
+      <h1 class="login-title">Alenjo</h1>
+      <p class="beta-label">Beta</p>
+      <p class="beta-desc">This app is currently in closed beta. Enter your access code to continue.</p>
+      <div id="beta-error" class="auth-error" hidden></div>
+      <form id="beta-form">
+        <input type="password" id="beta-pin" placeholder="Access Code" required autocomplete="off">
+        <button type="submit" class="btn-primary">Enter</button>
+      </form>
+    </div>
+  </div>
+
   <!-- LOGIN SCREEN -->
-  <div id="screen-login" class="screen active">
+  <div id="screen-login" class="screen">
     <div class="login-container">
       <img src="alenjo.png" alt="Alenjo" class="login-logo">
       <h1 class="login-title">Alenjo</h1>

@@ -1,5 +1,41 @@
 (function() {
 // ============================================
+// BETA GATE
+// ============================================
+var BETA_HASH = '165ad56f32e7b8044384c703d9e1acd559394a32e89ef76035c0de5723c65502';
+var betaForm = document.getElementById('beta-form');
+var betaPin = document.getElementById('beta-pin');
+var betaError = document.getElementById('beta-error');
+
+async function sha256(str) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+function checkBetaAccess() {
+  return sessionStorage.getItem('alenjo_beta') === 'granted';
+}
+
+if (checkBetaAccess()) {
+  document.getElementById('screen-beta').classList.remove('active');
+  document.getElementById('screen-login').classList.add('active');
+}
+
+betaForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  betaError.hidden = true;
+  var hash = await sha256(betaPin.value);
+  if (hash === BETA_HASH) {
+    sessionStorage.setItem('alenjo_beta', 'granted');
+    document.getElementById('screen-beta').classList.remove('active');
+    document.getElementById('screen-login').classList.add('active');
+  } else {
+    betaError.textContent = 'Invalid access code.';
+    betaError.hidden = false;
+  }
+});
+
+// ============================================
 // SUPABASE INIT
 // ============================================
 var SUPABASE_URL = 'https://itkufrockebnlzcroigc.supabase.co';
@@ -95,7 +131,8 @@ sb.auth.onAuthStateChange(function(event, session) {
     loadAccounts();
   } else {
     currentUser = null;
-    showScreen('login');
+    if (checkBetaAccess()) showScreen('login');
+    else showScreen('beta');
   }
 });
 
@@ -305,7 +342,7 @@ if ('serviceWorker' in navigator) {
     currentUser = result.data.session.user;
     showScreen('snapshot');
     loadAccounts();
-  } else {
+  } else if (checkBetaAccess()) {
     showScreen('login');
   }
 })();
