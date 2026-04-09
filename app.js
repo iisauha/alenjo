@@ -524,6 +524,18 @@ function renderAccounts(accounts) {
   var creditSum = credits.reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
   creditTotal.textContent = formatMoney(creditSum);
   creditTotal.className = 'section-total balance-negative';
+
+  // Net cash = banks + savings - credit owed
+  var netCashEl = $('#net-cash');
+  var netCashValue = $('#net-cash-value');
+  if (hasAccounts) {
+    var netCash = bankSum + savingsSum - creditSum;
+    netCashEl.hidden = false;
+    netCashValue.textContent = (netCash < 0 ? '-' : '') + formatMoney(netCash);
+    netCashValue.className = 'net-cash-value ' + (netCash >= 0 ? 'balance-positive' : 'balance-negative');
+  } else {
+    netCashEl.hidden = true;
+  }
 }
 
 function renderSection(listEl, items, type) {
@@ -625,6 +637,8 @@ nicknameInput.addEventListener('keydown', function(e) {
 // ============================================
 var txData = [];
 var txMonths = [];
+var txActions = {};
+var ignoreRules = {};
 var TX_SYNC_COOLDOWN = 30 * 60 * 1000; // 30 minutes
 
 async function loadTransactions() {
@@ -691,6 +705,32 @@ async function loadTransactions() {
   txEmpty.hidden = true;
   txContent.hidden = false;
 
+  // Load user actions and ignore rules
+  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, category_override');
+  txActions = {};
+  if (actionsResult.data) {
+    actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
+  }
+  var rulesResult = await sb.from('merchant_ignore_rules').select('merchant_name').eq('is_active', true);
+  ignoreRules = {};
+  if (rulesResult.data) {
+    rulesResult.data.forEach(function(r) { ignoreRules[r.merchant_name] = true; });
+  }
+
+  // Auto-apply ignore rules to new transactions
+  var toAutoIgnore = txData.filter(function(tx) {
+    if (txActions[tx.id]) return false;
+    var key = (tx.merchant_name || tx.name || '').toLowerCase().trim();
+    return ignoreRules[key];
+  });
+  if (toAutoIgnore.length > 0) {
+    var rows = toAutoIgnore.map(function(tx) {
+      return { user_id: currentUser.id, transaction_id: tx.id, action_type: 'ignored' };
+    });
+    await sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' });
+    toAutoIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
+  }
+
   // Build month list — always include current month
   var monthSet = {};
   var now = new Date();
@@ -747,6 +787,21 @@ async function loadTransactions() {
   // Background sync is handled by throttledSync() from loadAccounts
 }
 
+function getEffectiveTx(tx) {
+  var action = txActions[tx.id];
+  var result = { excluded: false, amount: tx.amount, category: tx.category, actionType: action ? action.action_type : null, splitWays: action ? action.split_ways : null };
+  if (!action) return result;
+  if (action.action_type === 'ignored' || action.action_type === 'reimbursed') {
+    result.excluded = true;
+    result.amount = 0;
+  } else if (action.action_type === 'split') {
+    result.amount = tx.amount / action.split_ways;
+  } else if (action.action_type === 'recategorized') {
+    result.category = action.category_override;
+  }
+  return result;
+}
+
 var txPieChart = null;
 var activeCategoryFilter = null;
 
@@ -776,19 +831,19 @@ function renderTransactionMonth() {
   var displayTx = filtered;
   if (activeCategoryFilter) {
     displayTx = filtered.filter(function(tx) {
-      return normalizeCategory(tx.category) === activeCategoryFilter;
+      var eff = getEffectiveTx(tx);
+      return normalizeCategory(eff.category) === activeCategoryFilter;
     });
   }
 
-  // Expenses only for pie chart (positive amounts = money out)
-  var expenses = filtered.filter(function(tx) { return tx.amount > 0; });
-
-  // Group by category
+  // Expenses only for pie chart — use effective amounts, skip excluded
   var byCategory = {};
-  expenses.forEach(function(tx) {
-    var cat = normalizeCategory(tx.category);
+  filtered.forEach(function(tx) {
+    var eff = getEffectiveTx(tx);
+    if (eff.excluded || eff.amount <= 0) return;
+    var cat = normalizeCategory(eff.category);
     if (!byCategory[cat]) byCategory[cat] = 0;
-    byCategory[cat] += tx.amount;
+    byCategory[cat] += eff.amount;
   });
 
   // Sort categories by amount
@@ -872,9 +927,15 @@ function renderTransactionMonth() {
     });
   });
 
-  // Month summary
-  var totalSpent = expenses.reduce(function(s, tx) { return s + tx.amount; }, 0);
-  var totalIncome = filtered.filter(function(tx) { return tx.amount < 0; }).reduce(function(s, tx) { return s + Math.abs(tx.amount); }, 0);
+  // Month summary — use effective values
+  var totalSpent = 0;
+  var totalIncome = 0;
+  filtered.forEach(function(tx) {
+    var eff = getEffectiveTx(tx);
+    if (eff.excluded) return;
+    if (eff.amount > 0) totalSpent += eff.amount;
+    else totalIncome += Math.abs(eff.amount);
+  });
 
   var html = '<div class="tx-month-summary">' +
     '<div class="tx-summary-item"><span class="tx-summary-label">Spent</span><span class="tx-summary-value balance-negative">' + formatMoney(totalSpent) + '</span></div>' +
@@ -883,6 +944,7 @@ function renderTransactionMonth() {
 
   // Render transactions
   displayTx.forEach(function(tx) {
+    var eff = getEffectiveTx(tx);
     var authDate = tx.authorized_date ? formatTxDate(tx.authorized_date) : null;
     var postDate = formatTxDate(tx.date);
     var dateHtml = '';
@@ -894,15 +956,41 @@ function renderTransactionMonth() {
       dateHtml = postDate;
     }
 
-    html += '<div class="tx-row">' +
+    var rowClass = 'tx-row';
+    var badge = '';
+    if (eff.actionType === 'split') {
+      badge = '<span class="tx-badge tx-badge-split">' + eff.splitWays + '-way split</span>';
+      rowClass += ' tx-actioned';
+    } else if (eff.actionType === 'reimbursed') {
+      badge = '<span class="tx-badge tx-badge-reimbursed">Reimbursed</span>';
+      rowClass += ' tx-actioned tx-excluded';
+    } else if (eff.actionType === 'ignored') {
+      badge = '<span class="tx-badge tx-badge-ignored">Ignored</span>';
+      rowClass += ' tx-actioned tx-excluded';
+    } else if (eff.actionType === 'recategorized') {
+      badge = '<span class="tx-badge tx-badge-recat">' + esc(normalizeCategory(eff.category)) + '</span>';
+      rowClass += ' tx-actioned';
+    }
+
+    var amountHtml = '';
+    if (eff.actionType === 'split') {
+      amountHtml = '<span class="tx-amount-original">' + (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) + '</span>' +
+        '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
+          (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(eff.amount)) +
+        '</span>';
+    } else {
+      amountHtml = '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
+        (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
+      '</span>';
+    }
+
+    html += '<div class="' + rowClass + '" data-txid="' + esc(tx.id) + '">' +
       '<div class="tx-info">' +
         '<span class="tx-merchant">' + esc(tx.merchant_name || tx.name || 'Unknown') + '</span>' +
-        '<span class="tx-category">' + esc(normalizeCategory(tx.category)) + '</span>' +
+        (badge ? badge : '<span class="tx-category">' + esc(normalizeCategory(eff.category)) + '</span>') +
       '</div>' +
       '<div class="tx-right">' +
-        '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
-          (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
-        '</span>' +
+        amountHtml +
         '<span class="tx-date">' + dateHtml + '</span>' +
       '</div>' +
     '</div>';
@@ -920,6 +1008,47 @@ window._clearCatFilter = function() {
   renderTransactionMonth();
 };
 
+// CSV Export — exports currently filtered transactions
+$('#btn-export-csv').addEventListener('click', function() {
+  var month = $('#tx-month-filter').value;
+  var cardId = $('#tx-card-filter').value;
+
+  var filtered = txData.filter(function(tx) {
+    return tx.date.substring(0, 7) === month;
+  });
+  if (cardId !== 'all') {
+    filtered = filtered.filter(function(tx) { return tx.plaid_account_id === cardId; });
+  }
+  if (activeCategoryFilter) {
+    filtered = filtered.filter(function(tx) {
+      return normalizeCategory(tx.category) === activeCategoryFilter;
+    });
+  }
+
+  if (filtered.length === 0) return;
+
+  var csvRows = ['Date,Merchant,Category,Amount,Effective Amount,Type,Status,Pending'];
+  filtered.forEach(function(tx) {
+    var eff = getEffectiveTx(tx);
+    var merchant = (tx.merchant_name || tx.name || 'Unknown').replace(/"/g, '""');
+    var cat = normalizeCategory(eff.category).replace(/"/g, '""');
+    var type = tx.amount < 0 ? 'Income' : 'Expense';
+    var status = eff.actionType || 'normal';
+    csvRows.push(
+      tx.date + ',"' + merchant + '","' + cat + '",' +
+      tx.amount.toFixed(2) + ',' + eff.amount.toFixed(2) + ',' + type + ',' + status + ',' + (tx.pending ? 'Yes' : 'No')
+    );
+  });
+
+  var blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'transactions-' + month + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
 function formatTxDate(dateStr) {
   if (!dateStr) return '';
   var parts = dateStr.split('-');
@@ -930,6 +1059,237 @@ function formatTxDate(dateStr) {
 function normalizeCategory(cat) {
   if (!cat) return 'Other';
   return cat.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+// ============================================
+// TRANSACTION ACTION SHEET
+// ============================================
+var actionSheet = $('#tx-action-sheet');
+var actionTxId = null;
+var actionTx = null;
+
+// Open action sheet on tx row tap
+document.addEventListener('click', function(e) {
+  var row = e.target.closest('.tx-row[data-txid]');
+  if (!row) return;
+  var txId = row.dataset.txid;
+  var tx = txData.find(function(t) { return t.id === txId; });
+  if (!tx) return;
+  openActionSheet(tx);
+});
+
+function openActionSheet(tx) {
+  actionTxId = tx.id;
+  actionTx = tx;
+  var eff = getEffectiveTx(tx);
+
+  $('#tx-action-merchant').textContent = tx.merchant_name || tx.name || 'Unknown';
+  $('#tx-action-amount').textContent = (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount));
+  $('#tx-action-amount').className = 'action-sheet-subtitle ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
+
+  // Show current status if actioned
+  var statusEl = $('#tx-action-status');
+  if (eff.actionType) {
+    var statusText = '';
+    if (eff.actionType === 'split') statusText = 'Currently: ' + eff.splitWays + '-way split -- your share ' + formatMoney(Math.abs(eff.amount));
+    else if (eff.actionType === 'reimbursed') statusText = 'Currently: Reimbursed';
+    else if (eff.actionType === 'ignored') statusText = 'Currently: Ignored';
+    else if (eff.actionType === 'recategorized') statusText = 'Currently: Re-categorized to ' + normalizeCategory(eff.category);
+    statusEl.textContent = statusText;
+    statusEl.hidden = false;
+    document.querySelector('.action-option-clear').hidden = false;
+  } else {
+    statusEl.hidden = true;
+    document.querySelector('.action-option-clear').hidden = true;
+  }
+
+  // Highlight active action
+  document.querySelectorAll('.action-option').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.action === eff.actionType);
+  });
+
+  // Reset sub-pickers
+  $('#split-picker').hidden = true;
+  $('#recat-picker').hidden = true;
+  $('#tx-action-options').hidden = false;
+
+  actionSheet.classList.add('visible');
+}
+
+function closeActionSheet() {
+  actionSheet.classList.remove('visible');
+  actionTxId = null;
+  actionTx = null;
+}
+
+$('#action-sheet-cancel').addEventListener('click', closeActionSheet);
+actionSheet.addEventListener('click', function(e) {
+  if (e.target === actionSheet) closeActionSheet();
+});
+
+// Action option clicks
+document.querySelectorAll('#tx-action-options .action-option').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var action = btn.dataset.action;
+    if (!actionTxId) return;
+
+    if (action === 'clear') {
+      clearTxAction(actionTxId);
+      return;
+    }
+    if (action === 'split') {
+      $('#tx-action-options').hidden = true;
+      $('#split-picker').hidden = false;
+      $('#split-preview').textContent = '';
+      return;
+    }
+    if (action === 'recategorized') {
+      showRecatPicker();
+      return;
+    }
+    // reimbursed or ignored — save immediately
+    saveTxAction(actionTxId, action, {});
+  });
+});
+
+// Split picker
+document.querySelectorAll('#split-picker button[data-ways]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var ways = parseInt(btn.dataset.ways);
+    var share = Math.abs(actionTx.amount) / ways;
+    $('#split-preview').textContent = 'Your share: ' + formatMoney(share);
+    saveTxAction(actionTxId, 'split', { splitWays: ways });
+  });
+});
+
+// Re-categorize picker
+function showRecatPicker() {
+  $('#tx-action-options').hidden = true;
+  var picker = $('#recat-picker');
+  picker.hidden = false;
+  var list = $('#recat-list');
+
+  var allCats = {};
+  txData.forEach(function(tx) {
+    var cat = normalizeCategory(tx.category);
+    allCats[cat] = true;
+  });
+  var catList = Object.keys(allCats).sort();
+
+  list.innerHTML = catList.map(function(cat) {
+    return '<button class="recat-option" data-cat="' + esc(cat) + '">' + esc(cat) + '</button>';
+  }).join('');
+
+  list.querySelectorAll('.recat-option').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      saveTxAction(actionTxId, 'recategorized', { categoryOverride: btn.dataset.cat });
+    });
+  });
+}
+
+async function saveTxAction(txId, actionType, extra) {
+  var row = {
+    user_id: currentUser.id,
+    transaction_id: txId,
+    action_type: actionType,
+    split_ways: extra.splitWays || null,
+    category_override: extra.categoryOverride || null
+  };
+  await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
+  txActions[txId] = row;
+
+  if (actionType === 'ignored') {
+    checkIgnorePattern(txId);
+  }
+
+  renderTransactionMonth();
+  closeActionSheet();
+}
+
+async function clearTxAction(txId) {
+  await sb.from('transaction_actions').delete().eq('user_id', currentUser.id).eq('transaction_id', txId);
+  delete txActions[txId];
+  renderTransactionMonth();
+  closeActionSheet();
+}
+
+// ============================================
+// AUTO-SUGGEST IGNORE
+// ============================================
+function normalizeMerchant(name) {
+  if (!name) return '';
+  return name.toLowerCase().trim();
+}
+
+function checkIgnorePattern(txId) {
+  var tx = txData.find(function(t) { return t.id === txId; });
+  if (!tx) return;
+  var merchantKey = normalizeMerchant(tx.merchant_name || tx.name);
+  if (!merchantKey || ignoreRules[merchantKey]) return;
+
+  var merchantTxIds = txData.filter(function(t) {
+    return normalizeMerchant(t.merchant_name || t.name) === merchantKey;
+  }).map(function(t) { return t.id; });
+
+  var ignoredCount = merchantTxIds.filter(function(id) {
+    var a = txActions[id];
+    return a && a.action_type === 'ignored';
+  }).length;
+
+  if (ignoredCount >= 3 || (ignoredCount >= 2 && ignoredCount === merchantTxIds.length)) {
+    showIgnoreSuggestion(merchantKey, tx.merchant_name || tx.name, ignoredCount);
+  }
+}
+
+function showIgnoreSuggestion(merchantKey, displayName, count) {
+  var existing = document.getElementById('ignore-suggestion');
+  if (existing) existing.remove();
+
+  var banner = document.createElement('div');
+  banner.id = 'ignore-suggestion';
+  banner.className = 'ignore-suggestion';
+  banner.innerHTML =
+    '<div class="ignore-suggestion-text">' +
+      '<strong>Auto-ignore ' + esc(displayName) + '?</strong>' +
+      '<span>You\'ve ignored ' + count + ' transactions from this merchant</span>' +
+    '</div>' +
+    '<div class="ignore-suggestion-actions">' +
+      '<button class="btn-primary-sm" id="ignore-suggestion-yes">Yes</button>' +
+      '<button class="btn-secondary-sm" id="ignore-suggestion-no">Dismiss</button>' +
+    '</div>';
+
+  var txContent = document.getElementById('tx-content');
+  txContent.insertBefore(banner, txContent.children[1]);
+
+  document.getElementById('ignore-suggestion-yes').addEventListener('click', async function() {
+    await createIgnoreRule(merchantKey);
+    banner.remove();
+  });
+  document.getElementById('ignore-suggestion-no').addEventListener('click', function() {
+    banner.remove();
+  });
+}
+
+async function createIgnoreRule(merchantKey) {
+  await sb.from('merchant_ignore_rules').upsert({
+    user_id: currentUser.id,
+    merchant_name: merchantKey,
+    is_active: true
+  }, { onConflict: 'user_id,merchant_name' });
+  ignoreRules[merchantKey] = true;
+
+  var toIgnore = txData.filter(function(tx) {
+    var key = normalizeMerchant(tx.merchant_name || tx.name);
+    return key === merchantKey && !txActions[tx.id];
+  });
+  if (toIgnore.length > 0) {
+    var rows = toIgnore.map(function(tx) {
+      return { user_id: currentUser.id, transaction_id: tx.id, action_type: 'ignored' };
+    });
+    await sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' });
+    toIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
+  }
+  renderTransactionMonth();
 }
 
 // Load transactions when switching to that tab
@@ -997,29 +1357,32 @@ async function loadRecurring() {
 }
 
 function detectRecurring(transactions) {
-  // Group by normalized merchant name
+  // Group by normalized merchant name, skip excluded
   var byMerchant = {};
   transactions.forEach(function(tx) {
+    var eff = getEffectiveTx(tx);
+    if (eff.excluded) return;
     var key = (tx.merchant_name || tx.name || 'Unknown').toLowerCase().trim();
-    if (!byMerchant[key]) byMerchant[key] = { name: tx.merchant_name || tx.name || 'Unknown', txs: [] };
+    if (!byMerchant[key]) byMerchant[key] = { name: tx.merchant_name || tx.name || 'Unknown', txs: [], effs: [] };
     byMerchant[key].txs.push(tx);
+    byMerchant[key].effs.push(eff);
   });
 
   var recurring = [];
   Object.keys(byMerchant).forEach(function(key) {
     var group = byMerchant[key];
 
-    // Get per-month totals (one total per month)
+    // Get per-month totals using effective amounts
     var monthTotals = {};
-    group.txs.forEach(function(tx) {
-      var m = tx.date.substring(0, 7);
+    group.effs.forEach(function(eff, i) {
+      var m = group.txs[i].date.substring(0, 7);
       if (!monthTotals[m]) monthTotals[m] = 0;
-      monthTotals[m] += tx.amount;
+      monthTotals[m] += eff.amount;
     });
     var months = Object.keys(monthTotals);
     if (months.length < 2) return;
 
-    var totalAmount = group.txs.reduce(function(s, tx) { return s + tx.amount; }, 0);
+    var totalAmount = group.effs.reduce(function(s, eff) { return s + eff.amount; }, 0);
     var avgAmount = totalAmount / months.length; // per-month average
     var isIncome = avgAmount < 0;
 

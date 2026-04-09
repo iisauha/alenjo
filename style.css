@@ -296,6 +296,36 @@ body {
   display: none;
 }
 
+/* Net Cash Card */
+.net-cash-card {
+  background: linear-gradient(145deg, #111D32 0%, #0C1424 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.net-cash-card[hidden] {
+  display: none;
+}
+
+.net-cash-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.net-cash-value {
+  font-weight: 700;
+  font-size: 1.4rem;
+  letter-spacing: -0.5px;
+}
+
 .connect-cta {
   text-align: center;
   padding: 2.5rem 1.5rem;
@@ -797,11 +827,32 @@ body {
   flex: 1;
 }
 
+.tx-subheader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
 .tx-updated {
   font-size: 0.65rem;
   color: var(--text-dim);
-  display: block;
-  margin-bottom: 0.75rem;
+}
+
+.btn-export {
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.65rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.btn-export:hover {
+  border-color: var(--accent);
 }
 
 .tx-chart-wrap {
@@ -986,6 +1037,268 @@ body {
 .tx-auth-date {
   color: var(--text-dim);
   font-size: 0.55rem;
+}
+
+/* Transaction badges */
+.tx-badge {
+  display: inline-block;
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.tx-badge-split {
+  background: rgba(60, 130, 246, 0.15);
+  color: #3C82F6;
+}
+
+.tx-badge-reimbursed {
+  background: rgba(77, 232, 143, 0.15);
+  color: var(--success);
+}
+
+.tx-badge-ignored {
+  background: rgba(107, 123, 149, 0.15);
+  color: var(--text-muted);
+}
+
+.tx-badge-recat {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8B5CF6;
+}
+
+.tx-excluded {
+  opacity: 0.4;
+}
+
+.tx-actioned {
+  border-left: 2px solid var(--accent);
+  padding-left: 0.4rem;
+}
+
+.tx-amount-original {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
+/* Action Sheet */
+.action-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 95;
+}
+
+.action-sheet-overlay.visible {
+  display: flex;
+}
+
+.action-sheet {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.action-sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.action-sheet-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.action-sheet-subtitle {
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-left: 0.75rem;
+}
+
+.action-sheet-status {
+  font-size: 0.7rem;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(60, 130, 246, 0.08);
+  border-radius: var(--radius-sm);
+}
+
+.action-sheet-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.action-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s;
+}
+
+.action-option:hover {
+  border-color: var(--accent);
+}
+
+.action-option.active {
+  border-color: var(--accent);
+  background: rgba(60, 130, 246, 0.08);
+}
+
+.action-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.action-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.action-desc {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.action-sheet-cancel {
+  width: 100%;
+  padding: 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* Sub-pickers */
+.action-sheet-sub {
+  margin-bottom: 0.75rem;
+}
+
+.action-sub-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.split-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.split-buttons button {
+  flex: 1;
+  padding: 0.6rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.split-buttons button:hover {
+  border-color: var(--accent);
+}
+
+.split-preview {
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-align: center;
+}
+
+.recat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.recat-option {
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s;
+}
+
+.recat-option:hover {
+  border-color: var(--accent);
+}
+
+/* Ignore suggestion banner */
+.ignore-suggestion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(60, 130, 246, 0.08);
+  border: 1px solid rgba(60, 130, 246, 0.25);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.75rem;
+}
+
+.ignore-suggestion-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.ignore-suggestion-text strong {
+  font-size: 0.8rem;
+}
+
+.ignore-suggestion-text span {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.ignore-suggestion-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 
 /* ================================

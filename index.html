@@ -66,6 +66,11 @@
       <div id="snapshot-error" class="auth-error" hidden></div>
       <button id="balance-toggle" class="balance-toggle" hidden>Current</button>
 
+      <div id="net-cash" class="net-cash-card" hidden>
+        <span class="net-cash-label">Net Cash</span>
+        <span id="net-cash-value" class="net-cash-value"></span>
+      </div>
+
       <div id="connect-cta" class="connect-cta">
         <p>Connect your bank to get started</p>
         <button id="btn-connect-plaid" class="btn-primary">Connect Account</button>
@@ -114,7 +119,10 @@
             <option value="all">All Accounts</option>
           </select>
         </div>
-        <span id="tx-updated" class="tx-updated"></span>
+        <div class="tx-subheader">
+          <span id="tx-updated" class="tx-updated"></span>
+          <button id="btn-export-csv" class="btn-export">Export CSV</button>
+        </div>
         <div class="tx-chart-wrap">
           <canvas id="tx-pie-chart"></canvas>
         </div>
@@ -207,6 +215,64 @@
         <button id="nickname-cancel" class="btn-secondary-sm">Cancel</button>
         <button id="nickname-save" class="btn-primary-sm">Save</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Transaction Action Sheet -->
+  <div id="tx-action-sheet" class="action-sheet-overlay">
+    <div class="action-sheet">
+      <div class="action-sheet-header">
+        <span id="tx-action-merchant" class="action-sheet-title"></span>
+        <span id="tx-action-amount" class="action-sheet-subtitle"></span>
+      </div>
+      <div id="tx-action-status" class="action-sheet-status" hidden></div>
+      <div id="tx-action-options" class="action-sheet-options">
+        <button class="action-option" data-action="split">
+          <div class="action-option-text">
+            <span class="action-label">Split</span>
+            <span class="action-desc">I split this with others</span>
+          </div>
+        </button>
+        <button class="action-option" data-action="reimbursed">
+          <div class="action-option-text">
+            <span class="action-label">Reimbursed</span>
+            <span class="action-desc">Someone else paid for this</span>
+          </div>
+        </button>
+        <button class="action-option" data-action="ignored">
+          <div class="action-option-text">
+            <span class="action-label">Ignore</span>
+            <span class="action-desc">Exclude from my totals</span>
+          </div>
+        </button>
+        <button class="action-option" data-action="recategorized">
+          <div class="action-option-text">
+            <span class="action-label">Re-categorize</span>
+            <span class="action-desc">Change the spending category</span>
+          </div>
+        </button>
+        <button class="action-option action-option-clear" data-action="clear" hidden>
+          <div class="action-option-text">
+            <span class="action-label">Clear Action</span>
+            <span class="action-desc">Reset to normal</span>
+          </div>
+        </button>
+      </div>
+      <div id="split-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">How many ways?</p>
+        <div class="split-buttons">
+          <button data-ways="2">2</button>
+          <button data-ways="3">3</button>
+          <button data-ways="4">4</button>
+          <button data-ways="5">5</button>
+        </div>
+        <p id="split-preview" class="split-preview"></p>
+      </div>
+      <div id="recat-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">Choose category</p>
+        <div id="recat-list" class="recat-list"></div>
+      </div>
+      <button class="action-sheet-cancel" id="action-sheet-cancel">Cancel</button>
     </div>
   </div>
 
