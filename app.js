@@ -1036,45 +1036,65 @@ function accountCard(account, type) {
   // Liabilities detail for credit cards
   var liabHtml = '';
   if (type === 'credit') {
+    var overrides = getCardOverrides(account.id);
     var limit = account.balance_limit ? parseFloat(account.balance_limit) : 0;
+    var limitManual = false;
+    if (!limit && overrides.limit) {
+      limit = overrides.limit;
+      limitManual = true;
+    }
     var used = bal.amount;
 
     liabHtml = '<div class="card-liabilities">';
 
-    // Show utilization bar if credit limit is available
+    // Show utilization bar if credit limit is available (from Plaid or manual)
     if (limit > 0) {
       var utilPct = Math.min((used / limit) * 100, 100);
       var utilClass = utilPct > 75 ? 'util-high' : utilPct > 30 ? 'util-mid' : 'util-low';
       liabHtml +=
         '<div class="liab-util-wrap">' +
           '<div class="liab-util-bar"><div class="liab-util-fill ' + utilClass + '" style="width:' + utilPct.toFixed(1) + '%"></div></div>' +
-          '<div class="liab-util-labels"><span>' + formatMoney(used) + ' / ' + formatMoney(limit) + '</span><span>' + utilPct.toFixed(0) + '% used</span></div>' +
+          '<div class="liab-util-labels"><span>' + formatMoney(used) + ' / ' + formatMoney(limit) + (limitManual ? ' <span class="manual-tag">(manual)</span>' : '') + '</span><span>' + utilPct.toFixed(0) + '% used</span></div>' +
         '</div>';
     }
 
     // Show detailed liabilities data if available from Plaid Liabilities product
     var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
-    console.log('[DEBUG LIAB] Card:', account.institution || 'unknown', '| account_id:', account.id, '| has limit:', limit > 0, '| liab found:', !!liab, '| data:', liab ? { apr: liab.apr_purchase, min_pay: liab.minimum_payment_amount, due: liab.next_payment_due_date, last_pay: liab.last_payment_amount, last_pay_date: liab.last_payment_date, stmt_bal: liab.last_statement_balance, overdue: liab.is_overdue } : 'NONE');
-    if (liab) {
-      var details = '';
-      if (liab.apr_purchase) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + parseFloat(liab.apr_purchase).toFixed(2) + '%</span></div>';
-      if (liab.minimum_payment_amount != null) details += '<div class="liab-detail"><span>Min Payment</span><span>' + formatMoney(parseFloat(liab.minimum_payment_amount)) + '</span></div>';
-      if (liab.next_payment_due_date) {
-        var dueDate = new Date(liab.next_payment_due_date + 'T00:00:00');
-        var now = new Date();
-        var daysUntil = Math.ceil((dueDate - now) / 86400000);
-        var dueClass = daysUntil <= 3 ? 'liab-urgent' : daysUntil <= 7 ? 'liab-soon' : '';
-        details += '<div class="liab-detail ' + dueClass + '"><span>Due</span><span>' + formatLiabDate(liab.next_payment_due_date) + (daysUntil >= 0 ? ' (' + daysUntil + 'd)' : ' (overdue)') + '</span></div>';
+    var details = '';
+    var apr = (liab && liab.apr_purchase) ? parseFloat(liab.apr_purchase) : overrides.apr || null;
+    var aprManual = !(liab && liab.apr_purchase) && overrides.apr;
+    if (apr) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + apr.toFixed(2) + '%' + (aprManual ? ' <span class="manual-tag">(manual)</span>' : '') + '</span></div>';
+
+    var minPay = liab && liab.minimum_payment_amount != null ? parseFloat(liab.minimum_payment_amount) : null;
+    if (minPay != null) details += '<div class="liab-detail"><span>Min Payment</span><span>' + formatMoney(minPay) + '</span></div>';
+
+    var hasMinPayment = minPay != null && minPay > 0;
+    if (liab && liab.next_payment_due_date) {
+      var dueDate = new Date(liab.next_payment_due_date + 'T00:00:00');
+      var now = new Date();
+      var daysUntil = Math.ceil((dueDate - now) / 86400000);
+      var dueClass = '';
+      if (hasMinPayment) {
+        dueClass = daysUntil <= 3 ? 'liab-urgent' : daysUntil <= 7 ? 'liab-soon' : '';
       }
-      if (liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>' + formatMoney(parseFloat(liab.last_payment_amount)) + '</span></div>';
-      if (liab.last_payment_date) details += '<div class="liab-detail"><span>Last Payment Date</span><span>' + formatLiabDate(liab.last_payment_date) + '</span></div>';
-      if (liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>' + formatMoney(parseFloat(liab.last_statement_balance)) + '</span></div>';
-      if (liab.is_overdue) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
-      if (details) liabHtml += details;
-    } else {
+      var dueLabel = daysUntil >= 0 ? ' (' + daysUntil + 'd)' : (hasMinPayment ? ' (overdue)' : ' (past)');
+      details += '<div class="liab-detail ' + dueClass + '"><span>Due</span><span>' + formatLiabDate(liab.next_payment_due_date) + dueLabel + '</span></div>';
+    }
+    if (liab && liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>' + formatMoney(parseFloat(liab.last_payment_amount)) + '</span></div>';
+    if (liab && liab.last_payment_date) details += '<div class="liab-detail"><span>Last Payment Date</span><span>' + formatLiabDate(liab.last_payment_date) + '</span></div>';
+
+    var stmtBal = (liab && liab.last_statement_balance) ? parseFloat(liab.last_statement_balance) : overrides.stmt || null;
+    var stmtManual = !(liab && liab.last_statement_balance) && overrides.stmt;
+    if (stmtBal) details += '<div class="liab-detail"><span>Statement Bal</span><span>' + formatMoney(stmtBal) + (stmtManual ? ' <span class="manual-tag">(manual)</span>' : '') + '</span></div>';
+
+    if (liab && liab.is_overdue && hasMinPayment) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
+
+    if (details) liabHtml += details;
+    if (!liab && !details) {
       liabHtml += '<div class="liab-detail liab-unavailable"><span>Card details not available from this institution</span></div>';
     }
 
+    liabHtml += '<button class="liab-edit-btn" data-account-id="' + account.id + '">Edit card details</button>';
     liabHtml += '</div>';
   }
 
@@ -1142,6 +1162,68 @@ $('#nickname-cancel').addEventListener('click', function() {
 nicknameInput.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { e.preventDefault(); $('#nickname-save').click(); }
   if (e.key === 'Escape') { $('#nickname-cancel').click(); }
+});
+
+// Card detail overrides (localStorage)
+function getCardOverrides(accountId) {
+  try {
+    var all = JSON.parse(localStorage.getItem('alenjo_card_overrides') || '{}');
+    return all[accountId] || {};
+  } catch (e) { return {}; }
+}
+
+function setCardOverrides(accountId, data) {
+  try {
+    var all = JSON.parse(localStorage.getItem('alenjo_card_overrides') || '{}');
+    if (!data || (!data.limit && !data.apr && !data.stmt)) {
+      delete all[accountId];
+    } else {
+      all[accountId] = data;
+    }
+    localStorage.setItem('alenjo_card_overrides', JSON.stringify(all));
+  } catch (e) { console.error('Override save error:', e); }
+}
+
+var cardOverrideModal = $('#card-override-modal');
+var overrideEditingId = null;
+
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.liab-edit-btn');
+  if (!btn) return;
+  overrideEditingId = btn.dataset.accountId;
+  var acct = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === overrideEditingId; }) : null;
+  var label = acct ? (acct.nickname || acct.name || 'Card') : 'Card';
+  $('#card-override-label').textContent = 'Set values for ' + label + ' when not provided by your bank.';
+  var ov = getCardOverrides(overrideEditingId);
+  $('#override-limit').value = ov.limit || '';
+  $('#override-apr').value = ov.apr || '';
+  $('#override-stmt').value = ov.stmt || '';
+  cardOverrideModal.classList.add('visible');
+  $('#override-limit').focus();
+});
+
+$('#card-override-save').addEventListener('click', function() {
+  if (!overrideEditingId) return;
+  var lim = parseFloat($('#override-limit').value) || 0;
+  var apr = parseFloat($('#override-apr').value) || 0;
+  var stmt = parseFloat($('#override-stmt').value) || 0;
+  setCardOverrides(overrideEditingId, { limit: lim, apr: apr, stmt: stmt });
+  cardOverrideModal.classList.remove('visible');
+  overrideEditingId = null;
+  if (cachedAccounts) renderAccounts(cachedAccounts);
+});
+
+$('#card-override-cancel').addEventListener('click', function() {
+  cardOverrideModal.classList.remove('visible');
+  overrideEditingId = null;
+});
+
+$('#card-override-clear').addEventListener('click', function() {
+  if (!overrideEditingId) return;
+  setCardOverrides(overrideEditingId, null);
+  cardOverrideModal.classList.remove('visible');
+  overrideEditingId = null;
+  if (cachedAccounts) renderAccounts(cachedAccounts);
 });
 
 // ============================================
