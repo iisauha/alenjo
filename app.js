@@ -1019,15 +1019,6 @@ function detectRecurring(transactions) {
     var months = Object.keys(monthTotals);
     if (months.length < 2) return;
 
-    // Check amount consistency: each month's total must be within 20% of the median
-    var amounts = months.map(function(m) { return Math.abs(monthTotals[m]); });
-    var sorted = amounts.slice().sort(function(a, b) { return a - b; });
-    var median = sorted[Math.floor(sorted.length / 2)];
-    if (median === 0) return;
-    var threshold = median * 0.20;
-    var consistent = amounts.every(function(a) { return Math.abs(a - median) <= threshold; });
-    if (!consistent) return;
-
     var totalAmount = group.txs.reduce(function(s, tx) { return s + tx.amount; }, 0);
     var avgAmount = totalAmount / months.length; // per-month average
     var isIncome = avgAmount < 0;
