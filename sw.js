@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alenjo-v1';
+const CACHE_NAME = 'alenjo-v2';
 const ASSETS = [
   '/',
   '/index.html',
