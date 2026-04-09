@@ -450,25 +450,18 @@ function getSyncCooldown() {
     if (a.institution) institutions[a.institution] = true;
   });
   var itemCount = Object.keys(institutions).length || 1;
-  // 1-2 banks: 5 min, 3-5 banks: 7 min, 6+: 10 min
-  // Plaid allows 30 req/min/item; we use 3 per sync per item.
-  // At 5 min with 2 items = 6 calls/5min = 1.2 req/min total. Well under limit.
-  if (itemCount <= 2) return 5 * 60 * 1000;
-  if (itemCount <= 5) return 7 * 60 * 1000;
-  return 10 * 60 * 1000;
+  // 1-2 banks: 2 min, 3-5 banks: 3 min, 6+: 5 min
+  // Plaid allows 30 req/min/item. Well under limit at these intervals.
+  if (itemCount <= 2) return 2 * 60 * 1000;
+  if (itemCount <= 5) return 3 * 60 * 1000;
+  return 5 * 60 * 1000;
 }
 
 function throttledSync() {
   if (syncInFlight) return;
-  // Force sync once after deploy to trigger holdings fetch
-  var forceKey = 'alenjo_force_sync_v2';
-  var forced = !localStorage.getItem(forceKey);
-  if (forced) localStorage.setItem(forceKey, '1');
-  if (!forced) {
-    var cooldown = getSyncCooldown();
-    var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
-    if (Date.now() - lastSync < cooldown) return;
-  }
+  var cooldown = getSyncCooldown();
+  var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
+  if (Date.now() - lastSync < cooldown) return;
   syncInFlight = true;
   localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
   backgroundSync().finally(function() { syncInFlight = false; });
