@@ -357,7 +357,10 @@ btnAddAccount.addEventListener('click', function() { openPlaidLink(['transaction
 // ============================================
 // LOAD ACCOUNTS
 // ============================================
+var loadingAccounts = false;
 async function loadAccounts() {
+  if (loadingAccounts) return;
+  loadingAccounts = true;
   var result = await sb.rpc('get_user_accounts');
 
   if (result.error) {
@@ -372,15 +375,19 @@ async function loadAccounts() {
   if (cachedAccounts.length > 0) {
     throttledRefreshBalances();
   }
+  loadingAccounts = false;
 }
 
 var REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+var refreshInFlight = false;
 
 function throttledRefreshBalances() {
+  if (refreshInFlight) return;
   var lastRefresh = parseInt(localStorage.getItem('alenjo_last_balance_refresh') || '0');
   if (Date.now() - lastRefresh < REFRESH_COOLDOWN) return;
+  refreshInFlight = true;
   localStorage.setItem('alenjo_last_balance_refresh', String(Date.now()));
-  refreshBalances();
+  refreshBalances().finally(function() { refreshInFlight = false; });
 }
 
 async function refreshBalances() {
