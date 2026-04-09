@@ -372,50 +372,7 @@ async function loadAccounts() {
   renderAccounts(cachedAccounts);
   resolveLogos();
 
-  if (cachedAccounts.length > 0) {
-    throttledRefreshBalances();
-  }
   loadingAccounts = false;
-}
-
-var REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
-var refreshInFlight = false;
-
-function throttledRefreshBalances() {
-  if (refreshInFlight) return;
-  var lastRefresh = parseInt(localStorage.getItem('alenjo_last_balance_refresh') || '0');
-  if (Date.now() - lastRefresh < REFRESH_COOLDOWN) return;
-  refreshInFlight = true;
-  localStorage.setItem('alenjo_last_balance_refresh', String(Date.now()));
-  refreshBalances().finally(function() { refreshInFlight = false; });
-}
-
-async function refreshBalances() {
-  try {
-    var sessionResult = await sb.auth.getSession();
-    var session = sessionResult.data.session;
-    if (!session) return;
-
-    var res = await fetch(SUPABASE_URL + '/functions/v1/refresh-balances', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-        'apikey': SUPABASE_ANON_KEY
-      }
-    });
-
-    var data = await res.json();
-    if (data.success && data.updated > 0) {
-      var result = await sb.rpc('get_user_accounts');
-      if (!result.error) {
-        cachedAccounts = result.data || [];
-        renderAccounts(cachedAccounts);
-      }
-    }
-  } catch (err) {
-    console.error('Balance refresh error:', err);
-  }
 }
 
 // ============================================
