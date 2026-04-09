@@ -702,7 +702,7 @@ document.addEventListener('click', async function(e) {
   var btn = e.target.closest('.btn-remove-account');
   if (!btn) return;
   var id = btn.dataset.id;
-  if (!confirm('Remove this account? This cannot be undone.')) return;
+  if (!confirm('Remove this account? This will disconnect it from Plaid.')) return;
   btn.disabled = true;
   btn.textContent = '...';
   await sb.from('accounts').update({ is_hidden: true }).eq('id', id);
@@ -711,6 +711,35 @@ document.addEventListener('click', async function(e) {
     renderAccounts(cachedAccounts);
   }
 });
+
+// Disconnect all accounts from Plaid
+if ($('#btn-disconnect-all')) {
+  $('#btn-disconnect-all').addEventListener('click', async function() {
+    if (!confirm('Disconnect ALL accounts from Plaid? This removes them from Plaid billing and deletes all data. You will need to reconnect.')) return;
+    this.disabled = true;
+    this.textContent = 'Disconnecting...';
+    try {
+      var sessionResult = await sb.auth.getSession();
+      var session = sessionResult.data.session;
+      var res = await fetch(SUPABASE_URL + '/functions/v1/cleanup-items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + session.access_token,
+          'apikey': SUPABASE_ANON_KEY
+        }
+      });
+      var data = await res.json();
+      cachedAccounts = [];
+      cachedHoldings = null;
+      cachedLiabilities = null;
+      renderAccounts([]);
+      this.textContent = 'Disconnected ' + (data.removed || 0) + ' items';
+    } catch (err) {
+      this.textContent = 'Error: ' + err.message;
+    }
+  });
+}
 
 function updateSyncInfo() {
   var billingSection = $('#section-billing');
