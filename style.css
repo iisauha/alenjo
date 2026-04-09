@@ -280,7 +280,7 @@ body {
    ACCOUNT SECTIONS
    ================================ */
 .account-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
 }
 
 .account-section[hidden] {
@@ -290,53 +290,74 @@ body {
 .section-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
   margin-bottom: 0.75rem;
 }
 
 .section-header h2 {
-  font-size: 1rem;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .section-total {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
+/* Horizontal scroll for cards */
 .account-list {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+  margin: 0 -1.25rem;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
 }
 
+.account-list::-webkit-scrollbar {
+  display: none;
+}
+
+/* Wallet-style cards */
 .account-card {
+  flex: 0 0 calc(100% - 2rem);
+  max-width: 320px;
+  min-height: 140px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
-  background-color: var(--bg-card);
-  border-radius: var(--radius);
+  padding: 1.25rem;
+  background: linear-gradient(135deg, #111D32 0%, #0D1628 100%);
+  border-radius: 16px;
   border: 1px solid var(--border);
-  transition: border-color 0.2s;
   position: relative;
   overflow: hidden;
+  scroll-snap-align: start;
 }
 
+/* Institution logo watermark */
 .account-card.has-logo::before {
   content: '';
   position: absolute;
-  inset: 0;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 120px;
+  height: 120px;
   background-image: var(--logo-url);
   background-repeat: no-repeat;
   background-position: center center;
   background-size: contain;
-  opacity: 0.06;
+  opacity: 0.15;
   pointer-events: none;
+  filter: brightness(1.5) grayscale(0.3);
 }
 
 .account-card > * {
@@ -344,39 +365,68 @@ body {
   z-index: 1;
 }
 
-.account-info {
+/* Top row: institution + mask */
+.account-top {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.account-name {
-  font-weight: 500;
-  font-size: 0.95rem;
-}
-
-.account-mask {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: auto;
 }
 
 .account-institution {
   color: var(--text-dim);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 500;
+}
+
+.account-mask {
+  color: var(--text-dim);
   font-size: 0.75rem;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  letter-spacing: 1px;
+}
+
+/* Bottom area: name + balance */
+.account-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.account-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .account-balance {
   text-align: right;
+  flex-shrink: 0;
 }
 
 .account-balance .amount {
-  font-weight: 600;
-  font-size: 1.05rem;
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
 }
 
 .account-balance .label {
-  color: var(--text-muted);
-  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  margin-top: 0.15rem;
 }
 
 .balance-negative {
@@ -385,6 +435,33 @@ body {
 
 .balance-positive {
   color: var(--success);
+}
+
+/* Single card takes full width */
+.account-list:has(.account-card:only-child) .account-card {
+  flex: 1;
+  max-width: none;
+}
+
+/* Scroll indicators */
+.account-section .scroll-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+
+.account-section .scroll-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.account-section .scroll-dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
 }
 
 /* ================================

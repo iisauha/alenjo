@@ -343,22 +343,52 @@ function renderAccounts(accounts) {
   balanceToggle.hidden = !hasAccounts;
 
   // Banks (checking, etc.)
-  listBanks.innerHTML = banks.map(function(a) { return accountCard(a, 'bank'); }).join('');
+  renderSection(listBanks, banks, 'bank');
   var bankSum = banks.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
   banksTotal.textContent = formatMoney(bankSum);
   banksTotal.className = 'section-total ' + (bankSum >= 0 ? 'balance-positive' : 'balance-negative');
 
   // Savings
-  listSavings.innerHTML = savings.map(function(a) { return accountCard(a, 'bank'); }).join('');
+  renderSection(listSavings, savings, 'bank');
   var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
   savingsTotal.textContent = formatMoney(savingsSum);
   savingsTotal.className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
 
   // Credit Cards
-  listCredit.innerHTML = credits.map(function(a) { return accountCard(a, 'credit'); }).join('');
+  renderSection(listCredit, credits, 'credit');
   var creditSum = credits.reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
   creditTotal.textContent = formatMoney(creditSum);
   creditTotal.className = 'section-total balance-negative';
+}
+
+function renderSection(listEl, items, type) {
+  listEl.innerHTML = items.map(function(a) { return accountCard(a, type); }).join('');
+
+  // Add scroll dots if more than 1 card
+  var dotsEl = listEl.parentElement.querySelector('.scroll-dots');
+  if (dotsEl) dotsEl.remove();
+
+  if (items.length > 1) {
+    var dots = document.createElement('div');
+    dots.className = 'scroll-dots';
+    for (var i = 0; i < items.length; i++) {
+      var dot = document.createElement('div');
+      dot.className = 'scroll-dot' + (i === 0 ? ' active' : '');
+      dots.appendChild(dot);
+    }
+    listEl.parentElement.appendChild(dots);
+
+    // Track scroll position
+    listEl.addEventListener('scroll', function() {
+      var scrollLeft = listEl.scrollLeft;
+      var cardWidth = listEl.firstElementChild ? listEl.firstElementChild.offsetWidth + 12 : 1;
+      var idx = Math.round(scrollLeft / cardWidth);
+      var allDots = dots.querySelectorAll('.scroll-dot');
+      allDots.forEach(function(d, j) {
+        d.classList.toggle('active', j === idx);
+      });
+    });
+  }
 }
 
 function accountCard(account, type) {
@@ -368,14 +398,18 @@ function accountCard(account, type) {
   var timestamp = formatTimestamp(account.balance_last_updated_at);
 
   return '<div class="account-card' + (logoUrl ? ' has-logo' : '') + '"' + bgStyle + '>' +
-    '<div class="account-info">' +
-      '<span class="account-name">' + esc(account.name || 'Account') + '</span>' +
-      (account.mask ? '<span class="account-mask">' + esc(account.subtype || '') + ' ****' + esc(account.mask) + '</span>' : '') +
-      (account.institution ? '<span class="account-institution">' + esc(account.institution) + '</span>' : '') +
+    '<div class="account-top">' +
+      (account.institution ? '<span class="account-institution">' + esc(account.institution) + '</span>' : '<span></span>') +
+      (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
     '</div>' +
-    '<div class="account-balance">' +
-      '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
-      '<div class="label">' + timestamp + '</div>' +
+    '<div class="account-bottom">' +
+      '<div class="account-info">' +
+        '<span class="account-name">' + esc(account.name || 'Account') + '</span>' +
+      '</div>' +
+      '<div class="account-balance">' +
+        '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
+        '<div class="label">' + timestamp + '</div>' +
+      '</div>' +
     '</div>' +
   '</div>';
 }
