@@ -200,9 +200,18 @@ function applyTabOrder() {
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
   // Ensure new tabs are present in saved order
+  var dirty = false;
+  if (order.indexOf('investments') === -1) {
+    var snapIdx = order.indexOf('snapshot');
+    order.splice(snapIdx !== -1 ? snapIdx + 1 : 1, 0, 'investments');
+    dirty = true;
+  }
   if (order.indexOf('recurring') === -1) {
     var txIdx = order.indexOf('transactions');
     order.splice(txIdx !== -1 ? txIdx + 1 : order.length - 1, 0, 'recurring');
+    dirty = true;
+  }
+  if (dirty) {
     userProfile.tab_order = order;
     sb.from('profiles').update({ tab_order: order }).eq('id', currentUser.id);
   }
@@ -255,8 +264,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = userProfile.tab_order || ['snapshot', 'transactions', 'recurring', 'settings'];
-  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', recurring: 'Recurring', settings: 'Settings' };
+  var order = userProfile.tab_order || ['snapshot', 'investments', 'transactions', 'recurring', 'settings'];
+  var labels = { snapshot: 'Snapshot', investments: 'Investments', transactions: 'Transactions', recurring: 'Recurring', settings: 'Settings' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +
@@ -274,7 +283,7 @@ document.addEventListener('click', function(e) {
   if (!btn || !userProfile) return;
   var tab = btn.dataset.tab;
   var dir = btn.dataset.dir;
-  var order = userProfile.tab_order || ['snapshot', 'transactions', 'recurring', 'settings'];
+  var order = userProfile.tab_order || ['snapshot', 'investments', 'transactions', 'recurring', 'settings'];
   var idx = order.indexOf(tab);
   if (idx === -1) return;
   var newIdx = dir === 'up' ? idx - 1 : idx + 1;
@@ -359,7 +368,8 @@ async function openPlaidLink(products) {
 
 btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions']); });
 btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions']); });
-// (removed investing connect)
+$('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
+$('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
 
 // ============================================
 // LOAD ACCOUNTS
@@ -533,41 +543,72 @@ function renderAccounts(accounts) {
   var banks = accounts.filter(function(a) { return a.type === 'depository' && a.subtype !== 'savings'; });
   var savings = accounts.filter(function(a) { return a.type === 'depository' && a.subtype === 'savings'; });
   var credits = accounts.filter(function(a) { return a.type === 'credit'; });
+  var investments = accounts.filter(function(a) { return a.type === 'investment'; });
 
-  var hasAccounts = accounts.length > 0;
-  connectCta.hidden = hasAccounts;
-  btnAddAccount.hidden = !hasAccounts;
+  // Snapshot tab: banks + credit only
+  var hasBankAccounts = banks.length > 0 || credits.length > 0;
+  connectCta.hidden = hasBankAccounts;
+  btnAddAccount.hidden = !hasBankAccounts;
   sectionBanks.hidden = banks.length === 0;
-  sectionSavings.hidden = savings.length === 0;
+  sectionSavings.hidden = true; // savings moved to investments tab
   sectionCredit.hidden = credits.length === 0;
-  balanceToggle.hidden = !hasAccounts;
+  balanceToggle.hidden = !hasBankAccounts;
 
   renderSection(listBanks, banks, 'bank');
   var bankSum = banks.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
   banksTotal.textContent = formatMoney(bankSum);
   banksTotal.className = 'section-total ' + (bankSum >= 0 ? 'balance-positive' : 'balance-negative');
 
-  renderSection(listSavings, savings, 'bank');
-  var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
-  savingsTotal.textContent = formatMoney(savingsSum);
-  savingsTotal.className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
-
   renderSection(listCredit, credits, 'credit');
   var creditSum = credits.reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
   creditTotal.textContent = formatMoney(creditSum);
   creditTotal.className = 'section-total balance-negative';
 
-  // Net cash = banks + savings - credit owed
+  // Net cash = banks - credit owed (savings excluded, shown in investments)
   var netCashEl = $('#net-cash');
   var netCashValue = $('#net-cash-value');
-  if (hasAccounts) {
-    var netCash = bankSum + savingsSum - creditSum;
+  if (hasBankAccounts) {
+    var netCash = bankSum - creditSum;
     netCashEl.hidden = false;
     netCashValue.textContent = (netCash < 0 ? '-' : '') + formatMoney(netCash);
     netCashValue.className = 'net-cash-value ' + (netCash >= 0 ? 'balance-positive' : 'balance-negative');
   } else {
     netCashEl.hidden = true;
   }
+
+  // Investments tab: savings + investment accounts
+  var hasInvAccounts = savings.length > 0 || investments.length > 0;
+  $('#inv-empty').hidden = hasInvAccounts;
+  $('#inv-content').hidden = !hasInvAccounts;
+
+  var invSavingsSection = $('#section-inv-savings');
+  var invInvestmentsSection = $('#section-inv-investments');
+  invSavingsSection.hidden = savings.length === 0;
+  invInvestmentsSection.hidden = investments.length === 0;
+
+  renderSection($('#list-inv-savings'), savings, 'bank');
+  var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
+  $('#inv-savings-total').textContent = formatMoney(savingsSum);
+  $('#inv-savings-total').className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
+
+  renderSection($('#list-inv-investments'), investments, 'bank');
+  var investSum = investments.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
+  $('#inv-investments-total').textContent = formatMoney(investSum);
+  $('#inv-investments-total').className = 'section-total balance-positive';
+
+  // Portfolio total
+  var portfolioTotal = savingsSum + investSum;
+  $('#inv-total-value').textContent = formatMoney(portfolioTotal);
+  $('#inv-total-value').className = 'net-cash-value balance-positive';
+  $('#inv-total-card').hidden = !hasInvAccounts;
+
+  // Load holdings if investment accounts exist
+  if (investments.length > 0) {
+    loadHoldings();
+  } else {
+    $('#holdings-section').hidden = true;
+  }
+
   updateChatFab();
   updateSyncInfo();
 }
@@ -581,16 +622,106 @@ function updateSyncInfo() {
   }
   billingSection.hidden = false;
 
-  var accountCount = cachedAccounts.length;
+  // Count by type
+  var txAccounts = cachedAccounts.filter(function(a) { return a.type === 'depository' || a.type === 'credit'; });
+  var invAccounts = cachedAccounts.filter(function(a) { return a.type === 'investment'; });
+  var txCount = txAccounts.length;
+  var invCount = invAccounts.length;
+
   var txRate = 0.30;
   var recurringRate = 0.15;
-  var monthlyEstimate = accountCount * (txRate + recurringRate);
+  var invHoldingsRate = 0.18;
+  var invTxRate = 0.35;
 
-  billingEl.innerHTML =
-    '<div class="sync-info-row"><span>Connected accounts</span><span>' + accountCount + '</span></div>' +
-    '<div class="sync-info-row"><span>Transactions</span><span>' + accountCount + ' x $' + txRate.toFixed(2) + ' = $' + (accountCount * txRate).toFixed(2) + '</span></div>' +
-    '<div class="sync-info-row"><span>Recurring Transactions</span><span>' + accountCount + ' x $' + recurringRate.toFixed(2) + ' = $' + (accountCount * recurringRate).toFixed(2) + '</span></div>' +
-    '<div class="sync-info-row sync-info-total"><span>Estimated monthly total</span><span>$' + monthlyEstimate.toFixed(2) + '/mo</span></div>';
+  var txCost = txCount * txRate;
+  var recurringCost = txCount * recurringRate;
+  var invHoldingsCost = invCount * invHoldingsRate;
+  var invTxCost = invCount * invTxRate;
+  var monthlyEstimate = txCost + recurringCost + invHoldingsCost + invTxCost;
+
+  var html =
+    '<div class="sync-info-row"><span>Bank/credit accounts</span><span>' + txCount + '</span></div>';
+
+  if (txCount > 0) {
+    html +=
+      '<div class="sync-info-row"><span>Transactions</span><span>' + txCount + ' x $' + txRate.toFixed(2) + ' = $' + txCost.toFixed(2) + '</span></div>' +
+      '<div class="sync-info-row"><span>Recurring Transactions</span><span>' + txCount + ' x $' + recurringRate.toFixed(2) + ' = $' + recurringCost.toFixed(2) + '</span></div>';
+  }
+
+  if (invCount > 0) {
+    html +=
+      '<div class="sync-info-row"><span>Investment accounts</span><span>' + invCount + '</span></div>' +
+      '<div class="sync-info-row"><span>Investments Holdings</span><span>' + invCount + ' x $' + invHoldingsRate.toFixed(2) + ' = $' + invHoldingsCost.toFixed(2) + '</span></div>' +
+      '<div class="sync-info-row"><span>Investments Transactions</span><span>' + invCount + ' x $' + invTxRate.toFixed(2) + ' = $' + invTxCost.toFixed(2) + '</span></div>';
+  }
+
+  html += '<div class="sync-info-row sync-info-total"><span>Estimated monthly total</span><span>$' + monthlyEstimate.toFixed(2) + '/mo</span></div>';
+
+  billingEl.innerHTML = html;
+}
+
+// ============================================
+// INVESTMENT HOLDINGS
+// ============================================
+var cachedHoldings = null;
+
+async function loadHoldings() {
+  var result = await sb.rpc('get_user_holdings');
+  if (result.error) {
+    console.error('Holdings load error:', result.error);
+    return;
+  }
+  cachedHoldings = result.data || [];
+  renderHoldings(cachedHoldings);
+}
+
+function renderHoldings(holdings) {
+  var section = $('#holdings-section');
+  var list = $('#holdings-list');
+  if (!holdings || holdings.length === 0) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  // Group by account
+  var byAccount = {};
+  holdings.forEach(function(h) {
+    if (!byAccount[h.account_id]) byAccount[h.account_id] = [];
+    byAccount[h.account_id].push(h);
+  });
+
+  var html = '';
+  holdings.sort(function(a, b) { return (b.institution_value || 0) - (a.institution_value || 0); });
+
+  holdings.forEach(function(h) {
+    var value = h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
+    var gain = h.cost_basis ? value - h.cost_basis : null;
+    var gainPct = h.cost_basis && h.cost_basis > 0 ? ((value - h.cost_basis) / h.cost_basis * 100) : null;
+    var gainClass = gain !== null ? (gain >= 0 ? 'balance-positive' : 'balance-negative') : '';
+    var ticker = h.ticker_symbol || '';
+    var name = h.security_name || 'Unknown';
+    var typeLabel = h.security_type || '';
+
+    html += '<div class="holding-row">' +
+      '<div class="holding-left">' +
+        '<span class="holding-ticker">' + esc(ticker || name) + '</span>' +
+        '<span class="holding-name">' + esc(ticker ? name : typeLabel) + '</span>' +
+        '<span class="holding-qty">' + parseFloat(h.quantity).toFixed(4) + ' shares @ $' + formatHoldingPrice(h.institution_price || h.close_price) + '</span>' +
+      '</div>' +
+      '<div class="holding-right">' +
+        '<span class="holding-value">' + formatMoney(value) + '</span>' +
+        (gain !== null ? '<span class="holding-gain ' + gainClass + '">' + (gain >= 0 ? '+' : '-') + formatMoney(gain) + ' (' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(2) + '%)</span>' : '') +
+      '</div>' +
+    '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
+function formatHoldingPrice(price) {
+  if (!price) return '0.00';
+  return parseFloat(price).toFixed(2);
 }
 
 function renderSection(listEl, items, type) {

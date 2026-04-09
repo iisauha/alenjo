@@ -833,7 +833,69 @@ body {
   padding: 0.2rem;
 }
 
-/* (investing section removed — replaced by transactions) */
+/* Holdings */
+.holdings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.holding-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.holding-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.holding-ticker {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #fff;
+}
+
+.holding-name {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.holding-qty {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.holding-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.holding-value {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #fff;
+}
+
+.holding-gain {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
 
 /* ================================
    TRANSACTIONS TAB
