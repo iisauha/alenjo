@@ -362,23 +362,29 @@ function renderAccounts(accounts) {
 }
 
 function renderSection(listEl, items, type) {
-  listEl.innerHTML = items.map(function(a) { return accountCard(a, type); }).join('');
+  // Sort by balance, highest first
+  var sorted = items.slice().sort(function(a, b) {
+    var balA = getDisplayBalance(a, type).amount;
+    var balB = getDisplayBalance(b, type).amount;
+    return Math.abs(balB) - Math.abs(balA);
+  });
+
+  listEl.innerHTML = sorted.map(function(a) { return accountCard(a, type); }).join('');
 
   // Add scroll dots if more than 1 card
   var dotsEl = listEl.parentElement.querySelector('.scroll-dots');
   if (dotsEl) dotsEl.remove();
 
-  if (items.length > 1) {
+  if (sorted.length > 1) {
     var dots = document.createElement('div');
     dots.className = 'scroll-dots';
-    for (var i = 0; i < items.length; i++) {
+    for (var i = 0; i < sorted.length; i++) {
       var dot = document.createElement('div');
       dot.className = 'scroll-dot' + (i === 0 ? ' active' : '');
       dots.appendChild(dot);
     }
     listEl.parentElement.appendChild(dots);
 
-    // Track scroll position
     listEl.addEventListener('scroll', function() {
       var scrollLeft = listEl.scrollLeft;
       var cardWidth = listEl.firstElementChild ? listEl.firstElementChild.offsetWidth + 12 : 1;
@@ -394,18 +400,18 @@ function renderSection(listEl, items, type) {
 function accountCard(account, type) {
   var bal = getDisplayBalance(account, type);
   var logoUrl = getLogoUrl(account);
-  var bgStyle = logoUrl ? ' style="--logo-url: url(\'' + logoUrl + '\')"' : '';
   var timestamp = formatTimestamp(account.balance_last_updated_at);
 
-  return '<div class="account-card' + (logoUrl ? ' has-logo' : '') + '"' + bgStyle + '>' +
+  return '<div class="account-card">' +
     '<div class="account-top">' +
       (account.institution ? '<span class="account-institution">' + esc(account.institution) + '</span>' : '<span></span>') +
       (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
     '</div>' +
+    '<div class="account-mid">' +
+      '<span class="account-name">' + esc(account.name || 'Account') + '</span>' +
+      (logoUrl ? '<img class="account-logo" src="' + logoUrl + '" alt="" onerror="this.style.display=\'none\'">' : '') +
+    '</div>' +
     '<div class="account-bottom">' +
-      '<div class="account-info">' +
-        '<span class="account-name">' + esc(account.name || 'Account') + '</span>' +
-      '</div>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
         '<div class="label">' + timestamp + '</div>' +

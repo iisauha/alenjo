@@ -308,7 +308,7 @@ body {
   letter-spacing: -0.3px;
 }
 
-/* Horizontal scroll for cards */
+/* Horizontal scroll — one card at a time */
 .account-list {
   display: flex;
   gap: 0.75rem;
@@ -325,44 +325,17 @@ body {
   display: none;
 }
 
-/* Wallet-style cards */
+/* Card — one visible at a time, full width */
 .account-card {
-  flex: 0 0 calc(100% - 2rem);
-  max-width: 320px;
-  min-height: 140px;
+  flex: 0 0 calc(100% - 1.25rem);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   padding: 1.25rem;
-  background: linear-gradient(135deg, #111D32 0%, #0D1628 100%);
+  background: linear-gradient(145deg, #111D32 0%, #0C1424 100%);
   border-radius: 16px;
   border: 1px solid var(--border);
-  position: relative;
-  overflow: hidden;
-  scroll-snap-align: start;
-}
-
-/* Institution logo watermark */
-.account-card.has-logo::before {
-  content: '';
-  position: absolute;
-  right: -10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 120px;
-  height: 120px;
-  background-image: var(--logo-url);
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: contain;
-  opacity: 0.15;
-  pointer-events: none;
-  filter: brightness(1.5) grayscale(0.3);
-}
-
-.account-card > * {
-  position: relative;
-  z-index: 1;
+  scroll-snap-align: center;
+  gap: 0.75rem;
 }
 
 /* Top row: institution + mask */
@@ -370,15 +343,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: auto;
 }
 
 .account-institution {
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .account-mask {
@@ -388,37 +360,40 @@ body {
   letter-spacing: 1px;
 }
 
-/* Bottom area: name + balance */
-.account-bottom {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.account-info {
+/* Middle: account name + logo */
+.account-mid {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
+  gap: 0.6rem;
 }
 
 .account-name {
   font-weight: 600;
-  font-size: 0.9rem;
-  white-space: nowrap;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.account-balance {
-  text-align: right;
-  flex-shrink: 0;
+.account-logo {
+  height: 28px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+  align-self: flex-start;
+  border-radius: 4px;
+}
+
+/* Bottom: balance + timestamp */
+.account-bottom {
+  margin-top: auto;
 }
 
 .account-balance .amount {
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   letter-spacing: -0.5px;
   line-height: 1.2;
 }
@@ -426,7 +401,7 @@ body {
 .account-balance .label {
   color: var(--text-dim);
   font-size: 0.65rem;
-  margin-top: 0.15rem;
+  margin-top: 0.2rem;
 }
 
 .balance-negative {
@@ -437,23 +412,17 @@ body {
   color: var(--success);
 }
 
-/* Single card takes full width */
-.account-list:has(.account-card:only-child) .account-card {
-  flex: 1;
-  max-width: none;
-}
-
-/* Scroll indicators */
+/* Scroll dots */
 .account-section .scroll-dots {
   display: flex;
   justify-content: center;
-  gap: 0.35rem;
-  margin-top: 0.6rem;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
 }
 
 .account-section .scroll-dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--border);
   transition: background 0.2s, transform 0.2s;
@@ -461,7 +430,7 @@ body {
 
 .account-section .scroll-dot.active {
   background: var(--accent);
-  transform: scale(1.3);
+  transform: scale(1.2);
 }
 
 /* ================================
