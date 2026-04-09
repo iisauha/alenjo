@@ -1039,40 +1039,43 @@ function accountCard(account, type) {
     var limit = account.balance_limit ? parseFloat(account.balance_limit) : 0;
     var used = bal.amount;
 
-    // Always show utilization bar from account data (no liabilities product needed)
+    liabHtml = '<div class="card-liabilities">';
+
+    // Show utilization bar if credit limit is available
     if (limit > 0) {
       var utilPct = Math.min((used / limit) * 100, 100);
       var utilClass = utilPct > 75 ? 'util-high' : utilPct > 30 ? 'util-mid' : 'util-low';
-      liabHtml = '<div class="card-liabilities">' +
+      liabHtml +=
         '<div class="liab-util-wrap">' +
           '<div class="liab-util-bar"><div class="liab-util-fill ' + utilClass + '" style="width:' + utilPct.toFixed(1) + '%"></div></div>' +
           '<div class="liab-util-labels"><span>' + formatMoney(used) + ' / ' + formatMoney(limit) + '</span><span>' + utilPct.toFixed(0) + '% used</span></div>' +
         '</div>';
-
-      // Show detailed liabilities data if available from Plaid Liabilities product
-      var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
-      console.log('[DEBUG LIAB] Card:', account.institution || 'unknown', '| account_id:', account.id, '| liab found:', !!liab, '| data:', liab ? { apr: liab.apr_purchase, min_pay: liab.minimum_payment_amount, due: liab.next_payment_due_date, last_pay: liab.last_payment_amount, stmt_bal: liab.last_statement_balance, overdue: liab.is_overdue } : 'NONE');
-      if (liab) {
-        var details = '';
-        if (liab.apr_purchase) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + parseFloat(liab.apr_purchase).toFixed(2) + '%</span></div>';
-        if (liab.minimum_payment_amount) details += '<div class="liab-detail"><span>Min Payment</span><span>$' + parseFloat(liab.minimum_payment_amount).toFixed(2) + '</span></div>';
-        if (liab.next_payment_due_date) {
-          var dueDate = new Date(liab.next_payment_due_date + 'T00:00:00');
-          var now = new Date();
-          var daysUntil = Math.ceil((dueDate - now) / 86400000);
-          var dueClass = daysUntil <= 3 ? 'liab-urgent' : daysUntil <= 7 ? 'liab-soon' : '';
-          details += '<div class="liab-detail ' + dueClass + '"><span>Due</span><span>' + formatLiabDate(liab.next_payment_due_date) + (daysUntil >= 0 ? ' (' + daysUntil + 'd)' : ' (overdue)') + '</span></div>';
-        }
-        if (liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>$' + parseFloat(liab.last_payment_amount).toFixed(2) + '</span></div>';
-        if (liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>$' + parseFloat(liab.last_statement_balance).toFixed(2) + '</span></div>';
-        if (liab.is_overdue) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
-        if (details) liabHtml += details;
-      } else {
-        liabHtml += '<div class="liab-detail liab-unavailable"><span>Card details not available from this institution</span></div>';
-      }
-
-      liabHtml += '</div>';
     }
+
+    // Show detailed liabilities data if available from Plaid Liabilities product
+    var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
+    console.log('[DEBUG LIAB] Card:', account.institution || 'unknown', '| account_id:', account.id, '| has limit:', limit > 0, '| liab found:', !!liab, '| data:', liab ? { apr: liab.apr_purchase, min_pay: liab.minimum_payment_amount, due: liab.next_payment_due_date, last_pay: liab.last_payment_amount, last_pay_date: liab.last_payment_date, stmt_bal: liab.last_statement_balance, overdue: liab.is_overdue } : 'NONE');
+    if (liab) {
+      var details = '';
+      if (liab.apr_purchase) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + parseFloat(liab.apr_purchase).toFixed(2) + '%</span></div>';
+      if (liab.minimum_payment_amount != null) details += '<div class="liab-detail"><span>Min Payment</span><span>' + formatMoney(parseFloat(liab.minimum_payment_amount)) + '</span></div>';
+      if (liab.next_payment_due_date) {
+        var dueDate = new Date(liab.next_payment_due_date + 'T00:00:00');
+        var now = new Date();
+        var daysUntil = Math.ceil((dueDate - now) / 86400000);
+        var dueClass = daysUntil <= 3 ? 'liab-urgent' : daysUntil <= 7 ? 'liab-soon' : '';
+        details += '<div class="liab-detail ' + dueClass + '"><span>Due</span><span>' + formatLiabDate(liab.next_payment_due_date) + (daysUntil >= 0 ? ' (' + daysUntil + 'd)' : ' (overdue)') + '</span></div>';
+      }
+      if (liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>' + formatMoney(parseFloat(liab.last_payment_amount)) + '</span></div>';
+      if (liab.last_payment_date) details += '<div class="liab-detail"><span>Last Payment Date</span><span>' + formatLiabDate(liab.last_payment_date) + '</span></div>';
+      if (liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>' + formatMoney(parseFloat(liab.last_statement_balance)) + '</span></div>';
+      if (liab.is_overdue) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
+      if (details) liabHtml += details;
+    } else {
+      liabHtml += '<div class="liab-detail liab-unavailable"><span>Card details not available from this institution</span></div>';
+    }
+
+    liabHtml += '</div>';
   }
 
   return '<div class="account-card" data-id="' + account.id + '">' +
