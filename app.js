@@ -422,9 +422,15 @@ function getSyncCooldown() {
 
 function throttledSync() {
   if (syncInFlight) return;
-  var cooldown = getSyncCooldown();
-  var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
-  if (Date.now() - lastSync < cooldown) return;
+  // Force sync once after deploy to trigger holdings fetch
+  var forceKey = 'alenjo_force_sync_v2';
+  var forced = !localStorage.getItem(forceKey);
+  if (forced) localStorage.setItem(forceKey, '1');
+  if (!forced) {
+    var cooldown = getSyncCooldown();
+    var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
+    if (Date.now() - lastSync < cooldown) return;
+  }
   syncInFlight = true;
   localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
   backgroundSync().finally(function() { syncInFlight = false; });
