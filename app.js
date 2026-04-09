@@ -3,18 +3,14 @@
 // HTML VERSION CHECK — force reload if cached HTML is stale
 // ============================================
 var APP_VERSION = 12;
-var storedVersion = parseInt(localStorage.getItem('alenjo_html_ver') || '0');
-if (storedVersion < APP_VERSION) {
+try {
+  var storedVersion = parseInt(localStorage.getItem('alenjo_html_ver') || '0');
   localStorage.setItem('alenjo_html_ver', String(APP_VERSION));
-  if (storedVersion > 0) {
-    // Clear all caches and force reload
-    if ('caches' in window) {
-      caches.keys().then(function(keys) { keys.forEach(function(k) { caches.delete(k); }); });
-    }
-    location.reload(true);
-    return;
+  if (storedVersion > 0 && storedVersion < APP_VERSION) {
+    try { if ('caches' in window) caches.keys().then(function(keys) { keys.forEach(function(k) { caches.delete(k); }); }); } catch(e) {}
+    setTimeout(function() { window.location.href = window.location.pathname + '?_=' + Date.now(); }, 100);
   }
-}
+} catch(e) {}
 
 // ============================================
 // BETA GATE
@@ -417,8 +413,8 @@ async function openPlaidLink(products) {
 
 btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions']); });
 btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions']); });
-$('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
-$('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
+if ($('#btn-connect-investments')) $('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
+if ($('#btn-add-investment')) $('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
 
 // ============================================
 // LOAD ACCOUNTS
