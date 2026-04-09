@@ -701,9 +701,14 @@ async function loadTransactions() {
     return '<option value="' + m + '">' + label + '</option>';
   }).join('');
 
-  // Show updated time
+  // Show actual last sync time from plaid_items
   var updated = $('#tx-updated');
-  updated.textContent = 'Updated ' + formatTimestamp(new Date().toISOString());
+  var lastSyncResult = await sb.from('plaid_items').select('tx_last_synced_at').order('tx_last_synced_at', { ascending: false }).limit(1);
+  if (lastSyncResult.data && lastSyncResult.data[0] && lastSyncResult.data[0].tx_last_synced_at) {
+    updated.textContent = 'Synced ' + formatTimestamp(lastSyncResult.data[0].tx_last_synced_at);
+  } else {
+    updated.textContent = '';
+  }
 
   // Populate card filter using plaid_account_id for matching
   var cardFilter = $('#tx-card-filter');
