@@ -421,24 +421,63 @@ function accountCard(account, type) {
   var bal = getDisplayBalance(account, type);
   var logoUrl = getLogoUrl(account);
   var timestamp = formatTimestamp(account.balance_last_updated_at);
+  var displayName = account.nickname || account.name || 'Account';
 
-  return '<div class="account-card">' +
+  return '<div class="account-card" data-id="' + account.id + '">' +
     '<div class="account-top">' +
-      (account.institution ? '<span class="account-institution">' + esc(account.institution) + '</span>' : '<span></span>') +
-      (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
-    '</div>' +
-    '<div class="account-mid">' +
-      '<span class="account-name">' + esc(account.name || 'Account') + '</span>' +
-      (logoUrl ? '<img class="account-logo" src="' + logoUrl + '" alt="" onerror="this.style.display=\'none\'">' : '') +
-    '</div>' +
-    '<div class="account-bottom">' +
+      '<span class="account-name" data-id="' + account.id + '">' + esc(displayName) + '</span>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
         '<div class="label">' + timestamp + '</div>' +
       '</div>' +
     '</div>' +
+    '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
+    (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
+    (logoUrl ? '<img class="account-logo" src="' + logoUrl + '" alt="" onerror="this.style.display=\'none\'">' : '') +
   '</div>';
 }
+
+// Nickname editing — tap account name to edit
+document.addEventListener('click', function(e) {
+  var nameEl = e.target.closest('.account-name');
+  if (!nameEl || !nameEl.dataset.id) return;
+
+  var accountId = nameEl.dataset.id;
+  var current = nameEl.textContent;
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.value = current;
+  input.className = 'nickname-input';
+  input.maxLength = 40;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  function save() {
+    var newName = input.value.trim();
+    if (newName && newName !== current) {
+      sb.from('accounts').update({ nickname: newName }).eq('id', accountId).then(function() {
+        // Update cache
+        if (cachedAccounts) {
+          cachedAccounts.forEach(function(a) {
+            if (a.id === accountId) a.nickname = newName;
+          });
+        }
+      });
+    }
+    var span = document.createElement('span');
+    span.className = 'account-name';
+    span.dataset.id = accountId;
+    span.textContent = newName || current;
+    input.replaceWith(span);
+  }
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = current; input.blur(); }
+  });
+});
 
 function formatTimestamp(ts) {
   if (!ts) return '';
