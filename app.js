@@ -606,7 +606,7 @@ function renderAccounts(accounts) {
   updateInvestmentTotals(savings, investments, hasInvAccounts);
 
   // Load holdings then re-render investment cards with consistent balances
-  if (investments.length > 0 && !cachedHoldings) {
+  if (investments.length > 0) {
     loadHoldings().then(function() {
       renderSection($('#list-inv-investments'), investments, 'bank');
       updateInvestmentTotals(savings, investments, hasInvAccounts);
