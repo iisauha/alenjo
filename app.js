@@ -382,21 +382,53 @@ async function loadAccounts() {
   // Background sync (includes balance update via free /accounts/get)
   if (cachedAccounts.length > 0) {
     throttledSync();
+    startSyncInterval();
   }
 
   loadingAccounts = false;
 }
 
-var TX_SYNC_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+// Dynamic sync cooldown based on connected Plaid items
+// Plaid allows 30 req/min/item. Each sync = 3 calls/item.
+// We stay conservative: 1 item = 5min, scale up slightly with more items.
 var syncInFlight = false;
+var syncIntervalId = null;
+
+function getSyncCooldown() {
+  if (!cachedAccounts) return 5 * 60 * 1000;
+  // Count distinct bank connections (institutions)
+  var institutions = {};
+  cachedAccounts.forEach(function(a) {
+    if (a.institution) institutions[a.institution] = true;
+  });
+  var itemCount = Object.keys(institutions).length || 1;
+  // 1-2 banks: 5 min, 3-5 banks: 7 min, 6+: 10 min
+  // Plaid allows 30 req/min/item; we use 3 per sync per item.
+  // At 5 min with 2 items = 6 calls/5min = 1.2 req/min total. Well under limit.
+  if (itemCount <= 2) return 5 * 60 * 1000;
+  if (itemCount <= 5) return 7 * 60 * 1000;
+  return 10 * 60 * 1000;
+}
 
 function throttledSync() {
   if (syncInFlight) return;
+  var cooldown = getSyncCooldown();
   var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
-  if (Date.now() - lastSync < TX_SYNC_COOLDOWN) return;
+  if (Date.now() - lastSync < cooldown) return;
   syncInFlight = true;
   localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
   backgroundSync().finally(function() { syncInFlight = false; });
+}
+
+// Start recurring sync timer when accounts exist
+function startSyncInterval() {
+  if (syncIntervalId) clearInterval(syncIntervalId);
+  var cooldown = getSyncCooldown();
+  syncIntervalId = setInterval(function() {
+    if (currentUser && cachedAccounts && cachedAccounts.length > 0) {
+      throttledSync();
+    }
+  }, cooldown);
 }
 
 async function backgroundSync() {
@@ -537,6 +569,39 @@ function renderAccounts(accounts) {
     netCashEl.hidden = true;
   }
   updateChatFab();
+  updateSyncInfo();
+}
+
+function updateSyncInfo() {
+  var section = $('#section-sync-info');
+  var infoEl = $('#sync-info');
+  if (!cachedAccounts || cachedAccounts.length === 0) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  var institutions = {};
+  cachedAccounts.forEach(function(a) {
+    if (a.institution) institutions[a.institution] = true;
+  });
+  var bankCount = Object.keys(institutions).length || 1;
+  var accountCount = cachedAccounts.length;
+  var cooldownMs = getSyncCooldown();
+  var cooldownMin = Math.round(cooldownMs / 60000);
+  var callsPerSync = bankCount * 3;
+  var callsPerHour = Math.round((60 / cooldownMin) * callsPerSync);
+  var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
+  var lastSyncText = lastSync ? formatTimestamp(new Date(lastSync).toISOString()) : 'Never';
+
+  infoEl.innerHTML =
+    '<div class="sync-info-row"><span>Connected accounts</span><span>' + accountCount + '</span></div>' +
+    '<div class="sync-info-row"><span>Bank connections</span><span>' + bankCount + '</span></div>' +
+    '<div class="sync-info-row"><span>Refresh interval</span><span>Every ' + cooldownMin + ' min</span></div>' +
+    '<div class="sync-info-row"><span>Plaid calls per sync</span><span>' + callsPerSync + '</span></div>' +
+    '<div class="sync-info-row"><span>Plaid calls per hour</span><span>~' + callsPerHour + '</span></div>' +
+    '<div class="sync-info-row"><span>Plaid limit per item</span><span>30/min</span></div>' +
+    '<div class="sync-info-row"><span>Last synced</span><span data-ts="' + (lastSync ? new Date(lastSync).toISOString() : '') + '" data-ts-prefix="">' + lastSyncText + '</span></div>';
 }
 
 function renderSection(listEl, items, type) {
@@ -640,8 +705,6 @@ var txData = [];
 var txMonths = [];
 var txActions = {};
 var ignoreRules = {};
-var TX_SYNC_COOLDOWN = 30 * 60 * 1000; // 30 minutes
-
 async function loadTransactions() {
   var txEmpty = $('#tx-empty');
   var txContent = $('#tx-content');
@@ -671,7 +734,7 @@ async function loadTransactions() {
   if (result.error || !result.data || result.data.length === 0) {
     // No cached data — need to sync first
     var lastTxSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
-    if (Date.now() - lastTxSync > TX_SYNC_COOLDOWN) {
+    if (Date.now() - lastTxSync > getSyncCooldown()) {
       localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
       txLoadingEl.classList.add('visible');
       txEmpty.hidden = true;
@@ -946,8 +1009,8 @@ function renderTransactionMonth() {
   // Render transactions
   displayTx.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
-    var authDate = tx.authorized_date ? formatTxDate(tx.authorized_date) : null;
-    var postDate = formatTxDate(tx.date);
+    var authDate = tx.authorized_date ? formatTxDate(tx.authorized_date, tx.authorized_datetime) : null;
+    var postDate = formatTxDate(tx.date, tx.authorized_datetime);
     var dateHtml = '';
     if (tx.pending) {
       dateHtml = '<span class="tx-pending-badge">Pending</span> ' + (authDate || postDate);
@@ -1050,11 +1113,18 @@ $('#btn-export-csv').addEventListener('click', function() {
   URL.revokeObjectURL(url);
 });
 
-function formatTxDate(dateStr) {
+function formatTxDate(dateStr, datetimeStr) {
   if (!dateStr) return '';
   var parts = dateStr.split('-');
   var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
+  var datePart = monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
+  var thisYear = new Date().getFullYear();
+  if (parseInt(parts[0]) !== thisYear) datePart += ', ' + parts[0];
+  if (datetimeStr) {
+    var d = new Date(datetimeStr);
+    datePart += ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  return datePart;
 }
 
 function normalizeCategory(cat) {
