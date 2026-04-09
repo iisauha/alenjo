@@ -184,37 +184,57 @@
 
     <!-- SETTINGS TAB -->
     <main id="tab-settings" class="tab-content">
-      <div class="settings-section">
-        <h2 class="section-label">Profile</h2>
-        <div class="settings-avatar-row">
-          <div id="settings-avatar" class="settings-avatar"></div>
-          <button id="btn-change-avatar" class="btn-secondary-sm">Change Photo</button>
-          <input type="file" id="avatar-upload" accept="image/*" hidden>
+      <div class="settings-card">
+        <div class="settings-card-header" data-toggle="settings-profile">
+          <h2 class="settings-card-title">Profile</h2>
+          <span class="settings-chevron"></span>
         </div>
-        <div class="settings-field">
-          <label>Display Name</label>
-          <input type="text" id="settings-name" class="app-input" placeholder="Your name" maxlength="40">
-          <button id="btn-save-name" class="btn-primary-sm">Save</button>
+        <div class="settings-card-body" id="settings-profile">
+          <div class="settings-avatar-row">
+            <div id="settings-avatar" class="settings-avatar"></div>
+            <button id="btn-change-avatar" class="btn-secondary-sm">Change Photo</button>
+            <input type="file" id="avatar-upload" accept="image/*" hidden>
+          </div>
+          <div class="settings-field">
+            <label>Display Name</label>
+            <input type="text" id="settings-name" class="app-input" placeholder="Your name" maxlength="40">
+            <button id="btn-save-name" class="btn-primary-sm">Save</button>
+          </div>
         </div>
       </div>
 
-      <div class="settings-section">
-        <h2 class="section-label">Tab Order</h2>
-        <p class="settings-hint">Drag to reorder your tabs</p>
-        <div id="tab-order-list" class="tab-order-list"></div>
+      <div class="settings-card">
+        <div class="settings-card-header" data-toggle="settings-tabs">
+          <h2 class="settings-card-title">Tab Order</h2>
+          <span class="settings-chevron"></span>
+        </div>
+        <div class="settings-card-body collapsed" id="settings-tabs">
+          <p class="settings-hint">Reorder your navigation tabs</p>
+          <div id="tab-order-list" class="tab-order-list"></div>
+        </div>
       </div>
 
-      <div class="settings-section" id="section-accounts" hidden>
-        <h2 class="section-label">Connected Accounts</h2>
-        <div id="accounts-list" class="accounts-manage-list"></div>
+      <div class="settings-card" id="section-accounts" hidden>
+        <div class="settings-card-header" data-toggle="settings-accounts">
+          <h2 class="settings-card-title">Connected Accounts</h2>
+          <span class="settings-chevron"></span>
+        </div>
+        <div class="settings-card-body collapsed" id="settings-accounts">
+          <div id="accounts-list" class="accounts-manage-list"></div>
+        </div>
       </div>
 
-      <div class="settings-section" id="section-billing" hidden>
-        <h2 class="section-label">Estimated Plaid Billing</h2>
-        <div id="billing-info" class="sync-info"></div>
+      <div class="settings-card" id="section-billing" hidden>
+        <div class="settings-card-header" data-toggle="settings-billing">
+          <h2 class="settings-card-title">Plaid Billing</h2>
+          <span class="settings-chevron"></span>
+        </div>
+        <div class="settings-card-body collapsed" id="settings-billing">
+          <div id="billing-info" class="sync-info"></div>
+        </div>
       </div>
 
-      <div class="settings-section">
+      <div class="settings-logout-wrap">
         <button id="btn-settings-logout" class="btn-danger">Log Out</button>
       </div>
     </main>

@@ -300,6 +300,15 @@ $('#btn-settings-logout').addEventListener('click', async function() {
   await sb.auth.signOut();
 });
 
+// Settings collapsible sections
+document.addEventListener('click', function(e) {
+  var header = e.target.closest('.settings-card-header[data-toggle]');
+  if (!header) return;
+  var body = document.getElementById(header.dataset.toggle);
+  if (body) body.classList.toggle('collapsed');
+  header.classList.toggle('open');
+});
+
 // ============================================
 // BALANCE TOGGLE
 // ============================================
@@ -757,7 +766,7 @@ function accountCard(account, type) {
     var acctHoldings = cachedHoldings.filter(function(h) { return h.account_id === account.id; });
     if (acctHoldings.length > 0) {
       acctHoldings.sort(function(a, b) { return (b.institution_value || 0) - (a.institution_value || 0); });
-      holdingsHtml = '<div class="card-holdings"><div class="card-holdings-label">Holdings</div>';
+      holdingsHtml = '<div class="card-holdings">';
       var totalValue = 0;
       acctHoldings.forEach(function(h) {
         var value = h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
@@ -1164,6 +1173,15 @@ function renderTransactionMonth() {
     '<div class="tx-summary-item"><span class="tx-summary-label">Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '</span></div>' +
   '</div>';
 
+  // Sort transactions: most recent first by date, then by datetime
+  displayTx.sort(function(a, b) {
+    var da = a.authorized_datetime || a.authorized_date || a.date;
+    var db = b.authorized_datetime || b.authorized_date || b.date;
+    if (da > db) return -1;
+    if (da < db) return 1;
+    return 0;
+  });
+
   // Render transactions
   displayTx.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
@@ -1280,7 +1298,7 @@ function formatTxDate(dateStr, datetimeStr) {
   if (parseInt(parts[0]) !== thisYear) datePart += ', ' + parts[0];
   if (datetimeStr) {
     var d = new Date(datetimeStr);
-    datePart += ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    datePart += ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
   return datePart;
 }

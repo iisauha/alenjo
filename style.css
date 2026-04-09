@@ -717,6 +717,66 @@ body {
 /* ================================
    SETTINGS
    ================================ */
+/* Settings cards */
+.settings-card {
+  background: linear-gradient(145deg, #111D32 0%, #0C1424 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 0.6rem;
+  overflow: hidden;
+}
+
+.settings-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.settings-card-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+.settings-chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-dim);
+  border-bottom: 2px solid var(--text-dim);
+  transform: rotate(45deg);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.settings-card-header.open .settings-chevron {
+  transform: rotate(-135deg);
+}
+
+.settings-card-body {
+  padding: 0 1rem 0.75rem;
+  transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+  max-height: 600px;
+  opacity: 1;
+}
+
+.settings-card-body.collapsed {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.settings-logout-wrap {
+  margin-top: 0.5rem;
+  padding: 0 0.25rem;
+}
+
 .settings-section {
   margin-bottom: 1.5rem;
 }
@@ -836,19 +896,11 @@ body {
 /* In-card holdings */
 .card-holdings {
   border-top: 1px solid rgba(255,255,255,0.04);
-  margin-top: 0.25rem;
-  padding: 0.5rem 0.75rem 0.4rem;
+  margin-top: 0.35rem;
+  padding: 0.45rem 0 0.15rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-}
-
-.card-holdings-label {
-  font-size: 0.55rem;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  color: var(--text-dim);
-  font-weight: 600;
+  gap: 0.35rem;
 }
 
 .card-holding-row {
@@ -856,11 +908,7 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.4rem 0.5rem;
-  background: rgba(255,255,255,0.02);
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.03);
-  transition: background 0.2s;
+  padding: 0.3rem 0;
 }
 
 .card-holding-left {
