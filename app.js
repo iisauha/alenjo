@@ -285,10 +285,12 @@ function showLoading(show) {
 // ============================================
 // SERVICE WORKER
 // ============================================
+// Unregister any old service workers to prevent caching issues during development
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then((reg) => {
-    reg.update();
-  }).catch(() => {});
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((reg) => reg.unregister());
+  });
+  caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
 }
 
 // ============================================
