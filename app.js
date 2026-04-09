@@ -366,6 +366,13 @@ async function loadAccounts() {
   }
 
   cachedAccounts = result.data || [];
+  // DEBUG: show first account's keys and logo domain
+  if (cachedAccounts.length > 0) {
+    var a = cachedAccounts[0];
+    var debugEl = document.getElementById('snapshot-error');
+    debugEl.textContent = 'DEBUG keys: ' + Object.keys(a).join(', ') + ' | logo_domain: ' + JSON.stringify(a.institution_logo_domain);
+    debugEl.hidden = false;
+  }
   renderAccounts(cachedAccounts);
   resolveLogos();
 
