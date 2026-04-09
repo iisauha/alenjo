@@ -536,6 +536,7 @@ function renderAccounts(accounts) {
   } else {
     netCashEl.hidden = true;
   }
+  updateChatFab();
 }
 
 function renderSection(listEl, items, type) {
@@ -1187,7 +1188,7 @@ function showRecatPicker() {
   });
 }
 
-async function saveTxAction(txId, actionType, extra) {
+async function saveTxAction(txId, actionType, extra, skipUI) {
   var row = {
     user_id: currentUser.id,
     transaction_id: txId,
@@ -1202,8 +1203,10 @@ async function saveTxAction(txId, actionType, extra) {
     checkIgnorePattern(txId);
   }
 
-  renderTransactionMonth();
-  closeActionSheet();
+  if (!skipUI) {
+    renderTransactionMonth();
+    closeActionSheet();
+  }
 }
 
 async function clearTxAction(txId) {
@@ -1485,6 +1488,165 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
     loadRecurring();
   }
 });
+
+// ============================================
+// AI CHAT
+// ============================================
+var chatPanel = $('#chat-panel');
+var chatFab = $('#chat-fab');
+var chatMessages = $('#chat-messages');
+var chatForm = $('#chat-form');
+var chatInput = $('#chat-input');
+var chatCooldown = $('#chat-cooldown');
+var chatHistory = [];
+var chatSending = false;
+
+// Show FAB when user has accounts
+function updateChatFab() {
+  chatFab.hidden = !cachedAccounts || cachedAccounts.length === 0;
+}
+
+chatFab.addEventListener('click', function() {
+  chatPanel.hidden = false;
+  chatFab.hidden = true;
+  chatInput.focus();
+  if (chatMessages.children.length === 0) {
+    appendChatMessage('assistant', 'Hey! I can help you understand your finances, sort transactions, or answer questions about your spending. What would you like to know?');
+  }
+});
+
+$('#chat-close').addEventListener('click', function() {
+  chatPanel.hidden = true;
+  updateChatFab();
+});
+
+chatForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var text = chatInput.value.trim();
+  if (!text || chatSending) return;
+
+  appendChatMessage('user', text);
+  chatInput.value = '';
+  chatSending = true;
+  $('#chat-send').disabled = true;
+
+  // Show typing indicator
+  var typingEl = document.createElement('div');
+  typingEl.className = 'chat-msg chat-msg-assistant';
+  typingEl.innerHTML = '<div class="chat-bubble chat-typing"><span></span><span></span><span></span></div>';
+  chatMessages.appendChild(typingEl);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  chatHistory.push({ role: 'user', content: text });
+
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    if (!session) throw new Error('Not logged in');
+
+    var res = await fetch(SUPABASE_URL + '/functions/v1/ai-chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ messages: chatHistory })
+    });
+
+    var data = await res.json();
+
+    // Remove typing indicator
+    if (typingEl.parentNode) typingEl.remove();
+
+    if (res.status === 429) {
+      if (data.error === 'rate_limit') {
+        var secs = data.retry_after || 60;
+        showChatCooldown(secs);
+        chatHistory.pop();
+      } else {
+        appendChatMessage('assistant', data.message || 'Daily limit reached. Try again tomorrow.');
+        chatHistory.pop();
+      }
+      chatSending = false;
+      $('#chat-send').disabled = false;
+      return;
+    }
+
+    if (data.error) {
+      appendChatMessage('assistant', 'Something went wrong. Try again.');
+      chatHistory.pop();
+      chatSending = false;
+      $('#chat-send').disabled = false;
+      return;
+    }
+
+    var aiMsg = data.message || 'Done.';
+    appendChatMessage('assistant', aiMsg);
+    chatHistory.push({ role: 'model', content: JSON.stringify({ message: aiMsg, actions: data.actions || [] }) });
+
+    // Apply actions if any
+    if (data.actions && data.actions.length > 0) {
+      var applied = 0;
+      for (var i = 0; i < data.actions.length; i++) {
+        var act = data.actions[i];
+        if (!act.transaction_id || !act.action_type) continue;
+        try {
+          await saveTxAction(act.transaction_id, act.action_type, {
+            splitWays: act.split_ways || null,
+            categoryOverride: act.category_override || null
+          }, true);
+          applied++;
+        } catch (err) {
+          console.error('Failed to apply action:', err);
+        }
+      }
+      if (applied > 0) {
+        appendChatMessage('assistant', 'Applied ' + applied + ' action' + (applied > 1 ? 's' : '') + ' to your transactions.');
+        renderTransactionMonth();
+      }
+    }
+  } catch (err) {
+    if (typingEl.parentNode) typingEl.remove();
+    appendChatMessage('assistant', 'Connection error. Try again.');
+    chatHistory.pop();
+    console.error('Chat error:', err);
+  }
+
+  chatSending = false;
+  $('#chat-send').disabled = false;
+});
+
+function appendChatMessage(role, text) {
+  var msg = document.createElement('div');
+  msg.className = 'chat-msg chat-msg-' + role;
+  var bubble = document.createElement('div');
+  bubble.className = 'chat-bubble';
+  bubble.textContent = text;
+  msg.appendChild(bubble);
+  chatMessages.appendChild(msg);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showChatCooldown(seconds) {
+  chatCooldown.hidden = false;
+  chatInput.disabled = true;
+  $('#chat-send').disabled = true;
+  var remaining = seconds;
+
+  function tick() {
+    chatCooldown.textContent = 'Rate limit reached. Try again in ' + remaining + 's';
+    if (remaining <= 0) {
+      chatCooldown.hidden = true;
+      chatInput.disabled = false;
+      $('#chat-send').disabled = false;
+      return;
+    }
+    remaining--;
+    setTimeout(tick, 1000);
+  }
+  tick();
+}
 
 // ============================================
 // UTILS
