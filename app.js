@@ -560,7 +560,7 @@ function accountCard(account, type) {
       '<span class="account-name" data-id="' + account.id + '">' + esc(displayName) + '</span>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
-        '<div class="label">' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
+        '<div class="label"' + (account.balance_last_updated_at ? ' data-ts="' + account.balance_last_updated_at + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
     '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
@@ -709,8 +709,12 @@ async function loadTransactions() {
     var syncTime = freshResult.data[0].tx_last_synced_at;
     if (plaidTime) {
       updated.textContent = 'Bank data from ' + formatTimestamp(plaidTime);
+      updated.setAttribute('data-ts', plaidTime);
+      updated.setAttribute('data-ts-prefix', 'Bank data from ');
     } else if (syncTime) {
       updated.textContent = 'Synced ' + formatTimestamp(syncTime);
+      updated.setAttribute('data-ts', syncTime);
+      updated.setAttribute('data-ts-prefix', 'Synced ');
     }
   }
 
@@ -946,6 +950,16 @@ function formatMoney(amount) {
     currency: 'USD'
   }).format(Math.abs(amount));
 }
+
+// Tick all visible relative timestamps every 60s (no API calls)
+setInterval(function() {
+  document.querySelectorAll('[data-ts]').forEach(function(el) {
+    var ts = el.getAttribute('data-ts');
+    var prefix = el.getAttribute('data-ts-prefix') || '';
+    var formatted = formatTimestamp(ts);
+    if (formatted) el.textContent = prefix + formatted;
+  });
+}, 60000);
 
 function esc(str) {
   if (!str) return '';
