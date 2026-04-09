@@ -370,8 +370,17 @@ async function loadAccounts() {
   resolveLogos();
 
   if (cachedAccounts.length > 0) {
-    refreshBalances();
+    throttledRefreshBalances();
   }
+}
+
+var REFRESH_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+
+function throttledRefreshBalances() {
+  var lastRefresh = parseInt(localStorage.getItem('alenjo_last_balance_refresh') || '0');
+  if (Date.now() - lastRefresh < REFRESH_COOLDOWN) return;
+  localStorage.setItem('alenjo_last_balance_refresh', String(Date.now()));
+  refreshBalances();
 }
 
 async function refreshBalances() {
@@ -549,7 +558,7 @@ function accountCard(account, type) {
     '</div>' +
     '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
     (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
-    (logoUrl ? '<div class="account-logo-wrap"><img class="account-logo" src="' + logoUrl + '" alt=""></div>' : '') +
+    (logoUrl ? '<div class="account-logo" style="background-image:url(' + logoUrl + ')"></div>' : '') +
   '</div>';
 }
 
@@ -599,6 +608,7 @@ document.addEventListener('click', function(e) {
 // ============================================
 var txData = [];
 var txMonths = [];
+var txSynced = false;
 
 async function loadTransactions() {
   var txEmpty = $('#tx-empty');
@@ -608,28 +618,34 @@ async function loadTransactions() {
   if (!cachedAccounts || cachedAccounts.length === 0) {
     txEmpty.hidden = false;
     txContent.hidden = true;
+    txLoadingEl.hidden = true;
     return;
   }
 
-  // Sync from Plaid first
+  // Show loading, hide others
   txLoadingEl.hidden = false;
   txEmpty.hidden = true;
+  txContent.hidden = true;
 
-  try {
-    var sessionResult = await sb.auth.getSession();
-    var session = sessionResult.data.session;
-    if (!session) return;
-
-    await fetch(SUPABASE_URL + '/functions/v1/sync-transactions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-        'apikey': SUPABASE_ANON_KEY
+  // Only sync from Plaid once per session
+  if (!txSynced) {
+    txSynced = true;
+    try {
+      var sessionResult = await sb.auth.getSession();
+      var session = sessionResult.data.session;
+      if (session) {
+        await fetch(SUPABASE_URL + '/functions/v1/sync-transactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + session.access_token,
+            'apikey': SUPABASE_ANON_KEY
+          }
+        });
       }
-    });
-  } catch (e) {
-    console.error('Sync error:', e);
+    } catch (e) {
+      console.error('Sync error:', e);
+    }
   }
 
   txLoadingEl.hidden = true;

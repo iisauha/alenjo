@@ -436,20 +436,14 @@ body {
   letter-spacing: 1px;
 }
 
-/* Logo container — centered below mask */
-.account-logo-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0.4rem 0;
-}
-
+/* Logo — div with background-image (img tags fail on mobile Safari) */
 .account-logo {
-  height: 44px;
-  width: auto;
-  max-width: 180px;
-  object-fit: contain;
-  display: block;
+  height: 40px;
+  max-width: 160px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: left center;
+  margin-top: 0.3rem;
 }
 
 /* Nickname inline edit */
