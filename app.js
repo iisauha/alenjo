@@ -608,15 +608,51 @@ function renderAccounts(accounts) {
   $('#inv-total-value').className = 'net-cash-value balance-positive';
   $('#inv-total-card').hidden = !hasInvAccounts;
 
-  // Load holdings if investment accounts exist
-  if (investments.length > 0) {
-    loadHoldings();
-  } else {
-    $('#holdings-section').hidden = true;
+  // Load holdings then re-render investment cards with holdings inside
+  if (investments.length > 0 && !cachedHoldings) {
+    loadHoldings().then(function() {
+      renderSection($('#list-inv-investments'), investments, 'bank');
+    });
   }
 
   updateSyncInfo();
+  renderAccountsSettings();
 }
+
+function renderAccountsSettings() {
+  var section = $('#section-accounts');
+  var list = $('#accounts-list');
+  if (!cachedAccounts || cachedAccounts.length === 0) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  list.innerHTML = cachedAccounts.map(function(a) {
+    var name = a.nickname || a.name || 'Account';
+    var typeLabel = a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
+    return '<div class="account-manage-row">' +
+      '<div class="account-manage-info">' +
+        '<span class="account-manage-name">' + esc(name) + '</span>' +
+        '<span class="account-manage-type">' + typeLabel + (a.mask ? ' ****' + esc(a.mask) : '') + '</span>' +
+      '</div>' +
+      '<button class="btn-remove-account" data-id="' + a.id + '">Remove</button>' +
+    '</div>';
+  }).join('');
+}
+
+document.addEventListener('click', async function(e) {
+  var btn = e.target.closest('.btn-remove-account');
+  if (!btn) return;
+  var id = btn.dataset.id;
+  if (!confirm('Remove this account? This cannot be undone.')) return;
+  btn.disabled = true;
+  btn.textContent = '...';
+  await sb.from('accounts').update({ is_hidden: true }).eq('id', id);
+  if (cachedAccounts) {
+    cachedAccounts = cachedAccounts.filter(function(a) { return a.id !== id; });
+    renderAccounts(cachedAccounts);
+  }
+});
 
 function updateSyncInfo() {
   var billingSection = $('#section-billing');
@@ -677,56 +713,6 @@ async function loadHoldings() {
     return;
   }
   cachedHoldings = result.data || [];
-  renderHoldings(cachedHoldings);
-}
-
-function renderHoldings(holdings) {
-  var section = $('#holdings-section');
-  var list = $('#holdings-list');
-  if (!holdings || holdings.length === 0) {
-    section.hidden = true;
-    return;
-  }
-  section.hidden = false;
-
-  // Group by account
-  var byAccount = {};
-  holdings.forEach(function(h) {
-    if (!byAccount[h.account_id]) byAccount[h.account_id] = [];
-    byAccount[h.account_id].push(h);
-  });
-
-  var html = '';
-  holdings.sort(function(a, b) { return (b.institution_value || 0) - (a.institution_value || 0); });
-
-  holdings.forEach(function(h) {
-    var value = h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
-    var gain = h.cost_basis ? value - h.cost_basis : null;
-    var gainPct = h.cost_basis && h.cost_basis > 0 ? ((value - h.cost_basis) / h.cost_basis * 100) : null;
-    var gainClass = gain !== null ? (gain >= 0 ? 'balance-positive' : 'balance-negative') : '';
-    var ticker = h.ticker_symbol || '';
-    var name = h.security_name || 'Unknown';
-    var typeLabel = h.security_type || '';
-
-    html += '<div class="holding-row">' +
-      '<div class="holding-left">' +
-        '<span class="holding-ticker">' + esc(ticker || name) + '</span>' +
-        '<span class="holding-name">' + esc(ticker ? name : typeLabel) + '</span>' +
-        '<span class="holding-qty">' + parseFloat(h.quantity).toFixed(4) + ' shares @ $' + formatHoldingPrice(h.institution_price || h.close_price) + '</span>' +
-      '</div>' +
-      '<div class="holding-right">' +
-        '<span class="holding-value">' + formatMoney(value) + '</span>' +
-        (gain !== null ? '<span class="holding-gain ' + gainClass + '">' + (gain >= 0 ? '+' : '-') + formatMoney(gain) + ' (' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(2) + '%)</span>' : '') +
-      '</div>' +
-    '</div>';
-  });
-
-  list.innerHTML = html;
-}
-
-function formatHoldingPrice(price) {
-  if (!price) return '0.00';
-  return parseFloat(price).toFixed(2);
 }
 
 function renderSection(listEl, items, type) {
@@ -766,6 +752,34 @@ function accountCard(account, type) {
   var timestamp = formatTimestamp(syncTs);
   var displayName = account.nickname || account.name || 'Account';
 
+  var holdingsHtml = '';
+  if (account.type === 'investment' && cachedHoldings) {
+    var acctHoldings = cachedHoldings.filter(function(h) { return h.account_id === account.id; });
+    if (acctHoldings.length > 0) {
+      acctHoldings.sort(function(a, b) { return (b.institution_value || 0) - (a.institution_value || 0); });
+      holdingsHtml = '<div class="card-holdings">';
+      acctHoldings.forEach(function(h) {
+        var value = h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
+        var gain = h.cost_basis ? value - h.cost_basis : null;
+        var gainPct = h.cost_basis && h.cost_basis > 0 ? ((value - h.cost_basis) / h.cost_basis * 100) : null;
+        var gainClass = gain !== null ? (gain >= 0 ? 'balance-positive' : 'balance-negative') : '';
+        var ticker = h.ticker_symbol || '';
+        var name = h.security_name || 'Unknown';
+        holdingsHtml += '<div class="card-holding-row">' +
+          '<div class="card-holding-left">' +
+            '<span class="card-holding-ticker">' + esc(ticker || name) + '</span>' +
+            '<span class="card-holding-qty">' + parseFloat(h.quantity).toFixed(4) + ' shares</span>' +
+          '</div>' +
+          '<div class="card-holding-right">' +
+            '<span class="card-holding-value">' + formatMoney(value) + '</span>' +
+            (gain !== null ? '<span class="card-holding-gain ' + gainClass + '">' + (gain >= 0 ? '+' : '-') + formatMoney(gain) + '</span>' : '') +
+          '</div>' +
+        '</div>';
+      });
+      holdingsHtml += '</div>';
+    }
+  }
+
   return '<div class="account-card" data-id="' + account.id + '">' +
     '<div class="account-top">' +
       '<div class="account-left">' +
@@ -779,6 +793,7 @@ function accountCard(account, type) {
         '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
+    holdingsHtml +
   '</div>';
 }
 

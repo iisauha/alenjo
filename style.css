@@ -833,68 +833,97 @@ body {
   padding: 0.2rem;
 }
 
-/* Holdings */
-.holdings-list {
+/* In-card holdings */
+.card-holdings {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 0.4rem 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.card-holding-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-holding-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.card-holding-ticker {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #fff;
+}
+
+.card-holding-qty {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+
+.card-holding-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+}
+
+.card-holding-value {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #fff;
+}
+
+.card-holding-gain {
+  font-size: 0.6rem;
+  font-weight: 600;
+}
+
+/* Account management in settings */
+.accounts-manage-list {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.holding-row {
+.account-manage-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.6rem 0.75rem;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(21, 31, 48, 0.4);
 }
 
-.holding-left {
+.account-manage-info {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  min-width: 0;
-  flex: 1;
 }
 
-.holding-ticker {
-  font-weight: 700;
-  font-size: 0.85rem;
+.account-manage-name {
+  font-size: 0.8rem;
+  font-weight: 600;
   color: #fff;
 }
 
-.holding-name {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.holding-qty {
+.account-manage-type {
   font-size: 0.65rem;
   color: var(--text-dim);
 }
 
-.holding-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.1rem;
-  flex-shrink: 0;
-  margin-left: 0.5rem;
-}
-
-.holding-value {
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: #fff;
-}
-
-.holding-gain {
+.btn-remove-account {
+  background: none;
+  border: 1px solid var(--danger);
+  color: var(--danger);
   font-size: 0.7rem;
-  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* ================================
