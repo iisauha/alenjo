@@ -457,11 +457,15 @@ function getSyncCooldown() {
   return 5 * 60 * 1000;
 }
 
+var firstSync = true;
 function throttledSync() {
   if (syncInFlight) return;
-  var cooldown = getSyncCooldown();
-  var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
-  if (Date.now() - lastSync < cooldown) return;
+  if (!firstSync) {
+    var cooldown = getSyncCooldown();
+    var lastSync = parseInt(localStorage.getItem('alenjo_last_tx_sync') || '0');
+    if (Date.now() - lastSync < cooldown) return;
+  }
+  firstSync = false;
   syncInFlight = true;
   localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
   backgroundSync().finally(function() { syncInFlight = false; });
