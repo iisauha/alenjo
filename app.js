@@ -271,79 +271,22 @@ async function refreshBalances() {
 // LOGO.DEV
 // ============================================
 var LOGO_KEY = 'pk_H4uo3XF8R0iZtbgE3TDSgQ';
-var DOMAIN_MAP = {
-  'american express': 'americanexpress.com',
-  'amex': 'americanexpress.com',
-  'chase': 'chase.com',
-  'jpmorgan chase': 'chase.com',
-  'bank of america': 'bankofamerica.com',
-  'wells fargo': 'wellsfargo.com',
-  'citi': 'citibank.com',
-  'citibank': 'citibank.com',
-  'capital one': 'capitalone.com',
-  'us bank': 'usbank.com',
-  'u.s. bank': 'usbank.com',
-  'pnc': 'pnc.com',
-  'pnc bank': 'pnc.com',
-  'td bank': 'tdbank.com',
-  'td': 'tdbank.com',
-  'discover': 'discover.com',
-  'ally': 'ally.com',
-  'ally bank': 'ally.com',
-  'usaa': 'usaa.com',
-  'navy federal': 'navyfederal.org',
-  'navy federal credit union': 'navyfederal.org',
-  'sofi': 'sofi.com',
-  'marcus': 'marcus.com',
-  'marcus by goldman sachs': 'marcus.com',
-  'goldman sachs': 'goldmansachs.com',
-  'barclays': 'barclays.com',
-  'synchrony': 'synchronybank.com',
-  'synchrony bank': 'synchronybank.com',
-  'apple': 'apple.com',
-  'apple card': 'apple.com',
-  'charles schwab': 'schwab.com',
-  'schwab': 'schwab.com',
-  'fidelity': 'fidelity.com',
-  'vanguard': 'vanguard.com',
-  'robinhood': 'robinhood.com',
-  'chime': 'chime.com',
-  'paypal': 'paypal.com',
-  'venmo': 'venmo.com',
-  'citizens bank': 'citizensbank.com',
-  'citizens': 'citizensbank.com',
-  'huntington': 'huntington.com',
-  'huntington bank': 'huntington.com',
-  'regions': 'regions.com',
-  'regions bank': 'regions.com',
-  'truist': 'truist.com',
-  'fifth third': '53.com',
-  'fifth third bank': '53.com',
-  'keybank': 'key.com',
-  'm&t bank': 'mtb.com',
-  'bmo': 'bmo.com',
-  'hsbc': 'hsbc.com',
-  'comenity': 'comenity.net',
-  'comenity bank': 'comenity.net'
-};
+function getDomain(institutionUrl) {
+  if (!institutionUrl) return null;
+  try {
+    var url = institutionUrl;
+    if (url.indexOf('://') === -1) url = 'https://' + url;
+    var hostname = new URL(url).hostname;
+    // Strip www. prefix
+    return hostname.replace(/^www\./, '');
+  } catch (e) {
+    return null;
+  }
+}
 
-function getLogoUrl(institution) {
-  if (!institution) return null;
-  var lower = institution.toLowerCase().trim();
-  var domain = DOMAIN_MAP[lower];
-  if (!domain) {
-    // Try partial matches
-    var keys = Object.keys(DOMAIN_MAP);
-    for (var i = 0; i < keys.length; i++) {
-      if (lower.indexOf(keys[i]) !== -1 || keys[i].indexOf(lower) !== -1) {
-        domain = DOMAIN_MAP[keys[i]];
-        break;
-      }
-    }
-  }
-  if (!domain) {
-    domain = lower.replace(/\s+/g, '') + '.com';
-  }
+function getLogoUrl(account) {
+  var domain = getDomain(account.institution_url);
+  if (!domain) return null;
   return 'https://img.logo.dev/' + domain + '?token=' + LOGO_KEY + '&size=80&format=png';
 }
 
@@ -413,7 +356,7 @@ function renderAccounts(accounts) {
 
 function accountCard(account, type) {
   var bal = getDisplayBalance(account, type);
-  var logoUrl = getLogoUrl(account.institution);
+  var logoUrl = getLogoUrl(account);
   var bgStyle = logoUrl ? ' style="background-image: url(\'' + logoUrl + '\')"' : '';
 
   return '<div class="account-card"' + bgStyle + '>' +
