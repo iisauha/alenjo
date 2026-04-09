@@ -1,18 +1,5 @@
 (function() {
 // ============================================
-// HTML VERSION CHECK — force reload if cached HTML is stale
-// ============================================
-var APP_VERSION = 12;
-try {
-  var storedVersion = parseInt(localStorage.getItem('alenjo_html_ver') || '0');
-  localStorage.setItem('alenjo_html_ver', String(APP_VERSION));
-  if (storedVersion > 0 && storedVersion < APP_VERSION) {
-    try { if ('caches' in window) caches.keys().then(function(keys) { keys.forEach(function(k) { caches.delete(k); }); }); } catch(e) {}
-    setTimeout(function() { window.location.href = window.location.pathname + '?_=' + Date.now(); }, 100);
-  }
-} catch(e) {}
-
-// ============================================
 // BETA GATE
 // ============================================
 var BETA_HASH = '165ad56f32e7b8044384c703d9e1acd559394a32e89ef76035c0de5723c65502';

@@ -359,6 +359,14 @@
       var el = document.getElementById('auth-error') || document.getElementById('snapshot-error');
       if (el) { el.textContent = 'Error: ' + msg; el.hidden = false; }
       console.error('JS Error:', msg, src, line);
+      // If critical error on load, offer reload
+      if (!window._appLoaded) {
+        var b = document.createElement('button');
+        b.textContent = 'Tap to reload';
+        b.style.cssText = 'display:block;margin:1rem auto;padding:0.75rem 2rem;background:#3C82F6;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;';
+        b.onclick = function() { localStorage.clear(); location.href = location.pathname + '?_=' + Date.now(); };
+        (el || document.body).appendChild(b);
+      }
     };
   </script>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
