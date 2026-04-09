@@ -113,12 +113,14 @@ async function openPlaidLink() {
 
   try {
     const { data: { session } } = await sb.auth.getSession();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': SUPABASE_ANON_KEY
+    };
     const res = await fetch(`${SUPABASE_URL}/functions/v1/plaid-link`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      },
+      headers,
       body: JSON.stringify({ action: 'create_link_token' })
     });
 
@@ -131,10 +133,7 @@ async function openPlaidLink() {
         showLoading(true);
         await fetch(`${SUPABASE_URL}/functions/v1/plaid-link`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
+          headers,
           body: JSON.stringify({
             action: 'exchange_token',
             public_token: publicToken,
