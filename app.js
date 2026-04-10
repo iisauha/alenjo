@@ -2259,14 +2259,20 @@ function renderRecurring() {
     var amount;
     var isEstimate = false;
 
+    function getSplitAmount(t) {
+      var a = txActions[t.id];
+      var raw = Math.abs(t.amount);
+      return (a && a.split_ways > 1) ? raw / a.split_ways : raw;
+    }
+
     if (amountMode === 'average' && group.txs.length > 1) {
       var total = group.txs.reduce(function(s, t) {
-        return s + Math.abs(t.amount);
+        return s + getSplitAmount(t);
       }, 0);
       amount = total / group.txs.length;
       isEstimate = true;
     } else {
-      amount = Math.abs(mostRecent.amount);
+      amount = getSplitAmount(mostRecent);
     }
 
     recurringItems.push({
