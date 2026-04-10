@@ -1480,7 +1480,6 @@ body {
   align-items: flex-end;
   gap: 0.1rem;
   flex-shrink: 0;
-  margin-left: 0.5rem;
 }
 
 .tx-amount {
@@ -1555,11 +1554,6 @@ body {
 
 .tx-excluded {
   opacity: 0.4;
-}
-
-.tx-actioned {
-  border-left: 2px solid var(--accent);
-  padding-left: 0.4rem;
 }
 
 .tx-amount-original {

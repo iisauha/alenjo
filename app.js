@@ -2045,7 +2045,7 @@ function showRecatPicker() {
 
   var allCats = {};
   txData.forEach(function(tx) {
-    var cat = normalizeCategory(tx.category);
+    var cat = normalizeCategory(tx.enriched_category_primary || tx.category);
     allCats[cat] = true;
   });
   var catList = Object.keys(allCats).sort();
