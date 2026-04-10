@@ -1671,7 +1671,10 @@ function renderTransactionMonth() {
       logoHtml +
       '<div class="tx-info">' +
         '<span class="tx-merchant">' + esc(displayName) + '</span>' +
-        (badges ? '<div class="tx-badges">' + badges + '</div>' : '<span class="tx-cat-chip" style="--cat-color:' + (categoryColorMap[normalizeCategory(eff.category)] || '#6C7078') + '">' + esc(normalizeCategory(eff.category)) + '</span>') +
+        '<div class="tx-badges">' +
+          '<span class="tx-cat-chip" style="--cat-color:' + (categoryColorMap[normalizeCategory(eff.category)] || '#6C7078') + '">' + esc(normalizeCategory(eff.category)) + '</span>' +
+          badges +
+        '</div>' +
         cardLabel +
         locationHtml +
       '</div>' +
