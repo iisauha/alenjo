@@ -639,8 +639,8 @@ function renderAccounts(accounts) {
 
   renderSection(listCredit, credits, 'credit');
   var creditSum = credits.reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
-  creditTotal.textContent = formatMoney(creditSum);
-  creditTotal.className = 'section-total balance-negative';
+  creditTotal.textContent = (creditSum < 0 ? '-' : '') + formatMoney(Math.abs(creditSum));
+  creditTotal.className = 'section-total ' + (creditSum <= 0 ? 'balance-positive' : 'balance-negative');
 
   // Load liabilities for credit cards + loans tab
   if (credits.length > 0 || accounts.length > 0) {
@@ -1038,7 +1038,7 @@ function accountCard(account, type) {
         (logoUrl ? '<div class="account-logo" style="background-image:url(' + logoUrl + ')"></div>' : '') +
       '</div>' +
       '<div class="account-balance">' +
-        '<div class="amount ' + (type === 'credit' ? 'balance-negative' : 'balance-positive') + '">' + formatMoney(bal.amount) + '</div>' +
+        '<div class="amount ' + (type === 'credit' ? (bal.amount <= 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + '">' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
         '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
