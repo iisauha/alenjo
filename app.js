@@ -408,6 +408,48 @@ btnAddAccount.addEventListener('click', function() { openPlaidLink(['transaction
 if ($('#btn-connect-investments')) $('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
 if ($('#btn-add-investment')) $('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
 
+// Grant investment consent for an existing item
+async function grantInvestmentConsent() {
+  // Find the plaid_item_id for investment accounts
+  var invAccounts = cachedAccounts.filter(function(a) { return a.type === 'investment'; });
+  if (invAccounts.length === 0) return;
+  var itemId = invAccounts[0].plaid_item_id;
+  if (!itemId) return;
+
+  showLoading(true);
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    var res = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ action: 'update_consent', item_id: itemId })
+    });
+    var data = await res.json();
+    if (!res.ok || !data.link_token) {
+      showError('Failed to start consent flow: ' + (data.detail || data.error || 'Unknown error'));
+      showLoading(false);
+      return;
+    }
+    showLoading(false);
+    var handler = Plaid.create({
+      token: data.link_token,
+      onSuccess: function() {
+        loadAccounts();
+      },
+      onExit: function() {}
+    });
+    handler.open();
+  } catch (err) {
+    showError('Consent error: ' + err.message);
+    showLoading(false);
+  }
+}
+
 // ============================================
 // LOAD ACCOUNTS
 // ============================================
@@ -642,6 +684,11 @@ function renderAccounts(accounts) {
     loadHoldings().then(function() {
       renderSection($('#list-inv-investments'), investments, 'bank');
       updateInvestmentTotals(savings, investments, hasInvAccounts);
+      // Show consent banner if holdings are empty (likely needs consent)
+      var consentBanner = document.getElementById('inv-consent-banner');
+      if (consentBanner) {
+        consentBanner.hidden = cachedHoldings && cachedHoldings.length > 0;
+      }
     });
   }
 
