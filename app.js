@@ -1613,9 +1613,16 @@ function renderTransactionMonth() {
   // Render transactions
   displayTx.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
-    var effectiveDate = eff.date;
-    var displayDate = formatTxDate(effectiveDate, null);
-    var dateHtml = displayDate;
+    var postedDate = tx.date;
+    var authDate = tx.authorized_date;
+    var authDatetime = tx.authorized_datetime;
+    var dateHtml = '';
+    if (authDate || authDatetime) {
+      dateHtml = '<span class="tx-date-line">Auth ' + formatTxDate(authDate, authDatetime) + '</span>' +
+        '<span class="tx-date-line">Posted ' + formatTxDate(postedDate, null) + '</span>';
+    } else {
+      dateHtml = '<span class="tx-date-line">' + formatTxDate(postedDate, null) + '</span>';
+    }
 
     var displayName = eff.nickname || tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
 
@@ -1667,7 +1674,7 @@ function renderTransactionMonth() {
       '</div>' +
       '<div class="tx-right">' +
         amountHtml +
-        '<span class="tx-date">' + dateHtml + '</span>' +
+        '<div class="tx-dates">' + dateHtml + '</div>' +
       '</div>' +
     '</div>';
   });

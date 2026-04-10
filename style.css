@@ -1553,6 +1553,19 @@ body {
   color: var(--text-dim);
 }
 
+.tx-dates {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+}
+
+.tx-date-line {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 .tx-pending-badge {
   display: inline-block;
   background: rgba(245, 158, 11, 0.12);
