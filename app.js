@@ -2100,7 +2100,13 @@ async function saveMultiAction(txId, updates) {
     recurring_next_date: updates.hasOwnProperty('recurring_next_date') ? updates.recurring_next_date : (existing.recurring_next_date || null),
     recurring_amount_mode: updates.hasOwnProperty('recurring_amount_mode') ? updates.recurring_amount_mode : (existing.recurring_amount_mode || 'recent')
   };
-  await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
+  var saveResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
+  if (saveResult.error) {
+    console.error('Failed to save action:', saveResult.error);
+    // Retry once
+    var retryResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
+    if (retryResult.error) console.error('Retry also failed:', retryResult.error);
+  }
   txActions[txId] = row;
 
   if (row.action_type === 'ignored') {
