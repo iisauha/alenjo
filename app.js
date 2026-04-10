@@ -768,18 +768,18 @@ async function updateSyncInfo() {
   var invTxCost = invAccounts.length * invTxRate;
   var liabCost = creditAccounts.length * liabRate;
 
-  // Fetch enrich usage
+  // Fetch enrich usage from counter (tracks manual enrichments only)
   var currentMonth = new Date().toISOString().slice(0, 7);
   var enrichThisMonth = 0;
+  try {
+    var usageResult = await sb.from('enrich_usage').select('tx_count').eq('month', currentMonth).maybeSingle();
+    if (usageResult.data) enrichThisMonth = usageResult.data.tx_count;
+  } catch(e) {}
+  // Get actual enriched count from DB
   var enrichTotal = 0;
   try {
-    var usageResult = await sb.from('enrich_usage').select('month, tx_count');
-    if (usageResult.data) {
-      usageResult.data.forEach(function(row) {
-        enrichTotal += row.tx_count;
-        if (row.month === currentMonth) enrichThisMonth = row.tx_count;
-      });
-    }
+    var countResult = await sb.from('synced_transactions').select('id', { count: 'exact', head: true }).eq('enrich_status', 'completed');
+    enrichTotal = countResult.count || 0;
   } catch(e) {}
 
   var enrichCost = (enrichThisMonth / 1000) * enrichRate;
