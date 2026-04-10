@@ -546,6 +546,17 @@ async function backgroundSync() {
   }
 }
 
+// Manual refresh button
+$('#btn-refresh-sync').addEventListener('click', async function() {
+  var btn = this;
+  if (btn.classList.contains('syncing')) return;
+  btn.classList.add('syncing');
+  try {
+    await backgroundSync();
+  } catch (e) {}
+  btn.classList.remove('syncing');
+});
+
 // ============================================
 // LOGO.DEV
 // ============================================
