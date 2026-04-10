@@ -661,23 +661,8 @@ function renderAccounts(accounts) {
     netCashValue.textContent = (netCash < 0 ? '-' : '') + formatMoney(netCash);
     netCashValue.className = 'net-cash-value ' + (netCash >= 0 ? 'balance-positive' : 'balance-negative');
 
-    // Calculate the other mode's net cash for the toggle label
-    var otherBankSum = banks.reduce(function(s, a) {
-      var c = parseFloat(a.balance_current || 0);
-      var av = a.balance_available != null ? parseFloat(a.balance_available) : null;
-      return s + (showAvailable ? (av != null ? av : c) : c);
-    }, 0);
-    var otherCreditSum = credits.reduce(function(s, a) {
-      var c = parseFloat(a.balance_current || 0);
-      var av = a.balance_available != null ? parseFloat(a.balance_available) : null;
-      var lim = a.balance_limit != null ? parseFloat(a.balance_limit) : null;
-      if (showAvailable) {
-        return s + (lim != null && av != null ? lim - av : c);
-      }
-      return s + c;
-    }, 0);
-    var otherNet = otherBankSum - otherCreditSum;
-    balanceToggle.textContent = (otherNet < 0 ? '-' : '') + formatMoney(otherNet);
+    balanceToggle.textContent = showAvailable ? 'Current' : 'After Pending';
+    balanceToggle.hidden = false;
   } else {
     netCashEl.hidden = true;
   }
@@ -735,9 +720,7 @@ function updateInvestmentTotals(savings, investments, hasInvAccounts) {
 }
 
 function renderAccountsSettings() {
-  var section = $('#section-accounts');
   var list = $('#accounts-list');
-  section.hidden = false;
   if (!cachedAccounts || cachedAccounts.length === 0) {
     list.innerHTML = '<p style="color:var(--text-dim);font-size:0.75rem">No accounts connected.</p>';
     return;
@@ -814,11 +797,9 @@ async function updateSyncInfo() {
   var billingSection = $('#section-billing');
   var billingEl = $('#billing-info');
   if (!cachedAccounts || cachedAccounts.length === 0) {
-    billingSection.hidden = true;
+    billingEl.innerHTML = '<p style="color:var(--text-dim);font-size:0.75rem">Connect an account to see billing.</p>';
     return;
   }
-  billingSection.hidden = false;
-
   // Count by type
   var bankAccounts = cachedAccounts.filter(function(a) { return a.type === 'depository'; });
   var creditAccounts = cachedAccounts.filter(function(a) { return a.type === 'credit'; });
@@ -835,45 +816,35 @@ async function updateSyncInfo() {
   var invHoldingsCost = invAccounts.length * invHoldingsRate;
   var invTxCost = invAccounts.length * invTxRate;
   var liabCost = creditAccounts.length * liabRate;
-
   var monthlyEstimate = txCost + invHoldingsCost + invTxCost + liabCost;
 
-  // Build HTML
   var html = '';
 
-  // Overview -- conversational
-  html += '<div class="billing-section">';
+  // Conversational intro
   var parts = [];
   if (bankAccounts.length > 0) parts.push(bankAccounts.length + ' bank');
   if (creditAccounts.length > 0) parts.push(creditAccounts.length + ' credit card');
   if (invAccounts.length > 0) parts.push(invAccounts.length + ' investment');
-  html += '<p class="billing-intro">You have <strong>' + totalAccounts + ' account' + (totalAccounts !== 1 ? 's' : '') + '</strong> connected' + (parts.length > 0 ? ' (' + parts.join(', ') + ')' : '') + '. Plaid keeps them synced with your bank automatically. Here is what that costs this month.</p>';
-  html += '</div>';
+  html += '<p class="billing-intro">We want to be transparent about what it costs to run your account. You have <strong>' + totalAccounts + ' account' + (totalAccounts !== 1 ? 's' : '') + '</strong> connected' + (parts.length > 0 ? ' (' + parts.join(', ') + ')' : '') + '. We use Plaid to sync your data securely with your bank. Here is exactly what that costs.</p>';
 
-  // Line items
-  html += '<div class="billing-section">';
-  html += '<h3 class="billing-section-title">Monthly Account Fees</h3>';
-
+  // Explain each product, then show the charge
   if (txAccounts > 0) {
-    html += '<div class="sync-info-row"><span>Transactions</span><span>' + txAccounts + ' x $' + txRate.toFixed(2) + ' = $' + txCost.toFixed(2) + '</span></div>';
+    html += '<div class="sync-info-row"><span>Transaction syncing</span><span>$' + txCost.toFixed(2) + '</span></div>';
+    html += '<p class="billing-explain">Automatically pulls your purchases and deposits from ' + txAccounts + ' account' + (txAccounts !== 1 ? 's' : '') + '. Plaid charges $' + txRate.toFixed(2) + '/account/month.</p>';
   }
 
   if (creditAccounts.length > 0) {
-    html += '<div class="sync-info-row"><span>Credit card details</span><span>' + creditAccounts.length + ' x $' + liabRate.toFixed(2) + ' = $' + liabCost.toFixed(2) + '</span></div>';
+    html += '<div class="sync-info-row"><span>Credit card details</span><span>$' + liabCost.toFixed(2) + '</span></div>';
+    html += '<p class="billing-explain">Shows your APR, minimum payment, due dates, and utilization for ' + creditAccounts.length + ' card' + (creditAccounts.length !== 1 ? 's' : '') + '. Plaid charges $' + liabRate.toFixed(2) + '/card/month.</p>';
   }
 
   if (invAccounts.length > 0) {
-    html += '<div class="sync-info-row"><span>Investment holdings</span><span>' + invAccounts.length + ' x $' + invHoldingsRate.toFixed(2) + ' = $' + invHoldingsCost.toFixed(2) + '</span></div>';
-    html += '<div class="sync-info-row"><span>Investment transactions</span><span>' + invAccounts.length + ' x $' + invTxRate.toFixed(2) + ' = $' + invTxCost.toFixed(2) + '</span></div>';
+    html += '<div class="sync-info-row"><span>Investment data</span><span>$' + (invHoldingsCost + invTxCost).toFixed(2) + '</span></div>';
+    html += '<p class="billing-explain">Tracks your holdings, portfolio value, and investment activity for ' + invAccounts.length + ' account' + (invAccounts.length !== 1 ? 's' : '') + '. Plaid charges $' + (invHoldingsRate + invTxRate).toFixed(2) + '/account/month.</p>';
   }
 
-  html += '<p class="billing-explain">These are flat fees charged per linked account. They stay the same every month as long as your accounts are connected.</p>';
-  html += '</div>';
-
-  // Total
-  html += '<div class="billing-section billing-total-section">';
+  // Total -- same row style, no extra wrapper
   html += '<div class="sync-info-row sync-info-total"><span>This month</span><span>$' + monthlyEstimate.toFixed(2) + '</span></div>';
-  html += '</div>';
 
   billingEl.innerHTML = html;
 }
