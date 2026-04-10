@@ -21,6 +21,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+button, select, input, .nav-item, .action-option, .action-toggle, .cat-legend-item, .tx-row, .rec-row {
+  transition: all 0.2s ease;
+}
+
+button:active, .action-toggle:active, .nav-item:active {
+  transform: scale(0.97);
+}
+
 html, body {
   height: 100%;
   height: 100dvh;
@@ -263,10 +271,16 @@ body {
   overflow-y: auto;
   padding: 0.75rem 1.25rem;
   padding-bottom: 5rem;
+  animation: tabFadeIn 0.2s ease-out;
 }
 
 .tab-content.active {
   display: block;
+}
+
+@keyframes tabFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ================================
@@ -558,15 +572,19 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   z-index: 90;
   padding: 1.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
 }
 
 .modal-overlay.visible {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .modal-card {
@@ -576,6 +594,12 @@ body {
   padding: 1.25rem;
   width: 100%;
   max-width: 320px;
+  transform: scale(0.95) translateY(10px);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.modal-overlay.visible .modal-card {
+  transform: scale(1) translateY(0);
 }
 
 .modal-card h3 {
@@ -1234,6 +1258,7 @@ body {
 .tx-chart-wrap {
   max-width: 220px;
   margin: 0 auto 0.75rem;
+  overflow: hidden;
 }
 
 .cat-legend-item {

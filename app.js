@@ -1320,25 +1320,40 @@ var txPieChart = null;
 var txPieLastMonth = null;
 var activeCategoryFilter = null;
 var showIgnoredTx = false;
-var txPieCenterData = { label: null, amount: 0, pct: '0%' };
+var txPieCenterData = { label: null, amount: 0, pct: '' };
 
 // Register center text plugin globally for the doughnut chart
 var txCenterTextPlugin = {
   id: 'txCenterText',
   afterDraw: function(chart) {
-    if (!txPieCenterData.label) return;
+    if (txPieCenterData.amount === 0 && !txPieCenterData.label) return;
     var ctx = chart.ctx;
     var centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
     var centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(formatMoney(txPieCenterData.amount), centerX, centerY - 8);
-    ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.fillText(txPieCenterData.pct, centerX, centerY + 10);
+
+    if (txPieCenterData.label) {
+      // Category selected: show name, amount, %
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '500 11px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(txPieCenterData.label, centerX, centerY - 18);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(formatMoney(txPieCenterData.amount), centerX, centerY + 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(txPieCenterData.pct, centerX, centerY + 19);
+    } else {
+      // No category: show total
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '500 11px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('Total', centerX, centerY - 12);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(formatMoney(txPieCenterData.amount), centerX, centerY + 8);
+    }
     ctx.restore();
   }
 };
@@ -1429,7 +1444,7 @@ function renderTransactionMonth() {
     var catAmt = byCategory[activeCategoryFilter];
     txPieCenterData = { label: activeCategoryFilter, amount: catAmt, pct: totalExpenses > 0 ? ((catAmt / totalExpenses) * 100).toFixed(0) + '%' : '0%' };
   } else {
-    txPieCenterData = { label: null, amount: 0, pct: '0%' };
+    txPieCenterData = { label: null, amount: totalExpenses, pct: '' };
   }
 
   // Render pie chart — update in place to avoid re-spin
@@ -1456,24 +1471,18 @@ function renderTransactionMonth() {
             data: catAmounts,
             backgroundColor: CATEGORY_COLORS.slice(0, catLabels.length),
             borderWidth: 0,
-            hoverOffset: 8
+            hoverOffset: 0
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: true,
-          cutout: '55%',
+          cutout: '58%',
+          layout: { padding: 0 },
           animation: { animateRotate: true, duration: 800 },
           plugins: {
             legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function(ctx) {
-                  var pct = ((ctx.parsed / totalExpenses) * 100).toFixed(1);
-                  return ctx.label + ': ' + formatMoney(ctx.parsed) + ' (' + pct + '%)';
-                }
-              }
-            }
+            tooltip: { enabled: false }
           },
           onClick: function(e, elements) {
             if (elements.length > 0) {
