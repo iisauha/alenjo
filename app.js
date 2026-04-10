@@ -823,7 +823,7 @@ async function updateSyncInfo() {
   html += '<div class="billing-section">';
   html += '<h3 class="billing-section-title">Enrichment</h3>';
   html += '<p class="billing-explain">When you enrich a transaction, we replace the raw bank description with a clean merchant name, logo, and location. You choose which transactions to enrich -- it is $0.002 each ($2 per 1,000).</p>';
-  html += '<div class="sync-info-row"><span>Enriched this month</span><span>' + enrichThisMonth.toLocaleString() + ' of 1,000</span></div>';
+  html += '<div class="sync-info-row"><span>Enriched this month</span><span>' + enrichThisMonth.toLocaleString() + '</span></div>';
   html += '<div class="sync-info-row"><span>All-time enrichments</span><span>' + enrichTotal.toLocaleString() + '</span></div>';
   html += '<div class="sync-info-row" style="border-bottom:none"><span>Enrichment cost this month</span><span><strong>$' + enrichCost.toFixed(2) + '</strong></span></div>';
   html += '</div>';
