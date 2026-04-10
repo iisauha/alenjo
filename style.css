@@ -1378,6 +1378,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   padding: 0.45rem 0;
   border-bottom: 1px solid rgba(21, 31, 48, 0.5);
   animation: txFadeIn 0.25s ease-out both;
@@ -1410,10 +1411,25 @@ body {
   text-transform: capitalize;
 }
 
+.tx-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: rgba(255,255,255,0.05);
+}
+
 .tx-card-label {
   font-size: 0.6rem;
   color: var(--accent);
   opacity: 0.7;
+}
+
+.tx-location {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  opacity: 0.8;
 }
 
 .tx-right {
@@ -1569,6 +1585,12 @@ body {
   font-size: 1rem;
   flex-shrink: 0;
   margin-left: 0.75rem;
+}
+
+.action-sheet-detail {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
 }
 
 .action-sheet-status {

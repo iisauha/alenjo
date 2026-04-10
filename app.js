@@ -1286,7 +1286,7 @@ async function loadTransactions() {
 function getEffectiveTx(tx) {
   var action = txActions[tx.id];
   var result = {
-    excluded: false, amount: tx.amount, category: tx.category,
+    excluded: false, amount: tx.amount, category: tx.enriched_category_primary || tx.category,
     actionType: action ? action.action_type : null,
     splitWays: action ? action.split_ways : null,
     nickname: null, date: tx.date,
@@ -1400,9 +1400,10 @@ function renderTransactionMonth() {
     filtered = filtered.filter(function(tx) {
       var eff = getEffectiveTx(tx);
       var nick = (eff.nickname || '').toLowerCase();
+      var enriched = (tx.enriched_merchant_name || '').toLowerCase();
       var merchant = (tx.merchant_name || '').toLowerCase();
       var name = (tx.name || '').toLowerCase();
-      return nick.indexOf(searchVal) !== -1 || merchant.indexOf(searchVal) !== -1 || name.indexOf(searchVal) !== -1;
+      return nick.indexOf(searchVal) !== -1 || enriched.indexOf(searchVal) !== -1 || merchant.indexOf(searchVal) !== -1 || name.indexOf(searchVal) !== -1;
     });
   }
 
@@ -1566,7 +1567,7 @@ function renderTransactionMonth() {
       dateHtml = displayDate;
     }
 
-    var displayName = eff.nickname || tx.merchant_name || tx.name || 'Unknown';
+    var displayName = eff.nickname || tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
 
     var rowClass = 'tx-row';
     var badges = '';
@@ -1596,11 +1597,20 @@ function renderTransactionMonth() {
       cardLabel = '<span class="tx-card-label">' + esc(accountMap[tx.plaid_account_id]) + '</span>';
     }
 
+    var logoHtml = tx.enriched_logo_url ? '<img class="tx-logo" src="' + esc(tx.enriched_logo_url) + '" alt="" onerror="this.style.display=\'none\'">' : '';
+    var locationHtml = '';
+    if (tx.enriched_location_city || tx.enriched_location_region) {
+      var locParts = [tx.enriched_location_city, tx.enriched_location_region].filter(Boolean);
+      locationHtml = '<span class="tx-location">' + esc(locParts.join(', ')) + '</span>';
+    }
+
     html += '<div class="' + rowClass + '" data-txid="' + esc(tx.id) + '">' +
+      logoHtml +
       '<div class="tx-info">' +
         '<span class="tx-merchant">' + esc(displayName) + '</span>' +
         (badges ? '<div class="tx-badges">' + badges + '</div>' : '<span class="tx-category">' + esc(normalizeCategory(eff.category)) + '</span>') +
         cardLabel +
+        locationHtml +
       '</div>' +
       '<div class="tx-right">' +
         amountHtml +
@@ -1703,9 +1713,22 @@ function openActionSheet(tx) {
   actionTx = tx;
   var action = txActions[tx.id] || {};
 
-  $('#tx-action-merchant').textContent = tx.merchant_name || tx.name || 'Unknown';
+  $('#tx-action-merchant').textContent = tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
   $('#tx-action-amount').textContent = (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount));
   $('#tx-action-amount').className = 'action-sheet-subtitle ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
+
+  // Show enriched details
+  var detailParts = [];
+  if (tx.enriched_location_city || tx.enriched_location_region) {
+    detailParts.push([tx.enriched_location_city, tx.enriched_location_region].filter(Boolean).join(', '));
+  }
+  if (tx.enriched_payment_channel) detailParts.push(tx.enriched_payment_channel.replace(/_/g, ' '));
+  if (tx.enriched_website) detailParts.push(tx.enriched_website);
+  var detailEl = $('#tx-action-detail');
+  if (detailEl) {
+    detailEl.textContent = detailParts.join(' / ');
+    detailEl.hidden = detailParts.length === 0;
+  }
 
   // Build status text
   var statusParts = [];
