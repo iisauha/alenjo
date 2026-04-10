@@ -1277,6 +1277,13 @@ async function loadTransactions() {
     searchTimer = setTimeout(renderTransactionMonth, 200);
   });
 
+  $('#btn-toggle-ignored').addEventListener('click', function() {
+    showIgnoredTx = !showIgnoredTx;
+    this.textContent = showIgnoredTx ? 'Hide Ignored' : 'Show Ignored';
+    this.classList.toggle('active', showIgnoredTx);
+    renderTransactionMonth();
+  });
+
   // Background sync is handled by throttledSync() from loadAccounts
 }
 
@@ -1300,6 +1307,7 @@ function getEffectiveTx(tx) {
 var txPieChart = null;
 var txPieLastMonth = null;
 var activeCategoryFilter = null;
+var showIgnoredTx = false;
 var txPieCenterData = { label: null, amount: 0, pct: '0%' };
 
 // Register center text plugin globally for the doughnut chart
@@ -1371,10 +1379,18 @@ function renderTransactionMonth() {
     });
   }
 
-  // Filter by active category if pie slice clicked
+  // Hide ignored/reimbursed unless toggled on
   var displayTx = filtered;
+  if (!showIgnoredTx) {
+    displayTx = displayTx.filter(function(tx) {
+      var eff = getEffectiveTx(tx);
+      return !eff.excluded;
+    });
+  }
+
+  // Filter by active category if pie slice clicked
   if (activeCategoryFilter) {
-    displayTx = filtered.filter(function(tx) {
+    displayTx = displayTx.filter(function(tx) {
       var eff = getEffectiveTx(tx);
       return normalizeCategory(eff.category) === activeCategoryFilter;
     });

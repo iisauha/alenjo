@@ -1187,6 +1187,29 @@ body {
   margin-bottom: 0.75rem;
 }
 
+.tx-subheader-right {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.btn-toggle-ignored {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-ignored.active {
+  background: rgba(60, 130, 246, 0.1);
+  border-color: rgba(60, 130, 246, 0.3);
+  color: var(--accent);
+}
+
 .tx-updated {
   font-size: 0.65rem;
   color: var(--text-dim);
