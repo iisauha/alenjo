@@ -401,10 +401,9 @@ async function openPlaidLink(products) {
   }
 }
 
-btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions']); });
-btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions']); });
-if ($('#btn-connect-investments')) $('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
-if ($('#btn-add-investment')) $('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
+btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transactions', 'investments']); });
+btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions', 'investments']); });
+if ($('#btn-connect-investments')) $('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['transactions', 'investments']); });
 
 // Grant investment consent for an existing item
 async function grantInvestmentConsent() {
