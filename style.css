@@ -1617,9 +1617,6 @@ body {
   transition: all 0.2s ease;
 }
 
-.action-toggle:hover {
-  border-color: var(--accent);
-}
 
 .action-toggle.active {
   border-color: var(--accent);
@@ -1648,9 +1645,6 @@ body {
   margin-top: 0.35rem;
 }
 
-.action-option:hover {
-  border-color: var(--accent);
-}
 
 .action-option.active {
   border-color: var(--accent);

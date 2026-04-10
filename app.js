@@ -1762,14 +1762,12 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
     var existing = txActions[actionTxId] || {};
 
     if (toggle === 'ignored' || toggle === 'reimbursed') {
-      // Exclusive: clear everything else, set action_type
+      // Exclusive with split/recat but allows recurring
       var isAlreadySet = existing.action_type === toggle;
       saveMultiAction(actionTxId, {
         action_type: isAlreadySet ? null : toggle,
         split_ways: null,
-        category_override: null,
-        is_recurring: false,
-        recurring_group: null
+        category_override: null
       });
       return;
     }
@@ -2116,6 +2114,7 @@ function renderRecurring() {
 
     recurringItems.push({
       name: displayName,
+      category: normalizeCategory(eff.category),
       amount: amount,
       isIncome: isIncome,
       lastDate: mostRecent.date,
@@ -2168,7 +2167,7 @@ function renderRecurringRow(item, isIncome) {
   return '<div class="rec-row">' +
     '<div class="rec-info">' +
       '<span class="rec-merchant">' + esc(item.name) + '</span>' +
-      '<span class="rec-freq">Last charged ' + formatTxDate(item.lastDate) + splitLabel + '</span>' +
+      '<span class="rec-freq">' + esc(item.category) + ' -- last ' + formatTxDate(item.lastDate) + splitLabel + '</span>' +
     '</div>' +
     '<div class="rec-right">' +
       '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
