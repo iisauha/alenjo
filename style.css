@@ -872,6 +872,48 @@ body {
   font-size: 0.85rem;
 }
 
+.billing-section {
+  margin-bottom: 1rem;
+}
+
+.billing-section:last-child {
+  margin-bottom: 0;
+}
+
+.billing-intro {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 0.4rem;
+}
+
+.billing-intro strong {
+  color: var(--text);
+}
+
+.billing-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.billing-explain {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 0.4rem;
+}
+
+.billing-detail {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  padding: 0 0 0.3rem;
+  line-height: 1.4;
+}
+
 .settings-hint {
   color: var(--text-dim);
   font-size: 0.75rem;

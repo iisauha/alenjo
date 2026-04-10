@@ -740,7 +740,7 @@ if ($('#btn-disconnect-all')) {
   });
 }
 
-function updateSyncInfo() {
+async function updateSyncInfo() {
   var billingSection = $('#section-billing');
   var billingEl = $('#billing-info');
   if (!cachedAccounts || cachedAccounts.length === 0) {
@@ -750,48 +750,94 @@ function updateSyncInfo() {
   billingSection.hidden = false;
 
   // Count by type
-  var txAccounts = cachedAccounts.filter(function(a) { return a.type === 'depository' || a.type === 'credit'; });
+  var bankAccounts = cachedAccounts.filter(function(a) { return a.type === 'depository'; });
   var creditAccounts = cachedAccounts.filter(function(a) { return a.type === 'credit'; });
   var invAccounts = cachedAccounts.filter(function(a) { return a.type === 'investment'; });
-  var txCount = txAccounts.length;
-  var creditCount = creditAccounts.length;
-  var invCount = invAccounts.length;
+  var txAccounts = bankAccounts.length + creditAccounts.length;
+  var totalAccounts = cachedAccounts.length;
 
+  // Plaid per-account rates
   var txRate = 0.30;
-  var recurringRate = 0.15;
   var invHoldingsRate = 0.18;
   var invTxRate = 0.35;
   var liabRate = 0.20;
+  var enrichRate = 2.00; // per 1000 transactions
 
-  var txCost = txCount * txRate;
-  var recurringCost = txCount * recurringRate;
-  var invHoldingsCost = invCount * invHoldingsRate;
-  var invTxCost = invCount * invTxRate;
-  var liabCost = creditCount * liabRate;
-  var monthlyEstimate = txCost + recurringCost + invHoldingsCost + invTxCost + liabCost;
+  var txCost = txAccounts * txRate;
+  var invHoldingsCost = invAccounts.length * invHoldingsRate;
+  var invTxCost = invAccounts.length * invTxRate;
+  var liabCost = creditAccounts.length * liabRate;
 
-  var html =
-    '<div class="sync-info-row"><span>Bank/credit accounts</span><span>' + txCount + '</span></div>';
+  // Fetch enrich usage
+  var currentMonth = new Date().toISOString().slice(0, 7);
+  var enrichThisMonth = 0;
+  var enrichTotal = 0;
+  try {
+    var usageResult = await sb.from('enrich_usage').select('month, tx_count');
+    if (usageResult.data) {
+      usageResult.data.forEach(function(row) {
+        enrichTotal += row.tx_count;
+        if (row.month === currentMonth) enrichThisMonth = row.tx_count;
+      });
+    }
+  } catch(e) {}
 
-  if (txCount > 0) {
-    html +=
-      '<div class="sync-info-row"><span>Transactions</span><span>' + txCount + ' x $' + txRate.toFixed(2) + ' = $' + txCost.toFixed(2) + '</span></div>' +
-      '<div class="sync-info-row"><span>Recurring Transactions</span><span>' + txCount + ' x $' + recurringRate.toFixed(2) + ' = $' + recurringCost.toFixed(2) + '</span></div>';
+  var enrichCost = (enrichThisMonth / 1000) * enrichRate;
+  var monthlyEstimate = txCost + invHoldingsCost + invTxCost + liabCost + enrichCost;
+
+  // Build HTML
+  var html = '';
+
+  // Overview
+  html += '<div class="billing-section">';
+  html += '<p class="billing-intro">You have <strong>' + totalAccounts + ' account' + (totalAccounts !== 1 ? 's' : '') + '</strong> linked';
+  var parts = [];
+  if (bankAccounts.length > 0) parts.push(bankAccounts.length + ' bank');
+  if (creditAccounts.length > 0) parts.push(creditAccounts.length + ' credit card');
+  if (invAccounts.length > 0) parts.push(invAccounts.length + ' investment');
+  if (parts.length > 0) html += ' (' + parts.join(', ') + ')';
+  html += '.</p>';
+  html += '<p class="billing-intro">We use Plaid to securely connect to your banks and keep your data up to date. Every time your bank reports new transactions, balances, or holdings, we sync them automatically. Here is what that costs:</p>';
+  html += '</div>';
+
+  // Per-account charges
+  html += '<div class="billing-section">';
+  html += '<h3 class="billing-section-title">Per-Account Charges (monthly)</h3>';
+  html += '<p class="billing-explain">Plaid charges a flat monthly fee per linked account for each data product we use on that account.</p>';
+
+  if (txAccounts > 0) {
+    html += '<div class="sync-info-row"><span>Transaction syncing (' + txAccounts + ' acct' + (txAccounts !== 1 ? 's' : '') + ')</span><span>$' + txCost.toFixed(2) + '</span></div>';
+    html += '<div class="billing-detail">' + txAccounts + ' x $' + txRate.toFixed(2) + '/acct/mo. Pulls your purchases and deposits in real time.</div>';
   }
 
-  if (creditCount > 0) {
-    html +=
-      '<div class="sync-info-row"><span>Liabilities</span><span>' + creditCount + ' x $' + liabRate.toFixed(2) + ' = $' + liabCost.toFixed(2) + '</span></div>';
+  if (creditAccounts.length > 0) {
+    html += '<div class="sync-info-row"><span>Credit card details (' + creditAccounts.length + ' card' + (creditAccounts.length !== 1 ? 's' : '') + ')</span><span>$' + liabCost.toFixed(2) + '</span></div>';
+    html += '<div class="billing-detail">' + creditAccounts.length + ' x $' + liabRate.toFixed(2) + '/acct/mo. Shows APR, minimum payment, due dates, and balances.</div>';
   }
 
-  if (invCount > 0) {
-    html +=
-      '<div class="sync-info-row"><span>Investment accounts</span><span>' + invCount + '</span></div>' +
-      '<div class="sync-info-row"><span>Investments Holdings</span><span>' + invCount + ' x $' + invHoldingsRate.toFixed(2) + ' = $' + invHoldingsCost.toFixed(2) + '</span></div>' +
-      '<div class="sync-info-row"><span>Investments Transactions</span><span>' + invCount + ' x $' + invTxRate.toFixed(2) + ' = $' + invTxCost.toFixed(2) + '</span></div>';
+  if (invAccounts.length > 0) {
+    html += '<div class="sync-info-row"><span>Investment holdings (' + invAccounts.length + ' acct' + (invAccounts.length !== 1 ? 's' : '') + ')</span><span>$' + invHoldingsCost.toFixed(2) + '</span></div>';
+    html += '<div class="billing-detail">' + invAccounts.length + ' x $' + invHoldingsRate.toFixed(2) + '/acct/mo. Tracks your stocks, funds, and portfolio value.</div>';
+    html += '<div class="sync-info-row"><span>Investment transactions (' + invAccounts.length + ' acct' + (invAccounts.length !== 1 ? 's' : '') + ')</span><span>$' + invTxCost.toFixed(2) + '</span></div>';
+    html += '<div class="billing-detail">' + invAccounts.length + ' x $' + invTxRate.toFixed(2) + '/acct/mo. Shows buys, sells, and dividends.</div>';
   }
+  html += '</div>';
 
-  html += '<div class="sync-info-row sync-info-total"><span>Estimated monthly total</span><span>$' + monthlyEstimate.toFixed(2) + '/mo</span></div>';
+  // Enrich charges
+  html += '<div class="billing-section">';
+  html += '<h3 class="billing-section-title">Transaction Enrichment</h3>';
+  html += '<p class="billing-explain">We enrich your transactions to show clean merchant names, logos, and locations instead of raw bank descriptions like "PURCHASE WM SUPERCENTER #1700". This is charged per transaction, not per account.</p>';
+  html += '<div class="sync-info-row"><span>Enriched this month</span><span>' + enrichThisMonth.toLocaleString() + ' transactions</span></div>';
+  html += '<div class="sync-info-row"><span>Enrichment cost this month</span><span>$' + enrichCost.toFixed(2) + '</span></div>';
+  html += '<div class="billing-detail">$' + enrichRate.toFixed(2) + ' per 1,000 transactions. Only new transactions are enriched. Each transaction is enriched once and never again.</div>';
+  html += '<div class="sync-info-row"><span>Total enriched (all time)</span><span>' + enrichTotal.toLocaleString() + ' transactions</span></div>';
+  html += '</div>';
+
+  // Total
+  html += '<div class="billing-section">';
+  html += '<div class="sync-info-row sync-info-total"><span>Estimated cost this month</span><span>$' + monthlyEstimate.toFixed(2) + '</span></div>';
+  html += '<p class="billing-explain" style="margin-top:0.4rem">This is our actual cost to keep your financial data synced. The per-account fees are fixed each month. Enrichment varies based on how many new transactions come in, but typically stays under $1/mo for a single user.</p>';
+  html += '</div>';
 
   billingEl.innerHTML = html;
 }
