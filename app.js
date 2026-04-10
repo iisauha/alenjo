@@ -2130,7 +2130,6 @@ $('#enrich-confirm-btn').addEventListener('click', async function() {
       var tx = txData.find(function(t) { return t.id === actionTx.id; });
       if (tx) {
         tx.enrich_status = 'completed';
-        tx.is_enriched = true;
         tx.enriched_merchant_name = data.enriched.enriched_merchant_name;
         tx.enriched_logo_url = data.enriched.enriched_logo_url;
         tx.enriched_website = data.enriched.enriched_website;
