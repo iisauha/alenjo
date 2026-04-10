@@ -1199,15 +1199,10 @@ async function loadTransactions() {
   txEmpty.hidden = true;
   txLoadingEl.classList.remove('visible');
 
-  // Fetch transactions from DB (last 12 months)
-  var cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 3);
-  var cutoffStr = cutoff.toISOString().split('T')[0];
-
+  // Fetch all transactions from DB
   var result = await sb
     .from('synced_transactions')
     .select('*')
-    .gte('date', cutoffStr)
     .order('date', { ascending: false });
 
   if (result.error || !result.data || result.data.length === 0) {
@@ -1274,13 +1269,13 @@ async function loadTransactions() {
     toAutoIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
   }
 
-  // Build month list — current month + 2 previous months
-  var now = new Date();
-  txMonths = [];
-  for (var mi = 0; mi < 3; mi++) {
-    var d = new Date(now.getFullYear(), now.getMonth() - mi, 1);
-    txMonths.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
-  }
+  // Build month list from actual transaction dates
+  var monthSet = {};
+  txData.forEach(function(tx) {
+    var m = tx.date.substring(0, 7);
+    monthSet[m] = true;
+  });
+  txMonths = Object.keys(monthSet).sort().reverse();
 
   // Populate month filter — parse YYYY-MM directly to avoid timezone issues
   var filter = $('#tx-month-filter');
@@ -2239,10 +2234,7 @@ async function loadRecurring() {
 
   // Load transaction data if not already loaded
   if (txData.length === 0) {
-    var cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 3);
-    var cutoffStr = cutoff.toISOString().split('T')[0];
-    var result = await sb.from('synced_transactions').select('*').gte('date', cutoffStr).order('date', { ascending: false });
+    var result = await sb.from('synced_transactions').select('*').order('date', { ascending: false });
     if (result.data && result.data.length > 0) {
       txData = result.data;
     }
