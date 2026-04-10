@@ -1191,7 +1191,7 @@ async function loadTransactions() {
   txContent.hidden = false;
 
   // Load user actions and ignore rules
-  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, category_override');
+  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, category_override, nickname, date_override');
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
@@ -1216,13 +1216,14 @@ async function loadTransactions() {
     toAutoIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
   }
 
-  // Build month list — always include current month
+  // Build month list — always include current month, use effective dates
   var monthSet = {};
   var now = new Date();
   var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   monthSet[currentMonth] = true;
   txData.forEach(function(tx) {
-    var m = tx.date.substring(0, 7);
+    var eff = getEffectiveTx(tx);
+    var m = eff.date.substring(0, 7);
     monthSet[m] = true;
   });
   txMonths = Object.keys(monthSet).sort().reverse();
@@ -1269,13 +1270,22 @@ async function loadTransactions() {
   filter.addEventListener('change', renderTransactionMonth);
   cardFilter.addEventListener('change', renderTransactionMonth);
 
+  var searchInput = $('#tx-search');
+  var searchTimer = null;
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderTransactionMonth, 200);
+  });
+
   // Background sync is handled by throttledSync() from loadAccounts
 }
 
 function getEffectiveTx(tx) {
   var action = txActions[tx.id];
-  var result = { excluded: false, amount: tx.amount, category: tx.category, actionType: action ? action.action_type : null, splitWays: action ? action.split_ways : null };
+  var result = { excluded: false, amount: tx.amount, category: tx.category, actionType: action ? action.action_type : null, splitWays: action ? action.split_ways : null, nickname: null, date: tx.date };
   if (!action) return result;
+  if (action.nickname) result.nickname = action.nickname;
+  if (action.date_override) result.date = action.date_override;
   if (action.action_type === 'ignored' || action.action_type === 'reimbursed') {
     result.excluded = true;
     result.amount = 0;
@@ -1296,20 +1306,45 @@ var CATEGORY_COLORS = [
   '#14B8A6', '#EF4444', '#A855F7', '#22D3EE', '#FB923C'
 ];
 
+function buildAccountMap() {
+  var map = {};
+  if (cachedAccounts) {
+    cachedAccounts.forEach(function(a) {
+      if (a.plaid_account_id) map[a.plaid_account_id] = a.nickname || a.name || 'Account';
+    });
+  }
+  return map;
+}
+
 function renderTransactionMonth() {
   var month = $('#tx-month-filter').value;
   var cardId = $('#tx-card-filter').value;
+  var searchVal = ($('#tx-search').value || '').toLowerCase().trim();
   var breakdown = $('#tx-breakdown');
   var legend = $('#tx-category-legend');
+  var accountMap = buildAccountMap();
+  var showCardName = cardId === 'all';
 
-  // Filter by month
+  // Filter by month using effective date (date_override if set)
   var filtered = txData.filter(function(tx) {
-    return tx.date.substring(0, 7) === month;
+    var eff = getEffectiveTx(tx);
+    return eff.date.substring(0, 7) === month;
   });
 
   // Filter by card using plaid_account_id
   if (cardId !== 'all') {
     filtered = filtered.filter(function(tx) { return tx.plaid_account_id === cardId; });
+  }
+
+  // Search filter — matches nickname, merchant, or original name
+  if (searchVal) {
+    filtered = filtered.filter(function(tx) {
+      var eff = getEffectiveTx(tx);
+      var nick = (eff.nickname || '').toLowerCase();
+      var merchant = (tx.merchant_name || '').toLowerCase();
+      var name = (tx.name || '').toLowerCase();
+      return nick.indexOf(searchVal) !== -1 || merchant.indexOf(searchVal) !== -1 || name.indexOf(searchVal) !== -1;
+    });
   }
 
   // Filter by active category if pie slice clicked
@@ -1412,25 +1447,24 @@ function renderTransactionMonth() {
     });
   });
 
-  // Month summary — use effective values
+  // Month summary — use effective values (spending only)
   var totalSpent = 0;
-  var totalIncome = 0;
   filtered.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
     if (eff.excluded) return;
     if (eff.amount > 0) totalSpent += eff.amount;
-    else totalIncome += Math.abs(eff.amount);
   });
 
   var html = '<div class="tx-month-summary">' +
     '<div class="tx-summary-item"><span class="tx-summary-label">Spent</span><span class="tx-summary-value balance-negative">' + formatMoney(totalSpent) + '</span></div>' +
-    '<div class="tx-summary-item"><span class="tx-summary-label">Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '</span></div>' +
   '</div>';
 
-  // Sort transactions: most recent first by date, then by datetime
+  // Sort transactions: most recent first by effective date
   displayTx.sort(function(a, b) {
-    var da = a.authorized_datetime || a.authorized_date || a.date;
-    var db = b.authorized_datetime || b.authorized_date || b.date;
+    var effA = getEffectiveTx(a);
+    var effB = getEffectiveTx(b);
+    var da = effA.date || a.authorized_datetime || a.authorized_date || a.date;
+    var db = effB.date || b.authorized_datetime || b.authorized_date || b.date;
     if (da > db) return -1;
     if (da < db) return 1;
     return 0;
@@ -1439,16 +1473,16 @@ function renderTransactionMonth() {
   // Render transactions
   displayTx.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
-    var authDate = tx.authorized_date ? formatTxDate(tx.authorized_date, tx.authorized_datetime) : null;
-    var postDate = formatTxDate(tx.date, tx.authorized_datetime);
+    var effectiveDate = eff.date;
+    var displayDate = formatTxDate(effectiveDate, null);
     var dateHtml = '';
     if (tx.pending) {
-      dateHtml = '<span class="tx-pending-badge">Pending</span> ' + (authDate || postDate);
-    } else if (authDate && authDate !== postDate) {
-      dateHtml = postDate + ' <span class="tx-auth-date">(auth ' + authDate + ')</span>';
+      dateHtml = '<span class="tx-pending-badge">Pending</span> ' + displayDate;
     } else {
-      dateHtml = postDate;
+      dateHtml = displayDate;
     }
+
+    var displayName = eff.nickname || tx.merchant_name || tx.name || 'Unknown';
 
     var rowClass = 'tx-row';
     var badge = '';
@@ -1478,10 +1512,16 @@ function renderTransactionMonth() {
       '</span>';
     }
 
+    var cardLabel = '';
+    if (showCardName && tx.plaid_account_id && accountMap[tx.plaid_account_id]) {
+      cardLabel = '<span class="tx-card-label">' + esc(accountMap[tx.plaid_account_id]) + '</span>';
+    }
+
     html += '<div class="' + rowClass + '" data-txid="' + esc(tx.id) + '">' +
       '<div class="tx-info">' +
-        '<span class="tx-merchant">' + esc(tx.merchant_name || tx.name || 'Unknown') + '</span>' +
+        '<span class="tx-merchant">' + esc(displayName) + '</span>' +
         (badge ? badge : '<span class="tx-category">' + esc(normalizeCategory(eff.category)) + '</span>') +
+        cardLabel +
       '</div>' +
       '<div class="tx-right">' +
         amountHtml +
@@ -1612,6 +1652,7 @@ function openActionSheet(tx) {
   // Reset sub-pickers
   $('#split-picker').hidden = true;
   $('#recat-picker').hidden = true;
+  $('#edit-picker').hidden = true;
   $('#tx-action-options').hidden = false;
 
   actionSheet.classList.add('visible');
@@ -1646,6 +1687,10 @@ document.querySelectorAll('#tx-action-options .action-option').forEach(function(
     }
     if (action === 'recategorized') {
       showRecatPicker();
+      return;
+    }
+    if (action === 'edit') {
+      showEditPicker();
       return;
     }
     // reimbursed or ignored — save immediately
@@ -1688,13 +1733,48 @@ function showRecatPicker() {
   });
 }
 
+function showEditPicker() {
+  $('#tx-action-options').hidden = true;
+  var picker = $('#edit-picker');
+  picker.hidden = false;
+  var action = txActions[actionTxId];
+  $('#edit-nickname').value = (action && action.nickname) || '';
+  $('#edit-date').value = (action && action.date_override) || actionTx.date;
+}
+
+$('#edit-save').addEventListener('click', async function() {
+  if (!actionTxId) return;
+  var nickname = $('#edit-nickname').value.trim() || null;
+  var dateOverride = $('#edit-date').value || null;
+  // Only store date_override if different from original
+  if (dateOverride === actionTx.date) dateOverride = null;
+
+  var existing = txActions[actionTxId] || {};
+  var row = {
+    user_id: currentUser.id,
+    transaction_id: actionTxId,
+    action_type: existing.action_type || null,
+    split_ways: existing.split_ways || null,
+    category_override: existing.category_override || null,
+    nickname: nickname,
+    date_override: dateOverride
+  };
+  await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
+  txActions[actionTxId] = row;
+  renderTransactionMonth();
+  closeActionSheet();
+});
+
 async function saveTxAction(txId, actionType, extra, skipUI) {
+  var existing = txActions[txId] || {};
   var row = {
     user_id: currentUser.id,
     transaction_id: txId,
     action_type: actionType,
     split_ways: extra.splitWays || null,
-    category_override: extra.categoryOverride || null
+    category_override: extra.categoryOverride || null,
+    nickname: existing.nickname || null,
+    date_override: existing.date_override || null
   };
   await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
   txActions[txId] = row;

@@ -118,6 +118,9 @@
         <p>Connect an account to see transactions</p>
       </div>
       <div id="tx-content" hidden>
+        <div class="tx-search-wrap">
+          <input type="text" id="tx-search" class="app-input" placeholder="Search transactions...">
+        </div>
         <div class="tx-filters">
           <select id="tx-month-filter" class="app-select"></select>
           <select id="tx-card-filter" class="app-select">
@@ -342,6 +345,12 @@
             <span class="action-desc">Change the spending category</span>
           </div>
         </button>
+        <button class="action-option" data-action="edit">
+          <div class="action-option-text">
+            <span class="action-label">Edit</span>
+            <span class="action-desc">Change name or date</span>
+          </div>
+        </button>
         <button class="action-option action-option-clear" data-action="clear" hidden>
           <div class="action-option-text">
             <span class="action-label">Clear Action</span>
@@ -358,6 +367,18 @@
           <button data-ways="5">5</button>
         </div>
         <p id="split-preview" class="split-preview"></p>
+      </div>
+      <div id="edit-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">Edit Transaction</p>
+        <div class="edit-field">
+          <label for="edit-nickname">Name</label>
+          <input type="text" id="edit-nickname" class="app-input" placeholder="Custom name...">
+        </div>
+        <div class="edit-field">
+          <label for="edit-date">Date</label>
+          <input type="date" id="edit-date" class="app-input">
+        </div>
+        <button id="edit-save" class="btn-primary" style="width:100%;margin-top:0.5rem">Save</button>
       </div>
       <div id="recat-picker" class="action-sheet-sub" hidden>
         <p class="action-sub-title">Choose category</p>

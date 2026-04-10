@@ -1151,6 +1151,25 @@ body {
   display: flex;
 }
 
+.tx-search-wrap {
+  margin-bottom: 0.5rem;
+}
+
+#tx-search {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  box-sizing: border-box;
+}
+
+#tx-search::placeholder {
+  color: var(--text-dim);
+}
+
 .tx-filters {
   display: flex;
   gap: 0.5rem;
@@ -1334,6 +1353,12 @@ body {
   font-size: 0.65rem;
   color: var(--text-dim);
   text-transform: capitalize;
+}
+
+.tx-card-label {
+  font-size: 0.6rem;
+  color: var(--accent);
+  opacity: 0.7;
 }
 
 .tx-right {
@@ -1539,6 +1564,32 @@ body {
 /* Sub-pickers */
 .action-sheet-sub {
   margin-bottom: 0.75rem;
+}
+
+.edit-field {
+  margin-bottom: 0.5rem;
+}
+
+.edit-field label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-bottom: 0.2rem;
+}
+
+.edit-field .app-input {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.edit-field input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
 }
 
 .action-sub-title {
