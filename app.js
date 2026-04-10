@@ -783,60 +783,54 @@ async function updateSyncInfo() {
   } catch(e) {}
 
   var enrichCost = (enrichThisMonth / 1000) * enrichRate;
-  var monthlyEstimate = txCost + invHoldingsCost + invTxCost + liabCost + enrichCost;
+  var fixedCost = txCost + invHoldingsCost + invTxCost + liabCost;
+  var monthlyEstimate = fixedCost + enrichCost;
 
   // Build HTML
   var html = '';
 
-  // Overview
+  // Overview -- conversational
   html += '<div class="billing-section">';
-  html += '<p class="billing-intro">You have <strong>' + totalAccounts + ' account' + (totalAccounts !== 1 ? 's' : '') + '</strong> linked';
   var parts = [];
   if (bankAccounts.length > 0) parts.push(bankAccounts.length + ' bank');
   if (creditAccounts.length > 0) parts.push(creditAccounts.length + ' credit card');
   if (invAccounts.length > 0) parts.push(invAccounts.length + ' investment');
-  if (parts.length > 0) html += ' (' + parts.join(', ') + ')';
-  html += '.</p>';
-  html += '<p class="billing-intro">We use Plaid to securely connect to your banks and keep your data up to date. Every time your bank reports new transactions, balances, or holdings, we sync them automatically. Here is what that costs:</p>';
+  html += '<p class="billing-intro">You have <strong>' + totalAccounts + ' account' + (totalAccounts !== 1 ? 's' : '') + '</strong> connected' + (parts.length > 0 ? ' (' + parts.join(', ') + ')' : '') + '. Plaid keeps them synced with your bank automatically. Here is what that costs this month.</p>';
   html += '</div>';
 
-  // Per-account charges
+  // Line items
   html += '<div class="billing-section">';
-  html += '<h3 class="billing-section-title">Per-Account Charges (monthly)</h3>';
-  html += '<p class="billing-explain">Plaid charges a flat monthly fee per linked account for each data product we use on that account.</p>';
+  html += '<h3 class="billing-section-title">Monthly Account Fees</h3>';
 
   if (txAccounts > 0) {
-    html += '<div class="sync-info-row"><span>Transaction syncing (' + txAccounts + ' acct' + (txAccounts !== 1 ? 's' : '') + ')</span><span>$' + txCost.toFixed(2) + '</span></div>';
-    html += '<div class="billing-detail">' + txAccounts + ' x $' + txRate.toFixed(2) + '/acct/mo. Pulls your purchases and deposits in real time.</div>';
+    html += '<div class="sync-info-row"><span>Transactions</span><span>' + txAccounts + ' x $' + txRate.toFixed(2) + ' = $' + txCost.toFixed(2) + '</span></div>';
   }
 
   if (creditAccounts.length > 0) {
-    html += '<div class="sync-info-row"><span>Credit card details (' + creditAccounts.length + ' card' + (creditAccounts.length !== 1 ? 's' : '') + ')</span><span>$' + liabCost.toFixed(2) + '</span></div>';
-    html += '<div class="billing-detail">' + creditAccounts.length + ' x $' + liabRate.toFixed(2) + '/acct/mo. Shows APR, minimum payment, due dates, and balances.</div>';
+    html += '<div class="sync-info-row"><span>Credit card details</span><span>' + creditAccounts.length + ' x $' + liabRate.toFixed(2) + ' = $' + liabCost.toFixed(2) + '</span></div>';
   }
 
   if (invAccounts.length > 0) {
-    html += '<div class="sync-info-row"><span>Investment holdings (' + invAccounts.length + ' acct' + (invAccounts.length !== 1 ? 's' : '') + ')</span><span>$' + invHoldingsCost.toFixed(2) + '</span></div>';
-    html += '<div class="billing-detail">' + invAccounts.length + ' x $' + invHoldingsRate.toFixed(2) + '/acct/mo. Tracks your stocks, funds, and portfolio value.</div>';
-    html += '<div class="sync-info-row"><span>Investment transactions (' + invAccounts.length + ' acct' + (invAccounts.length !== 1 ? 's' : '') + ')</span><span>$' + invTxCost.toFixed(2) + '</span></div>';
-    html += '<div class="billing-detail">' + invAccounts.length + ' x $' + invTxRate.toFixed(2) + '/acct/mo. Shows buys, sells, and dividends.</div>';
+    html += '<div class="sync-info-row"><span>Investment holdings</span><span>' + invAccounts.length + ' x $' + invHoldingsRate.toFixed(2) + ' = $' + invHoldingsCost.toFixed(2) + '</span></div>';
+    html += '<div class="sync-info-row"><span>Investment transactions</span><span>' + invAccounts.length + ' x $' + invTxRate.toFixed(2) + ' = $' + invTxCost.toFixed(2) + '</span></div>';
   }
+
+  html += '<div class="sync-info-row" style="border-bottom:none"><span>Account fees subtotal</span><span><strong>$' + fixedCost.toFixed(2) + '/mo</strong></span></div>';
+  html += '<p class="billing-explain">These are flat fees charged per linked account. They stay the same every month as long as your accounts are connected.</p>';
   html += '</div>';
 
-  // Enrich charges
+  // Enrichment
   html += '<div class="billing-section">';
-  html += '<h3 class="billing-section-title">Transaction Enrichment</h3>';
-  html += '<p class="billing-explain">We enrich your transactions to show clean merchant names, logos, and locations instead of raw bank descriptions like "PURCHASE WM SUPERCENTER #1700". This is charged per transaction, not per account.</p>';
-  html += '<div class="sync-info-row"><span>Enriched this month</span><span>' + enrichThisMonth.toLocaleString() + ' transactions</span></div>';
-  html += '<div class="sync-info-row"><span>Enrichment cost this month</span><span>$' + enrichCost.toFixed(2) + '</span></div>';
-  html += '<div class="billing-detail">$' + enrichRate.toFixed(2) + ' per 1,000 transactions. Only new transactions are enriched. Each transaction is enriched once and never again.</div>';
-  html += '<div class="sync-info-row"><span>Total enriched (all time)</span><span>' + enrichTotal.toLocaleString() + ' transactions</span></div>';
+  html += '<h3 class="billing-section-title">Enrichment</h3>';
+  html += '<p class="billing-explain">When you enrich a transaction, we replace the raw bank description with a clean merchant name, logo, and location. You choose which transactions to enrich -- it is $0.002 each ($2 per 1,000).</p>';
+  html += '<div class="sync-info-row"><span>Enriched this month</span><span>' + enrichThisMonth.toLocaleString() + ' of 1,000</span></div>';
+  html += '<div class="sync-info-row"><span>All-time enrichments</span><span>' + enrichTotal.toLocaleString() + '</span></div>';
+  html += '<div class="sync-info-row" style="border-bottom:none"><span>Enrichment cost this month</span><span><strong>$' + enrichCost.toFixed(2) + '</strong></span></div>';
   html += '</div>';
 
   // Total
-  html += '<div class="billing-section">';
-  html += '<div class="sync-info-row sync-info-total"><span>Estimated cost this month</span><span>$' + monthlyEstimate.toFixed(2) + '</span></div>';
-  html += '<p class="billing-explain" style="margin-top:0.4rem">This is our actual cost to keep your financial data synced. The per-account fees are fixed each month. Enrichment varies based on how many new transactions come in, but typically stays under $1/mo for a single user.</p>';
+  html += '<div class="billing-section billing-total-section">';
+  html += '<div class="sync-info-row sync-info-total"><span>This month</span><span>$' + monthlyEstimate.toFixed(2) + '</span></div>';
   html += '</div>';
 
   billingEl.innerHTML = html;
@@ -1641,10 +1635,17 @@ function renderTransactionMonth() {
       locationHtml = '<span class="tx-location">' + esc(locParts.join(', ')) + '</span>';
     }
 
+    var enrichIndicator = '';
+    if (tx.enrich_status === 'completed') {
+      enrichIndicator = '<span class="tx-enrich-dot tx-enrich-done" title="Enriched"></span>';
+    } else if (!tx.enrich_status || tx.enrich_status === 'failed') {
+      enrichIndicator = '<span class="tx-enrich-dot tx-enrich-available" title="Not enriched"></span>';
+    }
+
     html += '<div class="' + rowClass + '" data-txid="' + esc(tx.id) + '">' +
       logoHtml +
       '<div class="tx-info">' +
-        '<span class="tx-merchant">' + esc(displayName) + '</span>' +
+        '<span class="tx-merchant">' + esc(displayName) + enrichIndicator + '</span>' +
         (badges ? '<div class="tx-badges">' + badges + '</div>' : '<span class="tx-category">' + esc(normalizeCategory(eff.category)) + '</span>') +
         cardLabel +
         locationHtml +
