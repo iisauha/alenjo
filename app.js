@@ -1617,7 +1617,6 @@ function renderTransactionMonth() {
     if (eff.actionType === 'ignored') badges += '<span class="tx-badge tx-badge-ignored">Ignored</span>';
     if (eff.isSplit) badges += '<span class="tx-badge tx-badge-split">' + eff.splitWays + '-way split</span>';
     if (eff.isRecurring) badges += '<span class="tx-badge tx-badge-recurring">Recurring</span>';
-    if (eff.isRecategorized) badges += '<span class="tx-badge tx-badge-recat">Recategorized</span>';
 
     var amountClass = tx.pending ? 'tx-amount-pending' : (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
     var amountHtml = '';
@@ -2262,13 +2261,12 @@ function renderRecurring() {
 
     if (amountMode === 'average' && group.txs.length > 1) {
       var total = group.txs.reduce(function(s, t) {
-        var e = getEffectiveTx(t);
-        return s + Math.abs(e.amount);
+        return s + Math.abs(t.amount);
       }, 0);
       amount = total / group.txs.length;
       isEstimate = true;
     } else {
-      amount = Math.abs(eff.amount);
+      amount = Math.abs(mostRecent.amount);
     }
 
     recurringItems.push({
