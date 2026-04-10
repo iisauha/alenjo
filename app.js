@@ -314,7 +314,6 @@ document.addEventListener('click', function(e) {
 // ============================================
 balanceToggle.addEventListener('click', function() {
   showAvailable = !showAvailable;
-  balanceToggle.textContent = showAvailable ? 'Current' : 'After Pending';
   if (cachedAccounts) renderAccounts(cachedAccounts);
 });
 
@@ -661,6 +660,24 @@ function renderAccounts(accounts) {
     netCashEl.hidden = false;
     netCashValue.textContent = (netCash < 0 ? '-' : '') + formatMoney(netCash);
     netCashValue.className = 'net-cash-value ' + (netCash >= 0 ? 'balance-positive' : 'balance-negative');
+
+    // Calculate the other mode's net cash for the toggle label
+    var otherBankSum = banks.reduce(function(s, a) {
+      var c = parseFloat(a.balance_current || 0);
+      var av = a.balance_available != null ? parseFloat(a.balance_available) : null;
+      return s + (showAvailable ? (av != null ? av : c) : c);
+    }, 0);
+    var otherCreditSum = credits.reduce(function(s, a) {
+      var c = parseFloat(a.balance_current || 0);
+      var av = a.balance_available != null ? parseFloat(a.balance_available) : null;
+      var lim = a.balance_limit != null ? parseFloat(a.balance_limit) : null;
+      if (showAvailable) {
+        return s + (lim != null && av != null ? lim - av : c);
+      }
+      return s + c;
+    }, 0);
+    var otherNet = otherBankSum - otherCreditSum;
+    balanceToggle.textContent = (otherNet < 0 ? '-' : '') + formatMoney(otherNet);
   } else {
     netCashEl.hidden = true;
   }
