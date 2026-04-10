@@ -178,17 +178,11 @@
     <!-- RECURRING TAB -->
     <main id="tab-recurring" class="tab-content">
       <div id="rec-empty" class="connect-cta">
-        <p>Connect an account to see recurring charges</p>
+        <p>No recurring charges yet. Mark transactions as recurring from the Transactions tab.</p>
       </div>
       <div id="rec-content" hidden>
-        <div class="tx-filters">
-          <select id="rec-card-filter" class="app-select">
-            <option value="all">All Accounts</option>
-          </select>
-        </div>
         <div id="rec-summary"></div>
-        <div id="rec-income-section"></div>
-        <div id="rec-expense-section"></div>
+        <div id="rec-list"></div>
       </div>
     </main>
 
@@ -324,39 +318,21 @@
       </div>
       <div id="tx-action-status" class="action-sheet-status" hidden></div>
       <div id="tx-action-options" class="action-sheet-options">
-        <button class="action-option" data-action="split">
-          <div class="action-option-text">
-            <span class="action-label">Split</span>
-            <span class="action-desc">I split this with others</span>
-          </div>
-        </button>
-        <button class="action-option" data-action="reimbursed">
-          <div class="action-option-text">
-            <span class="action-label">Reimbursed</span>
-            <span class="action-desc">Someone else paid for this</span>
-          </div>
-        </button>
-        <button class="action-option" data-action="ignored">
-          <div class="action-option-text">
-            <span class="action-label">Ignore</span>
-            <span class="action-desc">Exclude from my totals</span>
-          </div>
-        </button>
-        <button class="action-option" data-action="recategorized">
-          <div class="action-option-text">
-            <span class="action-label">Re-categorize</span>
-            <span class="action-desc">Change the spending category</span>
-          </div>
-        </button>
-        <button class="action-option" data-action="edit">
-          <div class="action-option-text">
-            <span class="action-label">Edit</span>
-            <span class="action-desc">Change name or date</span>
-          </div>
-        </button>
+        <p class="action-group-label">Tags (select multiple)</p>
+        <div class="action-toggles">
+          <button class="action-toggle" data-toggle="split">Split</button>
+          <button class="action-toggle" data-toggle="recurring">Recurring</button>
+          <button class="action-toggle" data-toggle="recategorized">Re-categorize</button>
+          <button class="action-toggle" data-toggle="edit">Edit</button>
+        </div>
+        <p class="action-group-label" style="margin-top:0.6rem">Exclusive</p>
+        <div class="action-toggles">
+          <button class="action-toggle action-toggle-exclusive" data-toggle="reimbursed">Reimbursed</button>
+          <button class="action-toggle action-toggle-exclusive" data-toggle="ignored">Ignore</button>
+        </div>
         <button class="action-option action-option-clear" data-action="clear" hidden>
           <div class="action-option-text">
-            <span class="action-label">Clear Action</span>
+            <span class="action-label">Clear All</span>
             <span class="action-desc">Reset to normal</span>
           </div>
         </button>
@@ -370,6 +346,11 @@
           <button data-ways="5">5</button>
         </div>
         <p id="split-preview" class="split-preview"></p>
+      </div>
+      <div id="recurring-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">Match to existing recurring?</p>
+        <div id="recurring-match-list" class="recat-list"></div>
+        <button id="recurring-new" class="btn-primary" style="width:100%;margin-top:0.5rem">Create New Recurring</button>
       </div>
       <div id="edit-picker" class="action-sheet-sub" hidden>
         <p class="action-sub-title">Edit Transaction</p>

@@ -1191,7 +1191,7 @@ async function loadTransactions() {
   txContent.hidden = false;
 
   // Load user actions and ignore rules
-  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, category_override, nickname, date_override');
+  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, category_override, nickname, date_override, is_recurring, recurring_group');
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
@@ -1285,16 +1285,32 @@ async function loadTransactions() {
 
 function getEffectiveTx(tx) {
   var action = txActions[tx.id];
-  var result = { excluded: false, amount: tx.amount, category: tx.category, actionType: action ? action.action_type : null, splitWays: action ? action.split_ways : null, nickname: null, date: tx.date };
+  var result = {
+    excluded: false, amount: tx.amount, category: tx.category,
+    actionType: action ? action.action_type : null,
+    splitWays: action ? action.split_ways : null,
+    nickname: null, date: tx.date,
+    isRecurring: false, recurringGroup: null,
+    isSplit: false, isRecategorized: false
+  };
   if (!action) return result;
   if (action.nickname) result.nickname = action.nickname;
   if (action.date_override) result.date = action.date_override;
+  if (action.is_recurring) {
+    result.isRecurring = true;
+    result.recurringGroup = action.recurring_group || null;
+  }
   if (action.action_type === 'ignored' || action.action_type === 'reimbursed') {
     result.excluded = true;
     result.amount = 0;
-  } else if (action.action_type === 'split') {
-    result.amount = tx.amount / action.split_ways;
-  } else if (action.action_type === 'recategorized') {
+  }
+  if (action.split_ways && action.split_ways > 1) {
+    result.isSplit = true;
+    result.splitWays = action.split_ways;
+    if (!result.excluded) result.amount = tx.amount / action.split_ways;
+  }
+  if (action.category_override) {
+    result.isRecategorized = true;
     result.category = action.category_override;
   }
   return result;
@@ -1544,23 +1560,18 @@ function renderTransactionMonth() {
     var displayName = eff.nickname || tx.merchant_name || tx.name || 'Unknown';
 
     var rowClass = 'tx-row';
-    var badge = '';
-    if (eff.actionType === 'split') {
-      badge = '<span class="tx-badge tx-badge-split">' + eff.splitWays + '-way split</span>';
-      rowClass += ' tx-actioned';
-    } else if (eff.actionType === 'reimbursed') {
-      badge = '<span class="tx-badge tx-badge-reimbursed">Reimbursed</span>';
-      rowClass += ' tx-actioned tx-excluded';
-    } else if (eff.actionType === 'ignored') {
-      badge = '<span class="tx-badge tx-badge-ignored">Ignored</span>';
-      rowClass += ' tx-actioned tx-excluded';
-    } else if (eff.actionType === 'recategorized') {
-      badge = '<span class="tx-badge tx-badge-recat">' + esc(normalizeCategory(eff.category)) + '</span>';
-      rowClass += ' tx-actioned';
-    }
+    var badges = '';
+    if (eff.excluded) rowClass += ' tx-actioned tx-excluded';
+    else if (eff.isSplit || eff.isRecurring || eff.isRecategorized) rowClass += ' tx-actioned';
+
+    if (eff.actionType === 'reimbursed') badges += '<span class="tx-badge tx-badge-reimbursed">Reimbursed</span>';
+    if (eff.actionType === 'ignored') badges += '<span class="tx-badge tx-badge-ignored">Ignored</span>';
+    if (eff.isSplit) badges += '<span class="tx-badge tx-badge-split">' + eff.splitWays + '-way split</span>';
+    if (eff.isRecurring) badges += '<span class="tx-badge tx-badge-recurring">Recurring</span>';
+    if (eff.isRecategorized) badges += '<span class="tx-badge tx-badge-recat">' + esc(normalizeCategory(eff.category)) + '</span>';
 
     var amountHtml = '';
-    if (eff.actionType === 'split') {
+    if (eff.isSplit && !eff.excluded) {
       amountHtml = '<span class="tx-amount-original">' + (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) + '</span>' +
         '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
           (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(eff.amount)) +
@@ -1579,7 +1590,7 @@ function renderTransactionMonth() {
     html += '<div class="' + rowClass + '" data-txid="' + esc(tx.id) + '">' +
       '<div class="tx-info">' +
         '<span class="tx-merchant">' + esc(displayName) + '</span>' +
-        (badge ? badge : '<span class="tx-category">' + esc(normalizeCategory(eff.category)) + '</span>') +
+        (badges ? '<div class="tx-badges">' + badges + '</div>' : '<span class="tx-category">' + esc(normalizeCategory(eff.category)) + '</span>') +
         cardLabel +
       '</div>' +
       '<div class="tx-right">' +
@@ -1681,37 +1692,43 @@ document.addEventListener('click', function(e) {
 function openActionSheet(tx) {
   actionTxId = tx.id;
   actionTx = tx;
-  var eff = getEffectiveTx(tx);
+  var action = txActions[tx.id] || {};
 
   $('#tx-action-merchant').textContent = tx.merchant_name || tx.name || 'Unknown';
   $('#tx-action-amount').textContent = (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount));
   $('#tx-action-amount').className = 'action-sheet-subtitle ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
 
-  // Show current status if actioned
-  var statusEl = $('#tx-action-status');
-  if (eff.actionType) {
-    var statusText = '';
-    if (eff.actionType === 'split') statusText = 'Currently: ' + eff.splitWays + '-way split -- your share ' + formatMoney(Math.abs(eff.amount));
-    else if (eff.actionType === 'reimbursed') statusText = 'Currently: Reimbursed';
-    else if (eff.actionType === 'ignored') statusText = 'Currently: Ignored';
-    else if (eff.actionType === 'recategorized') statusText = 'Currently: Re-categorized to ' + normalizeCategory(eff.category);
-    statusEl.textContent = statusText;
-    statusEl.hidden = false;
-    document.querySelector('.action-option-clear').hidden = false;
-  } else {
-    statusEl.hidden = true;
-    document.querySelector('.action-option-clear').hidden = true;
-  }
+  // Build status text
+  var statusParts = [];
+  if (action.action_type === 'ignored') statusParts.push('Ignored');
+  if (action.action_type === 'reimbursed') statusParts.push('Reimbursed');
+  if (action.split_ways > 1) statusParts.push(action.split_ways + '-way split');
+  if (action.is_recurring) statusParts.push('Recurring');
+  if (action.category_override) statusParts.push('Re-categorized');
 
-  // Highlight active action
-  document.querySelectorAll('.action-option').forEach(function(btn) {
-    btn.classList.toggle('active', btn.dataset.action === eff.actionType);
+  var statusEl = $('#tx-action-status');
+  var hasActions = statusParts.length > 0;
+  statusEl.textContent = hasActions ? 'Currently: ' + statusParts.join(', ') : '';
+  statusEl.hidden = !hasActions;
+  document.querySelector('.action-option-clear').hidden = !hasActions;
+
+  // Highlight active toggles
+  document.querySelectorAll('.action-toggle').forEach(function(btn) {
+    var t = btn.dataset.toggle;
+    var isActive = false;
+    if (t === 'split') isActive = action.split_ways > 1;
+    else if (t === 'recurring') isActive = !!action.is_recurring;
+    else if (t === 'recategorized') isActive = !!action.category_override;
+    else if (t === 'reimbursed') isActive = action.action_type === 'reimbursed';
+    else if (t === 'ignored') isActive = action.action_type === 'ignored';
+    btn.classList.toggle('active', isActive);
   });
 
   // Reset sub-pickers
   $('#split-picker').hidden = true;
   $('#recat-picker').hidden = true;
   $('#edit-picker').hidden = true;
+  $('#recurring-picker').hidden = true;
   $('#tx-action-options').hidden = false;
 
   actionSheet.classList.add('visible');
@@ -1728,33 +1745,71 @@ actionSheet.addEventListener('click', function(e) {
   if (e.target === actionSheet) closeActionSheet();
 });
 
-// Action option clicks
-document.querySelectorAll('#tx-action-options .action-option').forEach(function(btn) {
+// Toggle click handlers
+document.querySelectorAll('.action-toggle').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var action = btn.dataset.action;
     if (!actionTxId) return;
+    var toggle = btn.dataset.toggle;
+    var existing = txActions[actionTxId] || {};
 
-    if (action === 'clear') {
-      clearTxAction(actionTxId);
+    if (toggle === 'ignored' || toggle === 'reimbursed') {
+      // Exclusive: clear everything else, set action_type
+      var isAlreadySet = existing.action_type === toggle;
+      saveMultiAction(actionTxId, {
+        action_type: isAlreadySet ? null : toggle,
+        split_ways: null,
+        category_override: null,
+        is_recurring: false,
+        recurring_group: null
+      });
       return;
     }
-    if (action === 'split') {
+
+    if (toggle === 'split') {
+      // If already split, toggle it off
+      if (existing.split_ways > 1) {
+        saveMultiAction(actionTxId, { split_ways: null });
+        return;
+      }
+      // Show split picker
       $('#tx-action-options').hidden = true;
       $('#split-picker').hidden = false;
       $('#split-preview').textContent = '';
       return;
     }
-    if (action === 'recategorized') {
+
+    if (toggle === 'recurring') {
+      if (existing.is_recurring) {
+        // Toggle off
+        saveMultiAction(actionTxId, { is_recurring: false, recurring_group: null });
+        return;
+      }
+      // Show recurring picker to match or create new
+      showRecurringPicker();
+      return;
+    }
+
+    if (toggle === 'recategorized') {
+      if (existing.category_override) {
+        // Toggle off
+        saveMultiAction(actionTxId, { category_override: null });
+        return;
+      }
       showRecatPicker();
       return;
     }
-    if (action === 'edit') {
+
+    if (toggle === 'edit') {
       showEditPicker();
       return;
     }
-    // reimbursed or ignored — save immediately
-    saveTxAction(actionTxId, action, {});
   });
+});
+
+// Clear all
+document.querySelector('.action-option-clear').addEventListener('click', function() {
+  if (!actionTxId) return;
+  clearTxAction(actionTxId);
 });
 
 // Split picker
@@ -1763,8 +1818,75 @@ document.querySelectorAll('#split-picker button[data-ways]').forEach(function(bt
     var ways = parseInt(btn.dataset.ways);
     var share = Math.abs(actionTx.amount) / ways;
     $('#split-preview').textContent = 'Your share: ' + formatMoney(share);
-    saveTxAction(actionTxId, 'split', { splitWays: ways });
+    // Clear exclusive action_type if set, keep other flags
+    var existing = txActions[actionTxId] || {};
+    var updates = { split_ways: ways };
+    if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
+      updates.action_type = null;
+    }
+    saveMultiAction(actionTxId, updates);
   });
+});
+
+// Recurring picker
+function showRecurringPicker() {
+  $('#tx-action-options').hidden = true;
+  var picker = $('#recurring-picker');
+  picker.hidden = false;
+  var list = $('#recurring-match-list');
+
+  // Find existing recurring groups from txActions
+  var groups = {};
+  txData.forEach(function(tx) {
+    var a = txActions[tx.id];
+    if (!a || !a.is_recurring) return;
+    var groupKey = a.recurring_group || (tx.merchant_name || tx.name || 'Unknown').toLowerCase().trim();
+    if (!groups[groupKey]) {
+      groups[groupKey] = {
+        name: a.nickname || tx.merchant_name || tx.name || 'Unknown',
+        key: groupKey,
+        lastAmount: Math.abs(tx.amount),
+        lastDate: tx.date
+      };
+    }
+    if (tx.date > groups[groupKey].lastDate) {
+      groups[groupKey].lastAmount = Math.abs(tx.amount);
+      groups[groupKey].lastDate = tx.date;
+      if (a.nickname) groups[groupKey].name = a.nickname;
+    }
+  });
+
+  var groupList = Object.values(groups).sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+  if (groupList.length > 0) {
+    list.innerHTML = groupList.map(function(g) {
+      return '<button class="recat-option" data-group="' + esc(g.key) + '">' + esc(g.name) + ' (' + formatMoney(g.lastAmount) + ')</button>';
+    }).join('');
+
+    list.querySelectorAll('.recat-option').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var existing = txActions[actionTxId] || {};
+        var updates = { is_recurring: true, recurring_group: btn.dataset.group };
+        if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
+          updates.action_type = null;
+        }
+        saveMultiAction(actionTxId, updates);
+      });
+    });
+  } else {
+    list.innerHTML = '<p style="font-size:0.75rem;color:var(--text-dim)">No existing recurring items yet</p>';
+  }
+}
+
+$('#recurring-new').addEventListener('click', function() {
+  if (!actionTxId) return;
+  var merchantKey = (actionTx.merchant_name || actionTx.name || 'Unknown').toLowerCase().trim();
+  var existing = txActions[actionTxId] || {};
+  var updates = { is_recurring: true, recurring_group: merchantKey };
+  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
+    updates.action_type = null;
+  }
+  saveMultiAction(actionTxId, updates);
 });
 
 // Re-categorize picker
@@ -1787,11 +1909,17 @@ function showRecatPicker() {
 
   list.querySelectorAll('.recat-option').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      saveTxAction(actionTxId, 'recategorized', { categoryOverride: btn.dataset.cat });
+      var existing = txActions[actionTxId] || {};
+      var updates = { category_override: btn.dataset.cat };
+      if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
+        updates.action_type = null;
+      }
+      saveMultiAction(actionTxId, updates);
     });
   });
 }
 
+// Edit picker
 function showEditPicker() {
   $('#tx-action-options').hidden = true;
   var picker = $('#edit-picker');
@@ -1805,47 +1933,33 @@ $('#edit-save').addEventListener('click', async function() {
   if (!actionTxId) return;
   var nickname = $('#edit-nickname').value.trim() || null;
   var dateOverride = $('#edit-date').value || null;
-  // Only store date_override if different from original
   if (dateOverride === actionTx.date) dateOverride = null;
-
-  var existing = txActions[actionTxId] || {};
-  var row = {
-    user_id: currentUser.id,
-    transaction_id: actionTxId,
-    action_type: existing.action_type || null,
-    split_ways: existing.split_ways || null,
-    category_override: existing.category_override || null,
-    nickname: nickname,
-    date_override: dateOverride
-  };
-  await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
-  txActions[actionTxId] = row;
-  renderTransactionMonth();
-  closeActionSheet();
+  saveMultiAction(actionTxId, { nickname: nickname, date_override: dateOverride });
 });
 
-async function saveTxAction(txId, actionType, extra, skipUI) {
+// Unified save that merges updates with existing action state
+async function saveMultiAction(txId, updates) {
   var existing = txActions[txId] || {};
   var row = {
     user_id: currentUser.id,
     transaction_id: txId,
-    action_type: actionType,
-    split_ways: extra.splitWays || null,
-    category_override: extra.categoryOverride || null,
-    nickname: existing.nickname || null,
-    date_override: existing.date_override || null
+    action_type: updates.hasOwnProperty('action_type') ? updates.action_type : (existing.action_type || null),
+    split_ways: updates.hasOwnProperty('split_ways') ? updates.split_ways : (existing.split_ways || null),
+    category_override: updates.hasOwnProperty('category_override') ? updates.category_override : (existing.category_override || null),
+    nickname: updates.hasOwnProperty('nickname') ? updates.nickname : (existing.nickname || null),
+    date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override || null),
+    is_recurring: updates.hasOwnProperty('is_recurring') ? updates.is_recurring : (existing.is_recurring || false),
+    recurring_group: updates.hasOwnProperty('recurring_group') ? updates.recurring_group : (existing.recurring_group || null)
   };
   await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
   txActions[txId] = row;
 
-  if (actionType === 'ignored') {
+  if (row.action_type === 'ignored') {
     checkIgnorePattern(txId);
   }
 
-  if (!skipUI) {
-    renderTransactionMonth();
-    closeActionSheet();
-  }
+  renderTransactionMonth();
+  closeActionSheet();
 }
 
 async function clearTxAction(txId) {
@@ -1943,173 +2057,109 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 });
 
 // ============================================
-// RECURRING
+// RECURRING (user-tagged)
 // ============================================
-var recData = [];
 var recLoaded = false;
 
-async function loadRecurring() {
+function loadRecurring() {
   var recEmpty = $('#rec-empty');
   var recContent = $('#rec-content');
 
-  if (!cachedAccounts || cachedAccounts.length === 0) {
+  // Need txData loaded first
+  if (txData.length === 0) {
     recEmpty.hidden = false;
     recContent.hidden = true;
     return;
   }
 
-  // Reuse txData if already loaded, otherwise fetch
-  if (txData.length === 0) {
-    var cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 3);
-    var cutoffStr = cutoff.toISOString().split('T')[0];
-    var result = await sb
-      .from('synced_transactions')
-      .select('*')
-      .gte('date', cutoffStr)
-      .order('date', { ascending: false });
-    if (result.error || !result.data || result.data.length === 0) {
-      recEmpty.hidden = false;
-      recContent.hidden = true;
-      recEmpty.querySelector('p').textContent = 'No transaction data yet. Visit Transactions first to sync.';
-      return;
+  renderRecurring();
+}
+
+function renderRecurring() {
+  var recEmpty = $('#rec-empty');
+  var recContent = $('#rec-content');
+  var summaryEl = $('#rec-summary');
+  var listEl = $('#rec-list');
+
+  // Group recurring-tagged transactions by recurring_group
+  var groups = {};
+  txData.forEach(function(tx) {
+    var action = txActions[tx.id];
+    if (!action || !action.is_recurring) return;
+    var groupKey = action.recurring_group || (tx.merchant_name || tx.name || 'Unknown').toLowerCase().trim();
+    if (!groups[groupKey]) {
+      groups[groupKey] = { name: null, txs: [] };
     }
-    recData = result.data;
-  } else {
-    recData = txData;
+    groups[groupKey].txs.push(tx);
+  });
+
+  var recurringItems = [];
+  Object.keys(groups).forEach(function(key) {
+    var group = groups[key];
+    // Sort by date descending to get most recent
+    group.txs.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
+    var mostRecent = group.txs[0];
+    var action = txActions[mostRecent.id] || {};
+    var eff = getEffectiveTx(mostRecent);
+    var displayName = eff.nickname || mostRecent.merchant_name || mostRecent.name || 'Unknown';
+    var amount = Math.abs(eff.amount); // uses split amount if split
+    var isIncome = mostRecent.amount < 0;
+
+    recurringItems.push({
+      name: displayName,
+      amount: amount,
+      isIncome: isIncome,
+      lastDate: mostRecent.date,
+      count: group.txs.length,
+      isSplit: eff.isSplit,
+      splitWays: eff.splitWays
+    });
+  });
+
+  if (recurringItems.length === 0) {
+    recEmpty.hidden = false;
+    recContent.hidden = true;
+    return;
   }
 
   recEmpty.hidden = true;
   recContent.hidden = false;
 
-  var cardFilter = $('#rec-card-filter');
-  cardFilter.innerHTML = '<option value="all">All Accounts</option>';
-  if (cachedAccounts) {
-    cachedAccounts.forEach(function(a) {
-      if (a.plaid_account_id) {
-        cardFilter.innerHTML += '<option value="' + esc(a.plaid_account_id) + '">' + esc(a.nickname || a.name || 'Account') + '</option>';
-      }
-    });
-  }
-
-  renderRecurring();
-
-  cardFilter.addEventListener('change', renderRecurring);
-  recLoaded = true;
-}
-
-function detectRecurring(transactions) {
-  // Group by normalized merchant name, skip excluded
-  var byMerchant = {};
-  transactions.forEach(function(tx) {
-    var eff = getEffectiveTx(tx);
-    if (eff.excluded) return;
-    var key = (tx.merchant_name || tx.name || 'Unknown').toLowerCase().trim();
-    if (!byMerchant[key]) byMerchant[key] = { name: tx.merchant_name || tx.name || 'Unknown', txs: [], effs: [] };
-    byMerchant[key].txs.push(tx);
-    byMerchant[key].effs.push(eff);
-  });
-
-  var recurring = [];
-  Object.keys(byMerchant).forEach(function(key) {
-    var group = byMerchant[key];
-
-    // Get per-month totals using effective amounts
-    var monthTotals = {};
-    group.effs.forEach(function(eff, i) {
-      var m = group.txs[i].date.substring(0, 7);
-      if (!monthTotals[m]) monthTotals[m] = 0;
-      monthTotals[m] += eff.amount;
-    });
-    var months = Object.keys(monthTotals);
-    if (months.length < 2) return;
-
-    var totalAmount = group.effs.reduce(function(s, eff) { return s + eff.amount; }, 0);
-    var avgAmount = totalAmount / months.length; // per-month average
-    var isIncome = avgAmount < 0;
-
-    // Find the most recent transaction date
-    var lastDate = group.txs.reduce(function(latest, tx) {
-      return tx.date > latest ? tx.date : latest;
-    }, '');
-
-    recurring.push({
-      merchant: group.name,
-      isIncome: isIncome,
-      monthCount: months.length,
-      amount: Math.abs(avgAmount),
-      lastDate: lastDate
-    });
-  });
-
-  return recurring;
-}
-
-function renderRecurring() {
-  var cardId = $('#rec-card-filter').value;
-  var summaryEl = $('#rec-summary');
-  var incomeEl = $('#rec-income-section');
-  var expenseEl = $('#rec-expense-section');
-
-  // Filter by card
-  var filtered = recData;
-  if (cardId !== 'all') {
-    filtered = filtered.filter(function(tx) { return tx.plaid_account_id === cardId; });
-  }
-
-  var allRecurring = detectRecurring(filtered);
-
-  var incomeItems = allRecurring.filter(function(r) { return r.isIncome; });
-  var expenseItems = allRecurring.filter(function(r) { return !r.isIncome; });
-
-  // Sort by amount descending
+  // Split into income vs expenses
+  var incomeItems = recurringItems.filter(function(r) { return r.isIncome; });
+  var expenseItems = recurringItems.filter(function(r) { return !r.isIncome; });
   incomeItems.sort(function(a, b) { return b.amount - a.amount; });
   expenseItems.sort(function(a, b) { return b.amount - a.amount; });
 
   var totalIncome = incomeItems.reduce(function(s, i) { return s + i.amount; }, 0);
   var totalExpenses = expenseItems.reduce(function(s, i) { return s + i.amount; }, 0);
 
-  // Summary
   summaryEl.innerHTML = '<div class="tx-month-summary">' +
-    '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '/mo</span></div>' +
+    (totalIncome > 0 ? '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
     '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Costs</span><span class="tx-summary-value balance-negative">' + formatMoney(totalExpenses) + '/mo</span></div>' +
   '</div>';
 
-  // Render income section
+  var html = '';
   if (incomeItems.length > 0) {
-    var incHtml = '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
-    incomeItems.forEach(function(item) {
-      incHtml += renderRecurringRow(item, true);
-    });
-    incHtml += '</div>';
-    incomeEl.innerHTML = incHtml;
-  } else {
-    incomeEl.innerHTML = '';
+    html += '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
+    incomeItems.forEach(function(item) { html += renderRecurringRow(item, true); });
+    html += '</div>';
   }
-
-  // Render expense section
   if (expenseItems.length > 0) {
-    var expHtml = '<div class="rec-section"><h3 class="rec-section-title balance-negative">Costs</h3>';
-    expenseItems.forEach(function(item) {
-      expHtml += renderRecurringRow(item, false);
-    });
-    expHtml += '</div>';
-    expenseEl.innerHTML = expHtml;
-  } else {
-    expenseEl.innerHTML = '';
+    html += '<div class="rec-section"><h3 class="rec-section-title balance-negative">Costs</h3>';
+    expenseItems.forEach(function(item) { html += renderRecurringRow(item, false); });
+    html += '</div>';
   }
-
-  if (incomeItems.length === 0 && expenseItems.length === 0) {
-    incomeEl.innerHTML = '<div class="empty-state">No recurring transactions detected yet</div>';
-  }
+  listEl.innerHTML = html;
+  recLoaded = true;
 }
 
 function renderRecurringRow(item, isIncome) {
-  var freq = item.monthCount >= 10 ? 'Monthly' : item.monthCount + ' months';
+  var splitLabel = item.isSplit ? ' (' + item.splitWays + '-way split)' : '';
   return '<div class="rec-row">' +
     '<div class="rec-info">' +
-      '<span class="rec-merchant">' + esc(item.merchant) + '</span>' +
-      '<span class="rec-freq">' + freq + ' -- last ' + formatTxDate(item.lastDate) + '</span>' +
+      '<span class="rec-merchant">' + esc(item.name) + '</span>' +
+      '<span class="rec-freq">Last charged ' + formatTxDate(item.lastDate) + splitLabel + '</span>' +
     '</div>' +
     '<div class="rec-right">' +
       '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
@@ -2123,7 +2173,7 @@ function renderRecurringRow(item, isIncome) {
 // Load recurring when switching to that tab
 document.getElementById('bottom-nav').addEventListener('click', function(e) {
   var btn = e.target.closest('.nav-item');
-  if (btn && btn.dataset.tab === 'recurring' && !recLoaded) {
+  if (btn && btn.dataset.tab === 'recurring') {
     loadRecurring();
   }
 });

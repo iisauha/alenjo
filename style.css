@@ -1459,6 +1459,17 @@ body {
   color: #8B5CF6;
 }
 
+.tx-badge-recurring {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+}
+
+.tx-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
 .tx-excluded {
   opacity: 0.4;
 }
@@ -1551,6 +1562,52 @@ body {
   margin-bottom: 0.75rem;
 }
 
+.action-group-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.3rem;
+}
+
+.action-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.action-toggle {
+  flex: 1;
+  min-width: calc(50% - 0.2rem);
+  padding: 0.55rem 0.6rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.action-toggle:hover {
+  border-color: var(--accent);
+}
+
+.action-toggle.active {
+  border-color: var(--accent);
+  background: rgba(60, 130, 246, 0.12);
+  color: var(--accent);
+}
+
+.action-toggle-exclusive.active {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
 .action-option {
   display: flex;
   align-items: center;
@@ -1563,6 +1620,7 @@ body {
   cursor: pointer;
   text-align: left;
   transition: border-color 0.2s;
+  margin-top: 0.35rem;
 }
 
 .action-option:hover {
