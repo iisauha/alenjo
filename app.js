@@ -1793,6 +1793,22 @@ function openActionSheet(tx) {
     btn.classList.toggle('active', isActive);
   });
 
+  // Show enrich button if not already enriched with merchant data
+  var enrichBtn = $('#btn-enrich-tx');
+  var enrichConfirm = $('#enrich-confirm');
+  enrichConfirm.hidden = true;
+  if (!tx.enriched_merchant_name && !tx.enriched_logo_url) {
+    enrichBtn.hidden = false;
+    // Fetch current usage for the description
+    var currentMonth = new Date().toISOString().slice(0, 7);
+    sb.from('enrich_usage').select('tx_count').eq('month', currentMonth).maybeSingle().then(function(res) {
+      var used = (res.data && res.data.tx_count) || 0;
+      $('#enrich-desc').textContent = 'Get merchant logo, clean name, and location (' + used + ' of 1,000 used -- $0.002/tx)';
+    });
+  } else {
+    enrichBtn.hidden = true;
+  }
+
   // Reset sub-pickers
   $('#split-picker').hidden = true;
   $('#recat-picker').hidden = true;
@@ -2073,6 +2089,73 @@ $('#edit-save').addEventListener('click', async function() {
   var dateOverride = $('#edit-date').value || null;
   if (dateOverride === actionTx.date) dateOverride = null;
   saveMultiAction(actionTxId, { nickname: nickname, date_override: dateOverride });
+});
+
+// Enrich transaction button
+$('#btn-enrich-tx').addEventListener('click', function() {
+  if (!actionTx) return;
+  var currentMonth = new Date().toISOString().slice(0, 7);
+  sb.from('enrich_usage').select('tx_count').eq('month', currentMonth).maybeSingle().then(function(res) {
+    var used = (res.data && res.data.tx_count) || 0;
+    var remaining = 1000 - used;
+    var cost = '$0.002';
+    $('#enrich-warning').textContent = 'This will use 1 enrichment (' + remaining + ' remaining this month). Cost: ' + cost + ' ($2.00 per 1,000). Continue?';
+    $('#tx-action-options').hidden = true;
+    $('#enrich-confirm').hidden = false;
+  });
+});
+
+$('#enrich-confirm-btn').addEventListener('click', async function() {
+  if (!actionTx) return;
+  var btn = $('#enrich-confirm-btn');
+  btn.textContent = 'Enriching...';
+  btn.disabled = true;
+  try {
+    var session = await sb.auth.getSession();
+    var token = session.data.session.access_token;
+    var res = await fetch(SUPABASE_URL + '/functions/v1/enrich-transaction', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ transaction_id: actionTx.id })
+    });
+    var data = await res.json();
+    if (data.success && data.enriched) {
+      // Update the local transaction data
+      var tx = txData.find(function(t) { return t.id === actionTx.id; });
+      if (tx) {
+        tx.is_enriched = true;
+        tx.enriched_merchant_name = data.enriched.enriched_merchant_name;
+        tx.enriched_logo_url = data.enriched.enriched_logo_url;
+        tx.enriched_website = data.enriched.enriched_website;
+        tx.enriched_category_primary = data.enriched.enriched_category_primary;
+        tx.enriched_category_detailed = data.enriched.enriched_category_detailed;
+        tx.enriched_payment_channel = data.enriched.enriched_payment_channel;
+        tx.enriched_location_city = data.enriched.enriched_location_city;
+        tx.enriched_location_region = data.enriched.enriched_location_region;
+      }
+      renderTransactionMonth();
+      closeActionSheet();
+    } else {
+      btn.textContent = data.error || 'Failed';
+      btn.disabled = false;
+      setTimeout(function() {
+        btn.textContent = 'Confirm Enrich';
+        $('#enrich-confirm').hidden = true;
+        $('#tx-action-options').hidden = false;
+      }, 2000);
+    }
+  } catch (e) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+    setTimeout(function() {
+      btn.textContent = 'Confirm Enrich';
+      $('#enrich-confirm').hidden = true;
+      $('#tx-action-options').hidden = false;
+    }, 2000);
+  }
 });
 
 // Unified save that merges updates with existing action state

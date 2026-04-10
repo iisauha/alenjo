@@ -337,6 +337,16 @@
             <span class="action-desc">Reset to normal</span>
           </div>
         </button>
+        <button class="action-option action-option-enrich" id="btn-enrich-tx" hidden>
+          <div class="action-option-text">
+            <span class="action-label">Enrich Transaction</span>
+            <span class="action-desc" id="enrich-desc">Get merchant logo, clean name, and location (1 of 1,000 -- $0.002)</span>
+          </div>
+        </button>
+        <div id="enrich-confirm" class="action-sheet-sub" hidden>
+          <p class="action-sub-title" id="enrich-warning"></p>
+          <button id="enrich-confirm-btn" class="btn-primary" style="width:100%;margin-top:0.5rem">Confirm Enrich</button>
+        </div>
       </div>
       <div id="split-picker" class="action-sheet-sub" hidden>
         <p class="action-sub-title">How many ways?</p>
