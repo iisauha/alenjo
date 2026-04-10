@@ -1194,14 +1194,15 @@ body {
 }
 
 .btn-toggle-ignored {
-  font-size: 0.6rem;
-  padding: 0.2rem 0.5rem;
-  background: transparent;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.6rem;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-dim);
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .btn-toggle-ignored.active {
