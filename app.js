@@ -761,30 +761,12 @@ async function updateSyncInfo() {
   var invHoldingsRate = 0.18;
   var invTxRate = 0.35;
   var liabRate = 0.20;
-  var enrichRate = 2.00; // per 1000 transactions
-
   var txCost = txAccounts * txRate;
   var invHoldingsCost = invAccounts.length * invHoldingsRate;
   var invTxCost = invAccounts.length * invTxRate;
   var liabCost = creditAccounts.length * liabRate;
 
-  // Fetch enrich usage from counter (tracks manual enrichments only)
-  var currentMonth = new Date().toISOString().slice(0, 7);
-  var enrichThisMonth = 0;
-  try {
-    var usageResult = await sb.from('enrich_usage').select('tx_count').eq('month', currentMonth).maybeSingle();
-    if (usageResult.data) enrichThisMonth = usageResult.data.tx_count;
-  } catch(e) {}
-  // Get actual enriched count from DB
-  var enrichTotal = 0;
-  try {
-    var countResult = await sb.from('synced_transactions').select('id', { count: 'exact', head: true }).eq('enrich_status', 'completed');
-    enrichTotal = countResult.count || 0;
-  } catch(e) {}
-
-  var enrichCost = (enrichThisMonth / 1000) * enrichRate;
-  var fixedCost = txCost + invHoldingsCost + invTxCost + liabCost;
-  var monthlyEstimate = fixedCost + enrichCost;
+  var monthlyEstimate = txCost + invHoldingsCost + invTxCost + liabCost;
 
   // Build HTML
   var html = '';
@@ -815,17 +797,7 @@ async function updateSyncInfo() {
     html += '<div class="sync-info-row"><span>Investment transactions</span><span>' + invAccounts.length + ' x $' + invTxRate.toFixed(2) + ' = $' + invTxCost.toFixed(2) + '</span></div>';
   }
 
-  html += '<div class="sync-info-row" style="border-bottom:none"><span>Account fees subtotal</span><span><strong>$' + fixedCost.toFixed(2) + '/mo</strong></span></div>';
   html += '<p class="billing-explain">These are flat fees charged per linked account. They stay the same every month as long as your accounts are connected.</p>';
-  html += '</div>';
-
-  // Enrichment
-  html += '<div class="billing-section">';
-  html += '<h3 class="billing-section-title">Enrichment</h3>';
-  html += '<p class="billing-explain">When you enrich a transaction, we replace the raw bank description with a clean merchant name, logo, and location. You choose which transactions to enrich -- it is $0.002 each ($2 per 1,000).</p>';
-  html += '<div class="sync-info-row"><span>Enriched this month</span><span>' + enrichThisMonth.toLocaleString() + '</span></div>';
-  html += '<div class="sync-info-row"><span>All-time enrichments</span><span>' + enrichTotal.toLocaleString() + '</span></div>';
-  html += '<div class="sync-info-row" style="border-bottom:none"><span>Enrichment cost this month</span><span><strong>$' + enrichCost.toFixed(2) + '</strong></span></div>';
   html += '</div>';
 
   // Total
@@ -1635,17 +1607,10 @@ function renderTransactionMonth() {
       locationHtml = '<span class="tx-location">' + esc(locParts.join(', ')) + '</span>';
     }
 
-    var enrichIndicator = '';
-    if (tx.enrich_status === 'completed') {
-      enrichIndicator = '<span class="tx-enrich-dot tx-enrich-done" title="Enriched"></span>';
-    } else if (!tx.enrich_status || tx.enrich_status === 'failed') {
-      enrichIndicator = '<span class="tx-enrich-dot tx-enrich-available" title="Not enriched"></span>';
-    }
-
     html += '<div class="' + rowClass + '" data-txid="' + esc(tx.id) + '">' +
       logoHtml +
       '<div class="tx-info">' +
-        '<span class="tx-merchant">' + esc(displayName) + enrichIndicator + '</span>' +
+        '<span class="tx-merchant">' + esc(displayName) + '</span>' +
         (badges ? '<div class="tx-badges">' + badges + '</div>' : '<span class="tx-category">' + esc(normalizeCategory(eff.category)) + '</span>') +
         cardLabel +
         locationHtml +
@@ -1793,24 +1758,6 @@ function openActionSheet(tx) {
     else if (t === 'ignored') isActive = action.action_type === 'ignored';
     btn.classList.toggle('active', isActive);
   });
-
-  // Show enrich button if status is NULL (never attempted) or failed (retryable)
-  var enrichBtn = $('#btn-enrich-tx');
-  var enrichConfirm = $('#enrich-confirm');
-  enrichConfirm.hidden = true;
-  var canEnrich = !tx.enrich_status || tx.enrich_status === 'failed';
-  if (canEnrich) {
-    enrichBtn.hidden = false;
-    var labelPrefix = tx.enrich_status === 'failed' ? 'Retry Enrichment' : 'Enrich Transaction';
-    $('#btn-enrich-tx').querySelector('.action-label').textContent = labelPrefix;
-    var currentMonth = new Date().toISOString().slice(0, 7);
-    sb.from('enrich_usage').select('tx_count').eq('month', currentMonth).maybeSingle().then(function(res) {
-      var used = (res.data && res.data.tx_count) || 0;
-      $('#enrich-desc').textContent = 'Get merchant logo, clean name, and location (' + used + ' of 1,000 used -- $0.002/tx)';
-    });
-  } else {
-    enrichBtn.hidden = true;
-  }
 
   // Reset sub-pickers
   $('#split-picker').hidden = true;
@@ -2092,77 +2039,6 @@ $('#edit-save').addEventListener('click', async function() {
   var dateOverride = $('#edit-date').value || null;
   if (dateOverride === actionTx.date) dateOverride = null;
   saveMultiAction(actionTxId, { nickname: nickname, date_override: dateOverride });
-});
-
-// Enrich transaction button
-$('#btn-enrich-tx').addEventListener('click', function() {
-  if (!actionTx) return;
-  var currentMonth = new Date().toISOString().slice(0, 7);
-  sb.from('enrich_usage').select('tx_count').eq('month', currentMonth).maybeSingle().then(function(res) {
-    var used = (res.data && res.data.tx_count) || 0;
-    var remaining = 1000 - used;
-    $('#enrich-warning').textContent = 'This is permanent and cannot be reversed. This will use 1 of ' + remaining + ' remaining enrichments this month. Cost: $0.002 ($2.00 per 1,000).';
-    $('#tx-action-options').hidden = true;
-    $('#enrich-confirm').hidden = false;
-  });
-});
-
-var enrichInFlight = false;
-$('#enrich-confirm-btn').addEventListener('click', async function() {
-  if (!actionTx || enrichInFlight) return;
-  enrichInFlight = true;
-  var btn = $('#enrich-confirm-btn');
-  btn.textContent = 'Enriching...';
-  btn.disabled = true;
-  try {
-    var session = await sb.auth.getSession();
-    var token = session.data.session.access_token;
-    var res = await fetch(SUPABASE_URL + '/functions/v1/enrich-transaction', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
-      },
-      body: JSON.stringify({ transaction_id: actionTx.id })
-    });
-    var data = await res.json();
-    if (data.success && data.enriched) {
-      // Update the local transaction data
-      var tx = txData.find(function(t) { return t.id === actionTx.id; });
-      if (tx) {
-        tx.enrich_status = 'completed';
-        tx.enriched_merchant_name = data.enriched.enriched_merchant_name;
-        tx.enriched_logo_url = data.enriched.enriched_logo_url;
-        tx.enriched_website = data.enriched.enriched_website;
-        tx.enriched_category_primary = data.enriched.enriched_category_primary;
-        tx.enriched_category_detailed = data.enriched.enriched_category_detailed;
-        tx.enriched_payment_channel = data.enriched.enriched_payment_channel;
-        tx.enriched_location_city = data.enriched.enriched_location_city;
-        tx.enriched_location_region = data.enriched.enriched_location_region;
-      }
-      renderTransactionMonth();
-      enrichInFlight = false;
-      closeActionSheet();
-    } else {
-      btn.textContent = data.error || 'Failed';
-      setTimeout(function() {
-        btn.textContent = 'Confirm Enrich';
-        btn.disabled = false;
-        enrichInFlight = false;
-        $('#enrich-confirm').hidden = true;
-        $('#tx-action-options').hidden = false;
-      }, 2000);
-    }
-  } catch (e) {
-    btn.textContent = 'Error';
-    setTimeout(function() {
-      btn.textContent = 'Confirm Enrich';
-      btn.disabled = false;
-      enrichInFlight = false;
-      $('#enrich-confirm').hidden = true;
-      $('#tx-action-options').hidden = false;
-    }, 2000);
-  }
 });
 
 // Unified save that merges updates with existing action state

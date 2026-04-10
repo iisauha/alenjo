@@ -1487,25 +1487,6 @@ body {
   opacity: 0.8;
 }
 
-.tx-enrich-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  margin-left: 5px;
-  vertical-align: middle;
-  position: relative;
-  top: -1px;
-}
-
-.tx-enrich-done {
-  background: var(--success, #22c55e);
-}
-
-.tx-enrich-available {
-  background: var(--text-dim);
-  opacity: 0.4;
-}
 
 .tx-right {
   display: flex;
