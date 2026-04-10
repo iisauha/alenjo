@@ -168,23 +168,6 @@
       </div>
     </main>
 
-    <!-- LOANS TAB -->
-    <main id="tab-loans" class="tab-content">
-      <div id="loans-empty" class="connect-cta">
-        <p>No loans or liabilities yet</p>
-        <button id="btn-connect-loans" class="btn-primary">Connect Loan Account</button>
-      </div>
-      <div id="loans-content" hidden>
-        <div class="net-cash-card">
-          <span class="net-cash-label">Total Debt</span>
-          <span id="loans-total-value" class="net-cash-value balance-negative"></span>
-        </div>
-        <div class="tx-chart-wrap">
-          <canvas id="loans-pie-chart"></canvas>
-        </div>
-        <div id="loans-list" class="loans-list"></div>
-      </div>
-    </main>
 
     <!-- RECURRING TAB -->
     <main id="tab-recurring" class="tab-content">
@@ -281,12 +264,6 @@
           <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
         </svg>
         <span>Investments</span>
-      </button>
-      <button class="nav-item" data-tab="loans">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2 17l10-10M2 17l6.5-1.5L22 2l-1.5 6.5L7 22z"/><path d="M15 9l-3 3"/>
-        </svg>
-        <span>Loans</span>
       </button>
       <button class="nav-item" data-tab="recurring">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

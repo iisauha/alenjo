@@ -206,11 +206,6 @@ function applyTabOrder() {
     order.splice(snapIdx !== -1 ? snapIdx + 1 : 1, 0, 'investments');
     dirty = true;
   }
-  if (order.indexOf('loans') === -1) {
-    var invIdx = order.indexOf('investments');
-    order.splice(invIdx !== -1 ? invIdx + 1 : 2, 0, 'loans');
-    dirty = true;
-  }
   if (order.indexOf('recurring') === -1) {
     var txIdx = order.indexOf('transactions');
     order.splice(txIdx !== -1 ? txIdx + 1 : order.length - 1, 0, 'recurring');
@@ -269,8 +264,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = userProfile.tab_order || ['snapshot', 'investments', 'loans', 'transactions', 'recurring', 'settings'];
-  var labels = { snapshot: 'Snapshot', investments: 'Investments', loans: 'Loans', transactions: 'Transactions', recurring: 'Recurring', settings: 'Settings' };
+  var order = (userProfile.tab_order || ['snapshot', 'investments', 'transactions', 'recurring', 'settings']).filter(function(t) { return t !== 'loans'; });
+  var labels = { snapshot: 'Snapshot', investments: 'Investments', transactions: 'Transactions', recurring: 'Recurring', settings: 'Settings' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +
@@ -288,7 +283,7 @@ document.addEventListener('click', function(e) {
   if (!btn || !userProfile) return;
   var tab = btn.dataset.tab;
   var dir = btn.dataset.dir;
-  var order = userProfile.tab_order || ['snapshot', 'investments', 'loans', 'transactions', 'recurring', 'settings'];
+  var order = (userProfile.tab_order || ['snapshot', 'investments', 'transactions', 'recurring', 'settings']).filter(function(t) { return t !== 'loans'; });
   var idx = order.indexOf(tab);
   if (idx === -1) return;
   var newIdx = dir === 'up' ? idx - 1 : idx + 1;
@@ -412,7 +407,6 @@ btnConnectPlaid.addEventListener('click', function() { openPlaidLink(['transacti
 btnAddAccount.addEventListener('click', function() { openPlaidLink(['transactions']); });
 if ($('#btn-connect-investments')) $('#btn-connect-investments').addEventListener('click', function() { openPlaidLink(['investments']); });
 if ($('#btn-add-investment')) $('#btn-add-investment').addEventListener('click', function() { openPlaidLink(['investments']); });
-if ($('#btn-connect-loans')) $('#btn-connect-loans').addEventListener('click', function() { openPlaidLink(['transactions']); });
 
 // ============================================
 // LOAD ACCOUNTS
@@ -614,7 +608,6 @@ function renderAccounts(accounts) {
   if (credits.length > 0 || accounts.length > 0) {
     loadLiabilities().then(function() {
       renderSection(listCredit, credits, 'credit');
-      renderLoansTab();
     });
   }
 
@@ -827,115 +820,6 @@ async function loadLiabilities() {
   cachedLiabilities = result.data || [];
 }
 
-var loansPieChart = null;
-
-function renderLoansTab() {
-  var content = $('#loans-content');
-  var empty = $('#loans-empty');
-  if (!content || !empty) return;
-
-  // Get non-credit liabilities (student loans, mortgages) + manual loans
-  var loans = (cachedLiabilities || []).filter(function(l) { return l.liability_type !== 'credit'; });
-  // TODO: add manual loans from localStorage or DB
-
-  if (loans.length === 0) {
-    empty.hidden = false;
-    content.hidden = true;
-    return;
-  }
-
-  empty.hidden = true;
-  content.hidden = false;
-
-  // Pie chart data
-  var totalDebt = 0;
-  var chartLabels = [];
-  var chartAmounts = [];
-  var chartColors = ['#3C82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#EF4444', '#6366F1', '#14B8A6'];
-
-  loans.forEach(function(l) {
-    var balance = parseFloat(l.balance_current || 0);
-    var name = l.nickname || l.account_name || l.loan_name || 'Loan';
-    totalDebt += balance;
-    chartLabels.push(name);
-    chartAmounts.push(balance);
-  });
-
-  // Render pie chart
-  var canvas = document.getElementById('loans-pie-chart');
-  if (loansPieChart) loansPieChart.destroy();
-
-  if (chartAmounts.length > 0 && typeof Chart !== 'undefined') {
-    loansPieChart = new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: chartLabels,
-        datasets: [{
-          data: chartAmounts,
-          backgroundColor: chartColors.slice(0, chartLabels.length),
-          borderWidth: 0,
-          hoverOffset: 8
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        cutout: '60%',
-        animation: { animateRotate: true, duration: 800 },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function(ctx) {
-                var pct = totalDebt > 0 ? ((ctx.parsed / totalDebt) * 100).toFixed(1) : 0;
-                return ctx.label + ': ' + formatMoney(ctx.parsed) + ' (' + pct + '%)';
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  // Render total
-  $('#loans-total-value').textContent = formatMoney(totalDebt);
-
-  // Render loan cards
-  var listHtml = '';
-  loans.forEach(function(l, i) {
-    var balance = parseFloat(l.balance_current || 0);
-    var name = l.nickname || l.account_name || l.loan_name || 'Loan';
-    var color = chartColors[i % chartColors.length];
-    var typeLabel = l.liability_type === 'student' ? 'Student Loan' : l.liability_type === 'mortgage' ? 'Mortgage' : 'Loan';
-
-    listHtml += '<div class="loan-card">' +
-      '<div class="loan-card-header">' +
-        '<span class="loan-dot" style="background:' + color + '"></span>' +
-        '<div class="loan-card-info">' +
-          '<span class="loan-card-name">' + esc(name) + '</span>' +
-          '<span class="loan-card-type">' + typeLabel + (l.institution ? ' - ' + esc(l.institution) : '') + '</span>' +
-        '</div>' +
-        '<span class="loan-card-balance">' + formatMoney(balance) + '</span>' +
-      '</div>';
-
-    var details = '';
-    if (l.interest_rate) details += '<div class="liab-detail"><span>Interest Rate</span><span>' + parseFloat(l.interest_rate).toFixed(2) + '%</span></div>';
-    if (l.minimum_payment_amount) details += '<div class="liab-detail"><span>Min Payment</span><span>$' + parseFloat(l.minimum_payment_amount).toFixed(2) + '</span></div>';
-    if (l.next_payment_due_date) details += '<div class="liab-detail"><span>Next Due</span><span>' + formatLiabDate(l.next_payment_due_date) + '</span></div>';
-    if (l.origination_principal) details += '<div class="liab-detail"><span>Original Amount</span><span>' + formatMoney(parseFloat(l.origination_principal)) + '</span></div>';
-    if (l.expected_payoff_date) details += '<div class="liab-detail"><span>Payoff Date</span><span>' + formatLiabDate(l.expected_payoff_date) + '</span></div>';
-    if (l.loan_term) details += '<div class="liab-detail"><span>Term</span><span>' + esc(l.loan_term) + '</span></div>';
-    if (l.repayment_plan) details += '<div class="liab-detail"><span>Plan</span><span>' + esc(l.repayment_plan) + '</span></div>';
-    if (l.ytd_interest_paid) details += '<div class="liab-detail"><span>YTD Interest</span><span>$' + parseFloat(l.ytd_interest_paid).toFixed(2) + '</span></div>';
-    if (l.ytd_principal_paid) details += '<div class="liab-detail"><span>YTD Principal</span><span>$' + parseFloat(l.ytd_principal_paid).toFixed(2) + '</span></div>';
-    if (l.property_address) details += '<div class="liab-detail"><span>Property</span><span>' + esc(l.property_address) + '</span></div>';
-
-    if (details) listHtml += '<div class="loan-card-details">' + details + '</div>';
-    listHtml += '</div>';
-  });
-
-  $('#loans-list').innerHTML = listHtml;
-}
 
 function renderSection(listEl, items, type) {
   var sorted = items.slice().sort(function(a, b) {
