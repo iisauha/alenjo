@@ -1364,6 +1364,12 @@ body {
   text-align: center;
 }
 
+.tx-purchase-count {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}
+
 .tx-month-summary {
   display: flex;
   gap: 1rem;

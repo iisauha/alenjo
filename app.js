@@ -1578,17 +1578,8 @@ function renderTransactionMonth() {
     });
   });
 
-  // Month summary — use effective values (spending only)
-  var totalSpent = 0;
-  filtered.forEach(function(tx) {
-    var eff = getEffectiveTx(tx);
-    if (eff.excluded) return;
-    if (eff.amount > 0) totalSpent += eff.amount;
-  });
-
-  var html = '<div class="tx-month-summary">' +
-    '<div class="tx-summary-item"><span class="tx-summary-label">Spent</span><span class="tx-summary-value balance-negative">' + formatMoney(totalSpent) + '</span></div>' +
-  '</div>';
+  var purchaseCount = displayTx.length;
+  var html = '<div class="tx-purchase-count">' + purchaseCount + ' transaction' + (purchaseCount !== 1 ? 's' : '') + '</div>';
 
   // Sort transactions: most recent first by effective date
   displayTx.sort(function(a, b) {
