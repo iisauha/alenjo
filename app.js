@@ -1216,17 +1216,13 @@ async function loadTransactions() {
     toAutoIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
   }
 
-  // Build month list — always include current month, use effective dates
-  var monthSet = {};
+  // Build month list — current month + 2 previous months
   var now = new Date();
-  var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  monthSet[currentMonth] = true;
-  txData.forEach(function(tx) {
-    var eff = getEffectiveTx(tx);
-    var m = eff.date.substring(0, 7);
-    monthSet[m] = true;
-  });
-  txMonths = Object.keys(monthSet).sort().reverse();
+  txMonths = [];
+  for (var mi = 0; mi < 3; mi++) {
+    var d = new Date(now.getFullYear(), now.getMonth() - mi, 1);
+    txMonths.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+  }
 
   // Populate month filter — parse YYYY-MM directly to avoid timezone issues
   var filter = $('#tx-month-filter');
