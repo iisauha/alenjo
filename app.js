@@ -742,19 +742,19 @@ function renderAccountsSettings() {
   var html = '';
   Object.keys(byItem).forEach(function(itemId) {
     var group = byItem[itemId];
+    var acctCount = group.accounts.length;
+    var types = group.accounts.map(function(a) {
+      return a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
+    });
+    var uniqueTypes = types.filter(function(t, i) { return types.indexOf(t) === i; });
     html += '<div class="settings-institution">';
     html += '<div class="settings-inst-header">';
+    html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
+    html += '<span class="settings-inst-detail">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ' -- ' + uniqueTypes.join(', ') + '</span>';
+    html += '</div>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
-    group.accounts.forEach(function(a) {
-      var name = a.nickname || a.name || 'Account';
-      var typeLabel = a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
-      html += '<div class="account-manage-row">' +
-        '<span class="account-manage-name">' + esc(name) + '</span>' +
-        '<span class="account-manage-type">' + typeLabel + (a.mask ? ' ****' + esc(a.mask) : '') + '</span>' +
-      '</div>';
-    });
     html += '</div>';
   });
   list.innerHTML = html;

@@ -1188,10 +1188,21 @@ body {
   margin-bottom: 0.5rem;
 }
 
+.settings-inst-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
 .settings-inst-name {
   font-size: 0.85rem;
   font-weight: 600;
   color: #fff;
+}
+
+.settings-inst-detail {
+  font-size: 0.65rem;
+  color: var(--text-dim);
 }
 
 .btn-disconnect-inst {
@@ -1207,27 +1218,6 @@ body {
   flex-shrink: 0;
 }
 
-.account-manage-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.35rem 0;
-}
-
-.account-manage-row + .account-manage-row {
-  border-top: 1px solid var(--border);
-}
-
-.account-manage-name {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text);
-}
-
-.account-manage-type {
-  font-size: 0.65rem;
-  color: var(--text-dim);
-}
 
 /* ================================
    TRANSACTIONS TAB
