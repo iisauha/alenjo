@@ -2213,11 +2213,28 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 // ============================================
 var recLoaded = false;
 
-function loadRecurring() {
+async function loadRecurring() {
   var recEmpty = $('#rec-empty');
   var recContent = $('#rec-content');
 
-  // Need txData loaded first
+  // Load transaction data if not already loaded
+  if (txData.length === 0) {
+    var cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 3);
+    var cutoffStr = cutoff.toISOString().split('T')[0];
+    var result = await sb.from('synced_transactions').select('*').gte('date', cutoffStr).order('date', { ascending: false });
+    if (result.data && result.data.length > 0) {
+      txData = result.data;
+    }
+    // Load actions if not loaded
+    if (Object.keys(txActions).length === 0) {
+      var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode');
+      if (actionsResult.data) {
+        actionsResult.data.forEach(function(row) { txActions[row.transaction_id] = row; });
+      }
+    }
+  }
+
   if (txData.length === 0) {
     recEmpty.hidden = false;
     recContent.hidden = true;
