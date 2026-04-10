@@ -1867,3 +1867,58 @@ body {
   font-size: 0.6rem;
   color: var(--text-dim);
 }
+
+.rec-expected {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.rec-due-soon {
+  font-size: 0.6rem;
+  color: #F59E0B;
+  font-weight: 500;
+}
+
+.rec-overdue {
+  font-size: 0.6rem;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.recurring-date-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.recurring-date-btn {
+  flex: 1;
+  min-width: calc(50% - 0.2rem);
+  padding: 0.5rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: center;
+}
+
+.recurring-date-btn.active,
+.recurring-mode-btn.active {
+  border-color: var(--accent);
+  background: rgba(60, 130, 246, 0.12);
+  color: var(--accent);
+}
+
+.recurring-mode-btn {
+  flex: 1;
+  padding: 0.5rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: center;
+}
