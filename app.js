@@ -1828,12 +1828,9 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
     var existing = txActions[actionTxId] || {};
 
     if (toggle === 'ignored' || toggle === 'reimbursed') {
-      // Exclusive with split/recat but allows recurring
       var isAlreadySet = existing.action_type === toggle;
       saveMultiAction(actionTxId, {
-        action_type: isAlreadySet ? null : toggle,
-        split_ways: null,
-        category_override: null
+        action_type: isAlreadySet ? null : toggle
       });
       return;
     }
