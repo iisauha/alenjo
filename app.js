@@ -1788,8 +1788,9 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
 
     if (toggle === 'recurring') {
       if (existing.is_recurring) {
-        // Toggle off
-        saveMultiAction(actionTxId, { is_recurring: false, recurring_group: null });
+        // Already recurring: show date picker with existing preferences to edit
+        pendingRecurringGroup = existing.recurring_group || (actionTx.merchant_name || actionTx.name || 'Unknown').toLowerCase().trim();
+        showRecurringDatePicker(existing);
         return;
       }
       // Show recurring picker to match or create new
@@ -1892,14 +1893,32 @@ $('#recurring-new').addEventListener('click', function() {
 
 var pendingRecurringMode = 'recent';
 
-function showRecurringDatePicker() {
+function showRecurringDatePicker(existing) {
   $('#recurring-picker').hidden = true;
+  $('#tx-action-options').hidden = true;
   $('#recurring-date-picker').hidden = false;
-  $('#recurring-custom-date').value = '';
-  pendingRecurringMode = 'recent';
-  document.querySelectorAll('.recurring-date-btn').forEach(function(b) { b.classList.remove('active'); });
+
+  var mode = (existing && existing.recurring_amount_mode) || 'recent';
+  var nextDate = (existing && existing.recurring_next_date) || '';
+  pendingRecurringMode = mode;
+
+  $('#recurring-custom-date').value = nextDate;
+  $('#recurring-remove').hidden = !(existing && existing.is_recurring);
+
   document.querySelectorAll('.recurring-mode-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.mode === 'recent');
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+
+  // Check if nextDate matches any preset offset
+  document.querySelectorAll('.recurring-date-btn').forEach(function(b) {
+    b.classList.remove('active');
+    if (nextDate) {
+      var offset = parseInt(b.dataset.offset);
+      var d = new Date();
+      d.setDate(d.getDate() + offset);
+      var presetStr = d.toISOString().split('T')[0];
+      if (presetStr === nextDate) b.classList.add('active');
+    }
   });
 }
 
@@ -1934,6 +1953,12 @@ $('#recurring-date-save').addEventListener('click', function() {
 $('#recurring-date-skip').addEventListener('click', function() {
   if (!actionTxId || !pendingRecurringGroup) return;
   finishRecurringSave(null);
+});
+
+$('#recurring-remove').addEventListener('click', function() {
+  if (!actionTxId) return;
+  saveMultiAction(actionTxId, { is_recurring: false, recurring_group: null, recurring_next_date: null, recurring_amount_mode: 'recent' });
+  pendingRecurringGroup = null;
 });
 
 function finishRecurringSave(nextDate) {
@@ -2233,7 +2258,7 @@ function renderRecurringRow(item, isIncome) {
     today.setHours(0, 0, 0, 0);
     var parts = item.nextDate.split('-');
     var next = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    var diffDays = Math.ceil((next - today) / 86400000);
+    var diffDays = Math.round((next - today) / 86400000);
     if (diffDays < 0) nextLabel = '<span class="rec-overdue">Overdue by ' + Math.abs(diffDays) + 'd</span>';
     else if (diffDays === 0) nextLabel = '<span class="rec-due-soon">Expected today</span>';
     else if (diffDays <= 3) nextLabel = '<span class="rec-due-soon">Expected in ' + diffDays + 'd</span>';
