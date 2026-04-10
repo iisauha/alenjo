@@ -1793,11 +1793,11 @@ function openActionSheet(tx) {
     btn.classList.toggle('active', isActive);
   });
 
-  // Show enrich button if not already enriched with merchant data
+  // Show enrich button only if not already enriched
   var enrichBtn = $('#btn-enrich-tx');
   var enrichConfirm = $('#enrich-confirm');
   enrichConfirm.hidden = true;
-  if (!tx.enriched_merchant_name && !tx.enriched_logo_url) {
+  if (!tx.is_enriched) {
     enrichBtn.hidden = false;
     // Fetch current usage for the description
     var currentMonth = new Date().toISOString().slice(0, 7);
@@ -2098,15 +2098,16 @@ $('#btn-enrich-tx').addEventListener('click', function() {
   sb.from('enrich_usage').select('tx_count').eq('month', currentMonth).maybeSingle().then(function(res) {
     var used = (res.data && res.data.tx_count) || 0;
     var remaining = 1000 - used;
-    var cost = '$0.002';
-    $('#enrich-warning').textContent = 'This will use 1 enrichment (' + remaining + ' remaining this month). Cost: ' + cost + ' ($2.00 per 1,000). Continue?';
+    $('#enrich-warning').textContent = 'This is permanent and cannot be reversed. This will use 1 of ' + remaining + ' remaining enrichments this month. Cost: $0.002 ($2.00 per 1,000).';
     $('#tx-action-options').hidden = true;
     $('#enrich-confirm').hidden = false;
   });
 });
 
+var enrichInFlight = false;
 $('#enrich-confirm-btn').addEventListener('click', async function() {
-  if (!actionTx) return;
+  if (!actionTx || enrichInFlight) return;
+  enrichInFlight = true;
   var btn = $('#enrich-confirm-btn');
   btn.textContent = 'Enriching...';
   btn.disabled = true;
@@ -2137,21 +2138,24 @@ $('#enrich-confirm-btn').addEventListener('click', async function() {
         tx.enriched_location_region = data.enriched.enriched_location_region;
       }
       renderTransactionMonth();
+      enrichInFlight = false;
       closeActionSheet();
     } else {
       btn.textContent = data.error || 'Failed';
-      btn.disabled = false;
       setTimeout(function() {
         btn.textContent = 'Confirm Enrich';
+        btn.disabled = false;
+        enrichInFlight = false;
         $('#enrich-confirm').hidden = true;
         $('#tx-action-options').hidden = false;
       }, 2000);
     }
   } catch (e) {
     btn.textContent = 'Error';
-    btn.disabled = false;
     setTimeout(function() {
       btn.textContent = 'Confirm Enrich';
+      btn.disabled = false;
+      enrichInFlight = false;
       $('#enrich-confirm').hidden = true;
       $('#tx-action-options').hidden = false;
     }, 2000);
