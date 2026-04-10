@@ -1199,10 +1199,24 @@ async function loadTransactions() {
   txEmpty.hidden = true;
   txLoadingEl.classList.remove('visible');
 
-  // Fetch all transactions from DB
+  // Determine data window: first connection - 2 months, capped at 24 months
+  var now = new Date();
+  var dataStartDate = new Date(now.getFullYear(), now.getMonth() - 2, 1); // default 3 months
+  var fcResult = await sb.rpc('get_first_connection_date');
+  if (fcResult.data) {
+    var fc = new Date(fcResult.data);
+    fc.setMonth(fc.getMonth() - 2);
+    dataStartDate = fc;
+  }
+  var cap = new Date(now.getFullYear(), now.getMonth() - 24, 1);
+  if (dataStartDate < cap) dataStartDate = cap;
+  var dataStartStr = dataStartDate.toISOString().split('T')[0];
+
+  // Fetch transactions within data window
   var result = await sb
     .from('synced_transactions')
     .select('*')
+    .gte('date', dataStartStr)
     .order('date', { ascending: false });
 
   if (result.error || !result.data || result.data.length === 0) {
@@ -1269,19 +1283,13 @@ async function loadTransactions() {
     toAutoIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
   }
 
-  // Build month range: oldest transaction month through current month
-  var oldestMonth = null;
-  txData.forEach(function(tx) {
-    var m = tx.date.substring(0, 7);
-    if (!oldestMonth || m < oldestMonth) oldestMonth = m;
-  });
-  var now = new Date();
+  // Build month range from data start date to current month
   var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  if (!oldestMonth) oldestMonth = currentMonth;
+  var startMonth = dataStartDate.getFullYear() + '-' + String(dataStartDate.getMonth() + 1).padStart(2, '0');
 
   txMonths = [];
   var cursor = currentMonth;
-  while (cursor >= oldestMonth) {
+  while (cursor >= startMonth) {
     txMonths.push(cursor);
     var cp = cursor.split('-');
     var cy = parseInt(cp[0]);
@@ -2247,7 +2255,7 @@ async function loadRecurring() {
 
   // Load transaction data if not already loaded
   if (txData.length === 0) {
-    var result = await sb.from('synced_transactions').select('*').order('date', { ascending: false });
+    var result = await sb.from('synced_transactions').select('*').order('date', { ascending: false }).limit(5000);
     if (result.data && result.data.length > 0) {
       txData = result.data;
     }
