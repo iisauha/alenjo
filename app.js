@@ -1793,13 +1793,15 @@ function openActionSheet(tx) {
     btn.classList.toggle('active', isActive);
   });
 
-  // Show enrich button only if not already enriched
+  // Show enrich button if status is NULL (never attempted) or failed (retryable)
   var enrichBtn = $('#btn-enrich-tx');
   var enrichConfirm = $('#enrich-confirm');
   enrichConfirm.hidden = true;
-  if (!tx.is_enriched) {
+  var canEnrich = !tx.enrich_status || tx.enrich_status === 'failed';
+  if (canEnrich) {
     enrichBtn.hidden = false;
-    // Fetch current usage for the description
+    var labelPrefix = tx.enrich_status === 'failed' ? 'Retry Enrichment' : 'Enrich Transaction';
+    $('#btn-enrich-tx').querySelector('.action-label').textContent = labelPrefix;
     var currentMonth = new Date().toISOString().slice(0, 7);
     sb.from('enrich_usage').select('tx_count').eq('month', currentMonth).maybeSingle().then(function(res) {
       var used = (res.data && res.data.tx_count) || 0;
@@ -2127,6 +2129,7 @@ $('#enrich-confirm-btn').addEventListener('click', async function() {
       // Update the local transaction data
       var tx = txData.find(function(t) { return t.id === actionTx.id; });
       if (tx) {
+        tx.enrich_status = 'completed';
         tx.is_enriched = true;
         tx.enriched_merchant_name = data.enriched.enriched_merchant_name;
         tx.enriched_logo_url = data.enriched.enriched_logo_url;
