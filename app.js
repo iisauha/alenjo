@@ -1298,7 +1298,31 @@ function getEffectiveTx(tx) {
 }
 
 var txPieChart = null;
+var txPieLastMonth = null;
 var activeCategoryFilter = null;
+var txPieCenterData = { label: null, amount: 0, pct: '0%' };
+
+// Register center text plugin globally for the doughnut chart
+var txCenterTextPlugin = {
+  id: 'txCenterText',
+  afterDraw: function(chart) {
+    if (!txPieCenterData.label) return;
+    var ctx = chart.ctx;
+    var centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+    var centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(formatMoney(txPieCenterData.amount), centerX, centerY - 8);
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(txPieCenterData.pct, centerX, centerY + 10);
+    ctx.restore();
+  }
+};
+if (typeof Chart !== 'undefined') Chart.register(txCenterTextPlugin);
 
 var CATEGORY_COLORS = [
   '#3C82F6', '#4DE88F', '#E84D4D', '#F59E0B', '#8B5CF6',
@@ -1372,52 +1396,75 @@ function renderTransactionMonth() {
   var catAmounts = catEntries.map(function(e) { return e[1]; });
   var totalExpenses = catAmounts.reduce(function(s, a) { return s + a; }, 0);
 
-  // Render pie chart
+  // Update center text data for pie chart
+  if (activeCategoryFilter && byCategory[activeCategoryFilter]) {
+    var catAmt = byCategory[activeCategoryFilter];
+    txPieCenterData = { label: activeCategoryFilter, amount: catAmt, pct: totalExpenses > 0 ? ((catAmt / totalExpenses) * 100).toFixed(0) + '%' : '0%' };
+  } else {
+    txPieCenterData = { label: null, amount: 0, pct: '0%' };
+  }
+
+  // Render pie chart — update in place to avoid re-spin
   var canvas = document.getElementById('tx-pie-chart');
-  if (txPieChart) txPieChart.destroy();
+
+  var monthChanged = txPieLastMonth !== month;
+  txPieLastMonth = month;
 
   if (catEntries.length > 0 && typeof Chart !== 'undefined') {
-    txPieChart = new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: catLabels,
-        datasets: [{
-          data: catAmounts,
-          backgroundColor: CATEGORY_COLORS.slice(0, catLabels.length),
-          borderWidth: 0,
-          hoverOffset: 8
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        cutout: '55%',
-        animation: { animateRotate: true, duration: 800 },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function(ctx) {
-                var pct = ((ctx.parsed / totalExpenses) * 100).toFixed(1);
-                return ctx.label + ': ' + formatMoney(ctx.parsed) + ' (' + pct + '%)';
+    if (txPieChart && !monthChanged) {
+      // Update data in place — no re-spin on category click
+      txPieChart.data.labels = catLabels;
+      txPieChart.data.datasets[0].data = catAmounts;
+      txPieChart.data.datasets[0].backgroundColor = CATEGORY_COLORS.slice(0, catLabels.length);
+      txPieChart.options.animation = false;
+      txPieChart.update();
+    } else {
+      if (txPieChart) txPieChart.destroy();
+      txPieChart = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: catLabels,
+          datasets: [{
+            data: catAmounts,
+            backgroundColor: CATEGORY_COLORS.slice(0, catLabels.length),
+            borderWidth: 0,
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          cutout: '55%',
+          animation: { animateRotate: true, duration: 800 },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  var pct = ((ctx.parsed / totalExpenses) * 100).toFixed(1);
+                  return ctx.label + ': ' + formatMoney(ctx.parsed) + ' (' + pct + '%)';
+                }
               }
             }
-          }
-        },
-        onClick: function(e, elements) {
-          if (elements.length > 0) {
-            var idx = elements[0].index;
-            var clickedCat = catLabels[idx];
-            if (activeCategoryFilter === clickedCat) {
-              activeCategoryFilter = null;
-            } else {
-              activeCategoryFilter = clickedCat;
+          },
+          onClick: function(e, elements) {
+            if (elements.length > 0) {
+              var idx = elements[0].index;
+              var clickedCat = txPieChart.data.labels[idx];
+              if (activeCategoryFilter === clickedCat) {
+                activeCategoryFilter = null;
+              } else {
+                activeCategoryFilter = clickedCat;
+              }
+              renderTransactionMonth();
             }
-            renderTransactionMonth();
           }
         }
-      }
-    });
+      });
+    }
+  } else if (txPieChart) {
+    txPieChart.destroy();
+    txPieChart = null;
   }
 
   // Render category legend

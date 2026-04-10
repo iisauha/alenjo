@@ -1221,6 +1221,7 @@ body {
   font-size: 0.8rem;
   cursor: pointer;
   border-bottom: 1px solid rgba(21, 31, 48, 0.4);
+  transition: background 0.2s ease, padding 0.2s ease, margin 0.2s ease;
 }
 
 .cat-legend-item.active {
@@ -1331,6 +1332,12 @@ body {
   align-items: center;
   padding: 0.45rem 0;
   border-bottom: 1px solid rgba(21, 31, 48, 0.5);
+  animation: txFadeIn 0.25s ease-out both;
+}
+
+@keyframes txFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .tx-info {
@@ -1449,14 +1456,18 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  display: none;
+  display: flex;
   align-items: flex-end;
   justify-content: center;
   z-index: 95;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
 }
 
 .action-sheet-overlay.visible {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .action-sheet {
@@ -1469,6 +1480,12 @@ body {
   max-width: 500px;
   max-height: 80vh;
   overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.action-sheet-overlay.visible .action-sheet {
+  transform: translateY(0);
 }
 
 .action-sheet-header {
