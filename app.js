@@ -124,30 +124,16 @@ authForm.addEventListener('submit', async function(e) {
   authSubmit.disabled = false;
 });
 
-function dismissSplash() {
-  var s = document.getElementById('splash');
-  if (s) { s.style.opacity = '0'; setTimeout(function() { s.remove(); }, 500); }
-}
-setTimeout(dismissSplash, 8000); // safety
-
-sb.auth.onAuthStateChange(async function(event, session) {
+sb.auth.onAuthStateChange(function(event, session) {
   if (session && session.user) {
     currentUser = session.user;
     showScreen('app');
-    await loadProfile();
-    await loadAccounts();
-    await Promise.all([
-      loadTransactions(),
-      loadHoldings(),
-      loadLiabilities(),
-      loadRecurring()
-    ]);
-    dismissSplash();
+    loadProfile();
+    loadAccounts();
   } else {
     currentUser = null;
     if (checkBetaAccess()) showScreen('login');
     else showScreen('beta');
-    dismissSplash();
   }
 });
 
