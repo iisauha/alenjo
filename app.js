@@ -1269,13 +1269,26 @@ async function loadTransactions() {
     toAutoIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
   }
 
-  // Build month list from actual transaction dates
-  var monthSet = {};
+  // Build month range: oldest transaction month through current month
+  var oldestMonth = null;
   txData.forEach(function(tx) {
     var m = tx.date.substring(0, 7);
-    monthSet[m] = true;
+    if (!oldestMonth || m < oldestMonth) oldestMonth = m;
   });
-  txMonths = Object.keys(monthSet).sort().reverse();
+  var now = new Date();
+  var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  if (!oldestMonth) oldestMonth = currentMonth;
+
+  txMonths = [];
+  var cursor = currentMonth;
+  while (cursor >= oldestMonth) {
+    txMonths.push(cursor);
+    var cp = cursor.split('-');
+    var cy = parseInt(cp[0]);
+    var cm = parseInt(cp[1]) - 1;
+    if (cm === 0) { cy--; cm = 12; }
+    cursor = cy + '-' + String(cm).padStart(2, '0');
+  }
 
   // Populate month filter — parse YYYY-MM directly to avoid timezone issues
   var filter = $('#tx-month-filter');
