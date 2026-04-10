@@ -1615,10 +1615,9 @@ function renderTransactionMonth() {
     var eff = getEffectiveTx(tx);
     var postedDate = tx.date;
     var authDate = tx.authorized_date;
-    var authDatetime = tx.authorized_datetime;
     var dateHtml = '';
-    if (authDate || authDatetime) {
-      dateHtml = '<span class="tx-date-line">Auth ' + formatTxDate(authDate, authDatetime) + '</span>' +
+    if (authDate && authDate !== postedDate) {
+      dateHtml = '<span class="tx-date-line">Auth ' + formatTxDate(authDate, null) + '</span>' +
         '<span class="tx-date-line">Posted ' + formatTxDate(postedDate, null) + '</span>';
     } else {
       dateHtml = '<span class="tx-date-line">' + formatTxDate(postedDate, null) + '</span>';
