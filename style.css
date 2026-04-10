@@ -1174,41 +1174,59 @@ body {
   gap: 0.25rem;
 }
 
-.account-manage-row {
+.settings-institution {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.settings-inst-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
 }
 
-.account-manage-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.account-manage-name {
+.settings-inst-name {
   font-size: 0.85rem;
   font-weight: 600;
   color: #fff;
 }
 
-.account-manage-type {
-  font-size: 0.65rem;
-  color: var(--text-dim);
-}
-
-.btn-remove-account {
+.btn-disconnect-inst {
   background: none;
   border: 1px solid rgba(255, 80, 0, 0.3);
   color: var(--danger);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-family: inherit;
+  font-weight: 500;
   padding: 0.25rem 0.6rem;
   border-radius: 6px;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.account-manage-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0;
+}
+
+.account-manage-row + .account-manage-row {
+  border-top: 1px solid var(--border);
+}
+
+.account-manage-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.account-manage-type {
+  font-size: 0.65rem;
+  color: var(--text-dim);
 }
 
 /* ================================
@@ -1488,15 +1506,18 @@ body {
 }
 
 .tx-cat-chip {
-  display: inline-block;
+  display: inline;
+  align-self: flex-start;
   font-size: 0.55rem;
   font-weight: 600;
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
+  padding: 0.08rem 0.35rem;
+  border-radius: 3px;
   color: var(--cat-color);
   background: color-mix(in srgb, var(--cat-color) 12%, transparent);
   text-transform: capitalize;
   letter-spacing: 0.2px;
+  white-space: nowrap;
+  width: fit-content;
 }
 
 .tx-amount-pending {

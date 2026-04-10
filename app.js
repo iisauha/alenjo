@@ -725,67 +725,78 @@ function updateInvestmentTotals(savings, investments, hasInvAccounts) {
 function renderAccountsSettings() {
   var section = $('#section-accounts');
   var list = $('#accounts-list');
-  // Always show section -- disconnect button needed even when accounts are hidden
   section.hidden = false;
   if (!cachedAccounts || cachedAccounts.length === 0) {
-    list.innerHTML = '<p style="color:var(--text-dim);font-size:0.75rem">No visible accounts. Use Disconnect All to remove hidden items from Plaid.</p>';
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:0.75rem">No accounts connected.</p>';
     return;
   }
-  list.innerHTML = cachedAccounts.map(function(a) {
-    var name = a.nickname || a.name || 'Account';
-    var typeLabel = a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
-    return '<div class="account-manage-row">' +
-      '<div class="account-manage-info">' +
+
+  // Group by plaid_item_id (institution)
+  var byItem = {};
+  cachedAccounts.forEach(function(a) {
+    var key = a.plaid_item_id || 'unknown';
+    if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', accounts: [] };
+    byItem[key].accounts.push(a);
+  });
+
+  var html = '';
+  Object.keys(byItem).forEach(function(itemId) {
+    var group = byItem[itemId];
+    html += '<div class="settings-institution">';
+    html += '<div class="settings-inst-header">';
+    html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
+    html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
+    html += '</div>';
+    group.accounts.forEach(function(a) {
+      var name = a.nickname || a.name || 'Account';
+      var typeLabel = a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
+      html += '<div class="account-manage-row">' +
         '<span class="account-manage-name">' + esc(name) + '</span>' +
         '<span class="account-manage-type">' + typeLabel + (a.mask ? ' ****' + esc(a.mask) : '') + '</span>' +
-      '</div>' +
-      '<button class="btn-remove-account" data-id="' + a.id + '">Remove</button>' +
-    '</div>';
-  }).join('');
+      '</div>';
+    });
+    html += '</div>';
+  });
+  list.innerHTML = html;
 }
 
 document.addEventListener('click', async function(e) {
-  var btn = e.target.closest('.btn-remove-account');
+  var btn = e.target.closest('.btn-disconnect-inst');
   if (!btn) return;
-  var id = btn.dataset.id;
-  if (!confirm('Remove this account? This will disconnect it from Plaid.')) return;
+  var itemId = btn.dataset.item;
+  var group = cachedAccounts.filter(function(a) { return a.plaid_item_id === itemId; });
+  var instName = group.length > 0 ? (group[0].institution || 'this institution') : 'this institution';
+  var acctCount = group.length;
+  if (!confirm('Disconnect ' + instName + '? This removes all ' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ' from Plaid and deletes their data.')) return;
   btn.disabled = true;
   btn.textContent = '...';
-  await sb.from('accounts').update({ is_hidden: true }).eq('id', id);
-  if (cachedAccounts) {
-    cachedAccounts = cachedAccounts.filter(function(a) { return a.id !== id; });
-    renderAccounts(cachedAccounts);
-  }
-});
-
-// Disconnect all accounts from Plaid
-if ($('#btn-disconnect-all')) {
-  $('#btn-disconnect-all').addEventListener('click', async function() {
-    if (!confirm('Disconnect ALL accounts from Plaid? This removes them from Plaid billing and deletes all data. You will need to reconnect.')) return;
-    this.disabled = true;
-    this.textContent = 'Disconnecting...';
-    try {
-      var sessionResult = await sb.auth.getSession();
-      var session = sessionResult.data.session;
-      var res = await fetch(SUPABASE_URL + '/functions/v1/cleanup-items', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + session.access_token,
-          'apikey': SUPABASE_ANON_KEY
-        }
-      });
-      var data = await res.json();
-      cachedAccounts = [];
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    var res = await fetch(SUPABASE_URL + '/functions/v1/cleanup-items', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ item_id: itemId })
+    });
+    var data = await res.json();
+    if (data.removed) {
+      cachedAccounts = cachedAccounts.filter(function(a) { return a.plaid_item_id !== itemId; });
       cachedHoldings = null;
       cachedLiabilities = null;
-      renderAccounts([]);
-      this.textContent = 'Disconnected ' + (data.removed || 0) + ' items';
-    } catch (err) {
-      this.textContent = 'Error: ' + err.message;
+      renderAccounts(cachedAccounts);
+    } else {
+      btn.textContent = 'Error';
+      btn.disabled = false;
     }
-  });
-}
+  } catch (err) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+  }
+});
 
 async function updateSyncInfo() {
   var billingSection = $('#section-billing');
