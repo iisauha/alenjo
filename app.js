@@ -1617,7 +1617,7 @@ function renderTransactionMonth() {
     if (eff.actionType === 'ignored') badges += '<span class="tx-badge tx-badge-ignored">Ignored</span>';
     if (eff.isSplit) badges += '<span class="tx-badge tx-badge-split">' + eff.splitWays + '-way split</span>';
     if (eff.isRecurring) badges += '<span class="tx-badge tx-badge-recurring">Recurring</span>';
-    if (eff.isRecategorized) badges += '<span class="tx-badge tx-badge-recat">' + esc(normalizeCategory(eff.category)) + '</span>';
+    if (eff.isRecategorized) badges += '<span class="tx-badge tx-badge-recat">Recategorized</span>';
 
     var amountClass = tx.pending ? 'tx-amount-pending' : (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
     var amountHtml = '';
