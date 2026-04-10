@@ -298,29 +298,6 @@ body {
 /* ================================
    SNAPSHOT — Hero Balance
    ================================ */
-.balance-toggle {
-  display: inline-block;
-  padding: 0.25rem 0.65rem;
-  background: rgba(255,255,255,0.06);
-  color: var(--text-muted);
-  border: none;
-  border-radius: 20px;
-  font-size: 0.65rem;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: color 0.2s;
-  align-self: flex-start;
-  margin-top: 0.35rem;
-}
-
-.balance-toggle:hover {
-  color: var(--text);
-}
-
-.balance-toggle[hidden] {
-  display: none;
-}
 
 /* Net Cash — Robinhood hero number style */
 .net-cash-card {
@@ -348,6 +325,11 @@ body {
   letter-spacing: -1.5px;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .connect-cta {

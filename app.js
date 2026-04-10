@@ -68,7 +68,6 @@ var banksTotal = $('#banks-total');
 var savingsTotal = $('#savings-total');
 var creditTotal = $('#credit-total');
 var loading = $('#loading');
-var balanceToggle = $('#balance-toggle');
 var headerAvatar = $('#header-avatar');
 var headerName = $('#header-name');
 
@@ -312,7 +311,7 @@ document.addEventListener('click', function(e) {
 // ============================================
 // BALANCE TOGGLE
 // ============================================
-balanceToggle.addEventListener('click', function() {
+$('#net-cash-value').addEventListener('click', function() {
   showAvailable = !showAvailable;
   if (cachedAccounts) renderAccounts(cachedAccounts);
 });
@@ -629,11 +628,9 @@ function renderAccounts(accounts) {
   // Snapshot tab: banks + credit only
   var hasBankAccounts = banks.length > 0 || credits.length > 0;
   connectCta.hidden = hasBankAccounts;
-  btnAddAccount.hidden = !hasBankAccounts;
   sectionBanks.hidden = banks.length === 0;
   sectionSavings.hidden = true; // savings moved to investments tab
   sectionCredit.hidden = credits.length === 0;
-  balanceToggle.hidden = !hasBankAccounts;
 
   renderSection(listBanks, banks, 'bank');
   var bankSum = banks.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
@@ -661,8 +658,6 @@ function renderAccounts(accounts) {
     netCashValue.textContent = (netCash < 0 ? '-' : '') + formatMoney(netCash);
     netCashValue.className = 'net-cash-value ' + (netCash >= 0 ? 'balance-positive' : 'balance-negative');
 
-    balanceToggle.textContent = showAvailable ? 'Current' : 'After Pending';
-    balanceToggle.hidden = false;
   } else {
     netCashEl.hidden = true;
   }
