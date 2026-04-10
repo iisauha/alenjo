@@ -1083,9 +1083,9 @@ function accountCard(account, type) {
     if (liab && liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>' + formatMoney(parseFloat(liab.last_payment_amount)) + '</span></div>';
     if (liab && liab.last_payment_date) details += '<div class="liab-detail"><span>Last Payment Date</span><span>' + formatLiabDate(liab.last_payment_date) + '</span></div>';
 
-    var stmtBal = (liab && liab.last_statement_balance) ? parseFloat(liab.last_statement_balance) : overrides.stmt || null;
-    var stmtManual = !(liab && liab.last_statement_balance) && overrides.stmt;
-    if (stmtBal) details += '<div class="liab-detail"><span>Statement Bal</span><span>' + formatMoney(stmtBal) + (stmtManual ? ' <span class="manual-tag">(manual)</span>' : '') + '</span></div>';
+    if (liab && liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>' + formatMoney(parseFloat(liab.last_statement_balance)) + '</span></div>';
+
+    if (overrides.stmtDate) details += '<div class="liab-detail"><span>Statement Date</span><span>' + ordinalDay(overrides.stmtDate) + ' of month <span class="manual-tag">(manual)</span></span></div>';
 
     if (liab && liab.is_overdue && hasMinPayment) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
 
@@ -1094,7 +1094,6 @@ function accountCard(account, type) {
       liabHtml += '<div class="liab-detail liab-unavailable"><span>Card details not available from this institution</span></div>';
     }
 
-    liabHtml += '<button class="liab-edit-btn" data-account-id="' + account.id + '">Edit card details</button>';
     liabHtml += '</div>';
   }
 
@@ -1123,46 +1122,12 @@ function formatLiabDate(dateStr) {
   return monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
 }
 
-// Nickname editing via modal
-var nicknameModal = $('#nickname-modal');
-var nicknameInput = $('#nickname-input');
-var editingAccountId = null;
-
-document.addEventListener('click', function(e) {
-  var nameEl = e.target.closest('.account-name');
-  if (!nameEl || !nameEl.dataset.id) return;
-  editingAccountId = nameEl.dataset.id;
-  nicknameInput.value = nameEl.textContent;
-  nicknameModal.classList.add('visible');
-  nicknameInput.focus();
-  nicknameInput.select();
-});
-
-$('#nickname-save').addEventListener('click', function() {
-  var newName = nicknameInput.value.trim();
-  if (newName && editingAccountId) {
-    sb.from('accounts').update({ nickname: newName }).eq('id', editingAccountId).then(function() {
-      if (cachedAccounts) {
-        cachedAccounts.forEach(function(a) {
-          if (a.id === editingAccountId) a.nickname = newName;
-        });
-        renderAccounts(cachedAccounts);
-      }
-    });
-  }
-  nicknameModal.classList.remove('visible');
-  editingAccountId = null;
-});
-
-$('#nickname-cancel').addEventListener('click', function() {
-  nicknameModal.classList.remove('visible');
-  editingAccountId = null;
-});
-
-nicknameInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') { e.preventDefault(); $('#nickname-save').click(); }
-  if (e.key === 'Escape') { $('#nickname-cancel').click(); }
-});
+function ordinalDay(d) {
+  d = parseInt(d);
+  var s = ['th','st','nd','rd'];
+  var v = d % 100;
+  return d + (s[(v - 20) % 10] || s[v] || s[0]);
+}
 
 // Card detail overrides (localStorage)
 function getCardOverrides(accountId) {
@@ -1175,7 +1140,7 @@ function getCardOverrides(accountId) {
 function setCardOverrides(accountId, data) {
   try {
     var all = JSON.parse(localStorage.getItem('alenjo_card_overrides') || '{}');
-    if (!data || (!data.limit && !data.apr && !data.stmt)) {
+    if (!data || (!data.limit && !data.apr && !data.stmtDate)) {
       delete all[accountId];
     } else {
       all[accountId] = data;
@@ -1184,46 +1149,90 @@ function setCardOverrides(accountId, data) {
   } catch (e) { console.error('Override save error:', e); }
 }
 
-var cardOverrideModal = $('#card-override-modal');
-var overrideEditingId = null;
+// Account edit modal (nickname + card overrides)
+var accountEditModal = $('#account-edit-modal');
+var nicknameInput = $('#nickname-input');
+var editingAccountId = null;
 
 document.addEventListener('click', function(e) {
-  var btn = e.target.closest('.liab-edit-btn');
-  if (!btn) return;
-  overrideEditingId = btn.dataset.accountId;
-  var acct = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === overrideEditingId; }) : null;
-  var label = acct ? (acct.nickname || acct.name || 'Card') : 'Card';
-  $('#card-override-label').textContent = 'Set values for ' + label + ' when not provided by your bank.';
-  var ov = getCardOverrides(overrideEditingId);
-  $('#override-limit').value = ov.limit || '';
-  $('#override-apr').value = ov.apr || '';
-  $('#override-stmt').value = ov.stmt || '';
-  cardOverrideModal.classList.add('visible');
-  $('#override-limit').focus();
+  var nameEl = e.target.closest('.account-name');
+  if (!nameEl || !nameEl.dataset.id) return;
+  editingAccountId = nameEl.dataset.id;
+  nicknameInput.value = nameEl.textContent;
+
+  // Check if this is a credit card with missing data
+  var acct = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === editingAccountId; }) : null;
+  var overridesSection = $('#card-overrides-section');
+  var showOverrides = false;
+
+  if (acct && acct.type === 'credit') {
+    var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === editingAccountId; }) : null;
+    var hasLimit = !!(acct.balance_limit && parseFloat(acct.balance_limit) > 0);
+    var hasApr = !!(liab && liab.apr_purchase);
+    var hasStmtDate = !!(liab && liab.next_payment_due_date);
+
+    var ov = getCardOverrides(editingAccountId);
+
+    // Only show fields that are missing from Plaid
+    var limitRow = $('#override-limit-row');
+    var aprRow = $('#override-apr-row');
+    var dateRow = $('#override-date-row');
+
+    limitRow.style.display = hasLimit ? 'none' : '';
+    aprRow.style.display = hasApr ? 'none' : '';
+    dateRow.style.display = hasStmtDate ? 'none' : '';
+
+    if (!hasLimit || !hasApr || !hasStmtDate) {
+      showOverrides = true;
+      if (!hasLimit) $('#override-limit').value = ov.limit || '';
+      if (!hasApr) $('#override-apr').value = ov.apr || '';
+      if (!hasStmtDate) $('#override-stmt-date').value = ov.stmtDate || '';
+    }
+  }
+
+  overridesSection.style.display = showOverrides ? '' : 'none';
+  accountEditModal.classList.add('visible');
+  nicknameInput.focus();
+  nicknameInput.select();
 });
 
-$('#card-override-save').addEventListener('click', function() {
-  if (!overrideEditingId) return;
-  var lim = parseFloat($('#override-limit').value) || 0;
-  var apr = parseFloat($('#override-apr').value) || 0;
-  var stmt = parseFloat($('#override-stmt').value) || 0;
-  setCardOverrides(overrideEditingId, { limit: lim, apr: apr, stmt: stmt });
-  cardOverrideModal.classList.remove('visible');
-  overrideEditingId = null;
-  if (cachedAccounts) renderAccounts(cachedAccounts);
+$('#account-edit-save').addEventListener('click', function() {
+  if (!editingAccountId) return;
+
+  // Save nickname
+  var newName = nicknameInput.value.trim();
+  if (newName) {
+    sb.from('accounts').update({ nickname: newName }).eq('id', editingAccountId).then(function() {
+      if (cachedAccounts) {
+        cachedAccounts.forEach(function(a) {
+          if (a.id === editingAccountId) a.nickname = newName;
+        });
+        renderAccounts(cachedAccounts);
+      }
+    });
+  }
+
+  // Save card overrides if visible
+  if ($('#card-overrides-section').style.display !== 'none') {
+    var lim = parseFloat($('#override-limit').value) || 0;
+    var apr = parseFloat($('#override-apr').value) || 0;
+    var stmtDate = parseInt($('#override-stmt-date').value) || 0;
+    setCardOverrides(editingAccountId, { limit: lim, apr: apr, stmtDate: stmtDate });
+    if (cachedAccounts) renderAccounts(cachedAccounts);
+  }
+
+  accountEditModal.classList.remove('visible');
+  editingAccountId = null;
 });
 
-$('#card-override-cancel').addEventListener('click', function() {
-  cardOverrideModal.classList.remove('visible');
-  overrideEditingId = null;
+$('#account-edit-cancel').addEventListener('click', function() {
+  accountEditModal.classList.remove('visible');
+  editingAccountId = null;
 });
 
-$('#card-override-clear').addEventListener('click', function() {
-  if (!overrideEditingId) return;
-  setCardOverrides(overrideEditingId, null);
-  cardOverrideModal.classList.remove('visible');
-  overrideEditingId = null;
-  if (cachedAccounts) renderAccounts(cachedAccounts);
+nicknameInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); $('#account-edit-save').click(); }
+  if (e.key === 'Escape') { $('#account-edit-cancel').click(); }
 });
 
 // ============================================

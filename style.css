@@ -1072,23 +1072,6 @@ body {
   font-style: italic;
 }
 
-.liab-edit-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.6rem;
-  cursor: pointer;
-  padding: 0.15rem 0.3rem;
-  border-radius: 4px;
-  margin-top: 0.2rem;
-  align-self: flex-end;
-}
-
-.liab-edit-btn:hover {
-  color: var(--text);
-  background: var(--bg-hover);
-}
-
 .liab-detail .manual-tag {
   font-size: 0.5rem;
   color: var(--text-muted);
