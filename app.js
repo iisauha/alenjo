@@ -684,11 +684,6 @@ function renderAccounts(accounts) {
     loadHoldings().then(function() {
       renderSection($('#list-inv-investments'), investments, 'bank');
       updateInvestmentTotals(savings, investments, hasInvAccounts);
-      // Show consent banner if holdings are empty (likely needs consent)
-      var consentBanner = document.getElementById('inv-consent-banner');
-      if (consentBanner) {
-        consentBanner.hidden = cachedHoldings && cachedHoldings.length > 0;
-      }
     });
   }
 
@@ -2023,13 +2018,20 @@ document.querySelectorAll('.recurring-mode-btn').forEach(function(btn) {
 // Preset date buttons
 document.querySelectorAll('.recurring-date-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var offset = parseInt(btn.dataset.offset);
-    var d = new Date();
-    d.setDate(d.getDate() + offset);
-    var dateStr = d.toISOString().split('T')[0];
-    $('#recurring-custom-date').value = dateStr;
     document.querySelectorAll('.recurring-date-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
+    var offset = parseInt(btn.dataset.offset);
+    if (isNaN(offset)) {
+      // Custom button -- show date picker
+      $('#custom-date-wrap').hidden = false;
+      $('#recurring-custom-date').value = '';
+    } else {
+      // Preset -- calculate date, hide custom picker
+      var d = new Date();
+      d.setDate(d.getDate() + offset);
+      $('#recurring-custom-date').value = d.toISOString().split('T')[0];
+      $('#custom-date-wrap').hidden = true;
+    }
   });
 });
 

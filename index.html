@@ -165,11 +165,6 @@
           <div class="account-list" id="list-inv-savings"></div>
         </section>
 
-        <div id="inv-consent-banner" class="consent-banner" hidden>
-          <p>Your bank requires additional permission to show holdings data.</p>
-          <button onclick="grantInvestmentConsent()" class="btn-primary" style="width:auto;padding:0.6rem 1.5rem;font-size:0.85rem">Grant Access</button>
-        </div>
-
         <section class="account-section" id="section-inv-investments">
           <div class="section-header">
             <h2>Investment Accounts</h2>
@@ -371,9 +366,9 @@
           <button class="recurring-date-btn" data-offset="14">2 weeks</button>
           <button class="recurring-date-btn" data-offset="30">1 month</button>
           <button class="recurring-date-btn" data-offset="60">2 months</button>
-          <button class="recurring-date-btn" data-offset="90">3 months</button>
+          <button class="recurring-date-btn" id="btn-custom-date-toggle">Custom</button>
         </div>
-        <div class="edit-field" style="margin-top:0.5rem">
+        <div id="custom-date-wrap" class="edit-field" style="margin-top:0.5rem" hidden>
           <label for="recurring-custom-date">Custom date</label>
           <input type="date" id="recurring-custom-date" class="app-input">
         </div>
