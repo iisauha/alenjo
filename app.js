@@ -1591,6 +1591,12 @@ function renderTransactionMonth() {
     });
   });
 
+  // Build category-to-color map from pie chart order
+  var categoryColorMap = {};
+  catEntries.forEach(function(entry, i) {
+    categoryColorMap[entry[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+  });
+
   var purchaseCount = displayTx.length;
   var html = '<div class="tx-purchase-count">' + purchaseCount + ' transaction' + (purchaseCount !== 1 ? 's' : '') + '</div>';
 
@@ -1610,12 +1616,7 @@ function renderTransactionMonth() {
     var eff = getEffectiveTx(tx);
     var effectiveDate = eff.date;
     var displayDate = formatTxDate(effectiveDate, null);
-    var dateHtml = '';
-    if (tx.pending) {
-      dateHtml = '<span class="tx-pending-badge">Pending</span> ' + displayDate;
-    } else {
-      dateHtml = displayDate;
-    }
+    var dateHtml = displayDate;
 
     var displayName = eff.nickname || tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
 
@@ -1630,14 +1631,15 @@ function renderTransactionMonth() {
     if (eff.isRecurring) badges += '<span class="tx-badge tx-badge-recurring">Recurring</span>';
     if (eff.isRecategorized) badges += '<span class="tx-badge tx-badge-recat">' + esc(normalizeCategory(eff.category)) + '</span>';
 
+    var amountClass = tx.pending ? 'tx-amount-pending' : (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
     var amountHtml = '';
     if (eff.isSplit && !eff.excluded) {
       amountHtml = '<span class="tx-amount-original">' + (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) + '</span>' +
-        '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
+        '<span class="tx-amount ' + amountClass + '">' +
           (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(eff.amount)) +
         '</span>';
     } else {
-      amountHtml = '<span class="tx-amount ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative') + '">' +
+      amountHtml = '<span class="tx-amount ' + amountClass + '">' +
         (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
       '</span>';
     }
@@ -1658,7 +1660,7 @@ function renderTransactionMonth() {
       logoHtml +
       '<div class="tx-info">' +
         '<span class="tx-merchant">' + esc(displayName) + '</span>' +
-        (badges ? '<div class="tx-badges">' + badges + '</div>' : '<span class="tx-category">' + esc(normalizeCategory(eff.category)) + '</span>') +
+        (badges ? '<div class="tx-badges">' + badges + '</div>' : '<span class="tx-cat-chip" style="--cat-color:' + (categoryColorMap[normalizeCategory(eff.category)] || '#6C7078') + '">' + esc(normalizeCategory(eff.category)) + '</span>') +
         cardLabel +
         locationHtml +
       '</div>' +

@@ -1487,6 +1487,22 @@ body {
   text-transform: capitalize;
 }
 
+.tx-cat-chip {
+  display: inline-block;
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  color: var(--cat-color);
+  background: color-mix(in srgb, var(--cat-color) 12%, transparent);
+  text-transform: capitalize;
+  letter-spacing: 0.2px;
+}
+
+.tx-amount-pending {
+  color: var(--warning);
+}
+
 .tx-logo {
   width: 32px;
   height: 32px;
