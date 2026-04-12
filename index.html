@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#060B14">
+  <title>Alenjo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="alenjo.png">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <script>var _v = Date.now();</script>
+  <link rel="stylesheet" id="app-css">
+  <script>document.getElementById('app-css').href = 'style.css?v=' + _v;</script>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="screen-login" class="screen active">
+    <div class="login-container">
+      <img src="alenjo.png" alt="Alenjo" class="login-logo">
+      <h1 class="login-title">Alenjo</h1>
+
+      <div id="auth-error" class="auth-error" hidden></div>
+
+      <form id="auth-form" autocomplete="on">
+        <input type="email" id="auth-email" placeholder="Email" required autocomplete="email">
+        <input type="password" id="auth-password" placeholder="Password" required autocomplete="current-password">
+        <button type="submit" id="auth-submit" class="btn-primary">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- APP SHELL (shared header + nav for all app screens) -->
+  <div id="screen-app" class="screen">
+    <header class="app-header">
+      <div class="header-user">
+        <div id="header-avatar" class="header-avatar"></div>
+        <span id="header-name" class="header-name"></span>
+      </div>
+      <button id="btn-refresh-sync" class="header-refresh" title="Refresh"><img src="alenjo.png" alt="Alenjo" class="header-logo"></button>
+    </header>
+
+    <!-- SNAPSHOT TAB -->
+    <main id="tab-snapshot" class="tab-content active">
+      <div id="snapshot-error" class="auth-error" hidden></div>
+
+      <div id="net-cash" class="net-cash-card" hidden>
+        <span class="net-cash-label">Net Cash</span>
+        <button id="net-cash-value" class="net-cash-value"></button>
+      </div>
+
+      <div id="connect-cta" class="connect-cta">
+        <p>Connect your bank to get started</p>
+        <button id="btn-connect-plaid" class="btn-primary">Connect Account</button>
+      </div>
+
+      <section class="account-section" id="section-banks">
+        <div class="section-header">
+          <h2>Banks</h2>
+          <span class="section-total" id="banks-total"></span>
+        </div>
+        <div class="account-list" id="list-banks"></div>
+      </section>
+
+      <section class="account-section" id="section-savings">
+        <div class="section-header">
+          <h2>Savings</h2>
+          <span class="section-total" id="savings-total"></span>
+        </div>
+        <div class="account-list" id="list-savings"></div>
+      </section>
+
+      <section class="account-section" id="section-credit">
+        <div class="section-header">
+          <h2>Credit Cards</h2>
+          <span class="section-total" id="credit-total"></span>
+        </div>
+        <div class="account-list" id="list-credit"></div>
+      </section>
+
+    </main>
+
+
+    <!-- TRANSACTIONS TAB -->
+    <main id="tab-transactions" class="tab-content">
+      <div id="tx-loading" class="tx-loading">
+        <div class="spinner"></div>
+        <p>Syncing transactions...</p>
+      </div>
+      <div id="tx-empty" class="connect-cta">
+        <p>Connect an account to see transactions</p>
+      </div>
+      <div id="tx-content" hidden>
+        <div class="tx-search-wrap">
+          <input type="text" id="tx-search" class="app-input" placeholder="Search transactions...">
+        </div>
+        <div class="tx-filters">
+          <select id="tx-month-filter" class="app-select"></select>
+          <select id="tx-card-filter" class="app-select">
+            <option value="all">All Accounts</option>
+          </select>
+        </div>
+        <div class="tx-toggle-row">
+          <button id="btn-toggle-ignored" class="btn-toggle-ignored">Show Ignored</button>
+        </div>
+        <div class="tx-subheader">
+          <span id="tx-updated" class="tx-updated"></span>
+          <button id="btn-export-csv" class="btn-export">Export CSV</button>
+        </div>
+        <div class="tx-chart-wrap">
+          <canvas id="tx-pie-chart"></canvas>
+        </div>
+        <div id="tx-category-legend"></div>
+        <div id="tx-breakdown"></div>
+      </div>
+    </main>
+
+    <!-- INVESTMENTS TAB -->
+    <main id="tab-investments" class="tab-content">
+      <div id="inv-empty" class="connect-cta">
+        <p>Connect an investment or savings account</p>
+        <button id="btn-connect-investments" class="btn-primary">Connect Account</button>
+      </div>
+      <div id="inv-content" hidden>
+        <div id="inv-total-card" class="net-cash-card">
+          <span class="net-cash-label">Total Portfolio</span>
+          <span id="inv-total-value" class="net-cash-value"></span>
+        </div>
+
+        <section class="account-section" id="section-inv-savings">
+          <div class="section-header">
+            <h2>Savings</h2>
+            <span class="section-total" id="inv-savings-total"></span>
+          </div>
+          <div class="account-list" id="list-inv-savings"></div>
+        </section>
+
+        <section class="account-section" id="section-inv-investments">
+          <div class="section-header">
+            <h2>Investment Accounts</h2>
+            <span class="section-total" id="inv-investments-total"></span>
+          </div>
+          <div class="account-list" id="list-inv-investments"></div>
+        </section>
+
+      </div>
+    </main>
+
+
+    <!-- RECURRING TAB -->
+    <main id="tab-recurring" class="tab-content">
+      <div id="rec-empty" class="connect-cta">
+        <p>No recurring charges yet. Mark transactions as recurring from the Transactions tab.</p>
+      </div>
+      <div id="rec-content" hidden>
+        <div id="rec-summary"></div>
+        <div id="rec-list"></div>
+      </div>
+    </main>
+
+    <!-- SETTINGS TAB -->
+    <main id="tab-settings" class="tab-content">
+      <div class="settings-card">
+        <div class="settings-card-header" data-toggle="settings-profile">
+          <h2 class="settings-card-title">Profile</h2>
+          <span class="settings-chevron"></span>
+        </div>
+        <div class="settings-card-body" id="settings-profile">
+          <div class="settings-avatar-row">
+            <div id="settings-avatar" class="settings-avatar"></div>
+            <button id="btn-change-avatar" class="btn-secondary-sm">Change Photo</button>
+            <input type="file" id="avatar-upload" accept="image/*" hidden>
+          </div>
+          <div class="settings-field">
+            <label>Display Name</label>
+            <input type="text" id="settings-name" class="app-input" placeholder="Your name" maxlength="40">
+            <button id="btn-save-name" class="btn-primary-sm">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-card-header" data-toggle="settings-tabs">
+          <h2 class="settings-card-title">Tab Order</h2>
+          <span class="settings-chevron"></span>
+        </div>
+        <div class="settings-card-body collapsed" id="settings-tabs">
+          <p class="settings-hint">Reorder your navigation tabs</p>
+          <div id="tab-order-list" class="tab-order-list"></div>
+        </div>
+      </div>
+
+      <div class="settings-card" id="section-accounts">
+        <div class="settings-card-header" data-toggle="settings-accounts">
+          <h2 class="settings-card-title">Institutions</h2>
+          <span class="settings-chevron"></span>
+        </div>
+        <div class="settings-card-body collapsed" id="settings-accounts">
+          <div id="accounts-list" class="accounts-manage-list"></div>
+          <button id="btn-add-account" class="btn-secondary" style="margin-top:0.75rem">+ Connect Account</button>
+        </div>
+      </div>
+
+      <div class="settings-card" id="section-billing">
+        <div class="settings-card-header" data-toggle="settings-billing">
+          <h2 class="settings-card-title">Billing</h2>
+          <span class="settings-chevron"></span>
+        </div>
+        <div class="settings-card-body collapsed" id="settings-billing">
+          <div id="billing-info" class="billing-info"></div>
+        </div>
+      </div>
+
+      <div class="settings-logout-wrap">
+        <button id="btn-settings-logout" class="btn-danger">Log Out</button>
+      </div>
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="nav-item active" data-tab="snapshot">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        </svg>
+        <span>Snapshot</span>
+      </button>
+      <button class="nav-item" data-tab="transactions">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        <span>Transactions</span>
+      </button>
+      <button class="nav-item" data-tab="investments">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+        </svg>
+        <span>Investments</span>
+      </button>
+      <button class="nav-item" data-tab="recurring">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        <span>Recurring</span>
+      </button>
+      <button class="nav-item" data-tab="settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Nickname Modal -->
+  <div id="account-edit-modal" class="modal-overlay">
+    <div class="modal-card">
+      <h3>Edit Account</h3>
+      <label class="override-label">Nickname</label>
+      <input type="text" id="nickname-input" class="app-input" placeholder="Account nickname" maxlength="40">
+      <div id="card-overrides-section" style="display:none">
+        <div style="font-size:0.7rem;color:var(--text-muted);margin:0.5rem 0 0.4rem;border-top:1px solid var(--border);padding-top:0.5rem">Missing info from your bank</div>
+        <div id="override-limit-row">
+          <label class="override-label">Credit Limit</label>
+          <input type="number" id="override-limit" class="app-input" placeholder="e.g. 5000" step="any" min="0">
+        </div>
+        <div id="override-apr-row">
+          <label class="override-label">Purchase APR %</label>
+          <input type="number" id="override-apr" class="app-input" placeholder="e.g. 24.99" step="any" min="0" max="100">
+        </div>
+        <div id="override-date-row">
+          <label class="override-label">Statement Date (day of month)</label>
+          <input type="number" id="override-stmt-date" class="app-input" placeholder="e.g. 15" min="1" max="31">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="account-edit-cancel" class="btn-secondary-sm">Cancel</button>
+        <button id="account-edit-save" class="btn-primary-sm">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction Action Sheet -->
+  <div id="tx-action-sheet" class="action-sheet-overlay">
+    <div class="action-sheet">
+      <div class="action-sheet-header">
+        <span id="tx-action-merchant" class="action-sheet-title"></span>
+        <span id="tx-action-amount" class="action-sheet-subtitle"></span>
+      </div>
+      <div id="tx-action-detail" class="action-sheet-detail" hidden></div>
+      <div id="tx-action-status" class="action-sheet-status" hidden></div>
+      <div id="tx-action-options" class="action-sheet-options">
+        <p class="action-group-label">Tags (select multiple)</p>
+        <div class="action-toggles">
+          <button class="action-toggle" data-toggle="split">Split</button>
+          <button class="action-toggle" data-toggle="recurring">Recurring</button>
+          <button class="action-toggle" data-toggle="recategorized">Re-categorize</button>
+          <button class="action-toggle" data-toggle="edit">Edit</button>
+        </div>
+        <p class="action-group-label" style="margin-top:0.6rem">Exclusive</p>
+        <div class="action-toggles">
+          <button class="action-toggle action-toggle-exclusive" data-toggle="reimbursed">Reimbursed</button>
+          <button class="action-toggle action-toggle-exclusive" data-toggle="ignored">Ignore</button>
+        </div>
+        <button class="action-option action-option-clear" data-action="clear" hidden>
+          <div class="action-option-text">
+            <span class="action-label">Clear All</span>
+            <span class="action-desc">Reset to normal</span>
+          </div>
+        </button>
+      </div>
+      <div id="split-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">How do you want to split?</p>
+        <div class="split-buttons">
+          <button data-ways="2">2-way</button>
+          <button data-ways="3">3-way</button>
+          <button id="split-custom-btn">Custom</button>
+          <button id="split-portion-btn">My portion</button>
+        </div>
+        <div id="split-custom-row" class="split-custom-input" hidden>
+          <input id="split-custom-ways" type="number" inputmode="numeric" min="2" max="20" placeholder="# of people">
+          <button class="btn-primary" id="split-custom-apply">Apply</button>
+        </div>
+        <div id="split-portion-row" class="split-custom-input" hidden>
+          <span style="color:var(--text-muted);font-size:1rem;font-weight:500;">$</span>
+          <input id="split-portion-amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Amount you owe">
+          <button class="btn-primary" id="split-portion-apply">Apply</button>
+        </div>
+        <p id="split-preview" class="split-preview"></p>
+      </div>
+      <div id="recurring-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">Match to existing recurring?</p>
+        <div id="recurring-match-list" class="recat-list"></div>
+        <button id="recurring-new" class="btn-primary" style="width:100%;margin-top:0.5rem">Create New Recurring</button>
+      </div>
+      <div id="recurring-date-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">Amount to show</p>
+        <div class="recurring-date-options" style="margin-bottom:0.75rem">
+          <button class="recurring-mode-btn active" data-mode="recent">Most recent</button>
+          <button class="recurring-mode-btn" data-mode="average">Average (est.)</button>
+        </div>
+        <p class="action-sub-title">When is this next expected?</p>
+        <div class="recurring-date-options">
+          <button class="recurring-date-btn" data-offset="14">2 weeks</button>
+          <button class="recurring-date-btn" data-offset="30">1 month</button>
+          <button class="recurring-date-btn" data-offset="60">2 months</button>
+          <button class="recurring-date-btn" id="btn-custom-date-toggle">Custom</button>
+        </div>
+        <div id="custom-date-wrap" class="edit-field" style="margin-top:0.5rem" hidden>
+          <label for="recurring-custom-date">Custom date</label>
+          <input type="date" id="recurring-custom-date" class="app-input">
+        </div>
+        <button id="recurring-date-save" class="btn-primary" style="width:100%;margin-top:0.75rem">Save</button>
+        <button id="recurring-date-skip" class="btn-secondary-sm" style="width:100%;margin-top:0.35rem;padding:0.45rem">Skip for now</button>
+        <button id="recurring-remove" class="btn-secondary-sm" style="width:100%;margin-top:0.35rem;padding:0.45rem;color:var(--danger);border-color:var(--danger)" hidden>Remove Recurring</button>
+      </div>
+      <div id="edit-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">Edit Transaction</p>
+        <div class="edit-field">
+          <label for="edit-nickname">Name</label>
+          <input type="text" id="edit-nickname" class="app-input" placeholder="Custom name...">
+        </div>
+        <div class="edit-field">
+          <label for="edit-date">Date</label>
+          <input type="date" id="edit-date" class="app-input">
+        </div>
+        <button id="edit-save" class="btn-primary" style="width:100%;margin-top:0.5rem">Save</button>
+      </div>
+      <div id="recat-picker" class="action-sheet-sub" hidden>
+        <p class="action-sub-title">Choose category</p>
+        <div id="recat-list" class="recat-list"></div>
+      </div>
+      <button class="action-sheet-cancel" id="action-sheet-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div id="loading" class="loading-overlay">
+    <div class="spinner"></div>
+  </div>
+
+  <script>
+    window.onerror = function(msg, src, line) {
+      var el = document.getElementById('auth-error') || document.getElementById('snapshot-error');
+      if (el) { el.textContent = 'Error: ' + msg; el.hidden = false; }
+      console.error('JS Error:', msg, src, line);
+      // If critical error on load, offer reload
+      if (!window._appLoaded) {
+        var b = document.createElement('button');
+        b.textContent = 'Tap to reload';
+        b.style.cssText = 'display:block;margin:1rem auto;padding:0.75rem 2rem;background:#3C82F6;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;';
+        b.onclick = function() { localStorage.clear(); location.href = location.pathname + '?_=' + Date.now(); };
+        (el || document.body).appendChild(b);
+      }
+    };
+  </script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" async></script>
+  <script>document.write('<script src="app.js?v=' + _v + '"><\/script>');</script>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" async></script>
+</body>
+</html>
