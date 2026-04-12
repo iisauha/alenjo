@@ -67,9 +67,12 @@ sb.auth.signOut();
 sb.auth.onAuthStateChange(function(event, session) {
   if (session && session.user) {
     currentUser = session.user;
-    showScreen('app');
-    loadProfile();
-    loadAccounts();
+    // Don't show app until data is loaded to avoid empty state flash
+    Promise.all([loadProfile(), loadAccounts()]).catch(function(e) {
+      console.error('Init error:', e);
+    }).then(function() {
+      showScreen('app');
+    });
   } else {
     currentUser = null;
     showScreen('login');
@@ -2504,9 +2507,8 @@ if ('serviceWorker' in navigator) {
   var result = await sb.auth.getSession();
   if (result.data.session && result.data.session.user) {
     currentUser = result.data.session.user;
+    try { await Promise.all([loadProfile(), loadAccounts()]); } catch(e) {}
     showScreen('app');
-    loadProfile();
-    loadAccounts();
   } else {
     showScreen('login');
   }
