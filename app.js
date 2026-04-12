@@ -131,12 +131,13 @@ function dismissSplash() {
   setTimeout(function() { splash.remove(); }, 300);
 }
 
-sb.auth.onAuthStateChange(async function(event, session) {
+sb.auth.onAuthStateChange(function(event, session) {
   if (session && session.user) {
     currentUser = session.user;
     showScreen('app');
-    await Promise.all([loadProfile(), loadAccounts()]);
-    dismissSplash();
+    Promise.all([loadProfile(), loadAccounts()]).catch(function(e) {
+      console.error('Init error:', e);
+    }).then(dismissSplash);
   } else {
     currentUser = null;
     if (checkBetaAccess()) showScreen('login');
