@@ -124,25 +124,19 @@ authForm.addEventListener('submit', async function(e) {
   authSubmit.disabled = false;
 });
 
-function dismissSplash() {
-  var splash = document.getElementById('splash-screen');
-  if (!splash) return;
-  splash.classList.add('fade-out');
-  setTimeout(function() { splash.remove(); }, 300);
-}
+// Sign out any existing session on load so user must log in every time
+sb.auth.signOut();
 
 sb.auth.onAuthStateChange(function(event, session) {
   if (session && session.user) {
     currentUser = session.user;
     showScreen('app');
-    Promise.all([loadProfile(), loadAccounts()]).catch(function(e) {
-      console.error('Init error:', e);
-    }).then(dismissSplash);
+    loadProfile();
+    loadAccounts();
   } else {
     currentUser = null;
     if (checkBetaAccess()) showScreen('login');
     else showScreen('beta');
-    dismissSplash();
   }
 });
 
