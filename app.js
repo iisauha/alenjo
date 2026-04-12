@@ -240,10 +240,6 @@ document.addEventListener('click', function(e) {
   applyTabOrder();
 });
 
-// Logout from settings
-$('#btn-settings-logout').addEventListener('click', async function() {
-  await sb.auth.signOut();
-});
 
 // Settings collapsible sections
 document.addEventListener('click', function(e) {
@@ -492,10 +488,13 @@ async function backgroundSync() {
   }
 }
 
-// Manual refresh button — full app reload
-$('#btn-refresh-sync').addEventListener('click', function() {
+// Manual refresh button — sync with Plaid then reload (which signs out)
+$('#btn-refresh-sync').addEventListener('click', async function() {
   if (this.classList.contains('syncing')) return;
   this.classList.add('syncing');
+  try {
+    await backgroundSync();
+  } catch (e) {}
   location.reload();
 });
 
