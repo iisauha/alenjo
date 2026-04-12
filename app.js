@@ -1949,11 +1949,15 @@ document.querySelectorAll('#split-picker button[data-ways]').forEach(function(bt
 // Split picker - custom N-way
 var splitCustomBtn = $('#split-custom-btn');
 if (splitCustomBtn) splitCustomBtn.addEventListener('click', function() {
-  $('#split-custom-row').hidden = false;
+  var row = $('#split-custom-row');
+  var isOpen = !row.hidden;
+  $('#split-custom-row').hidden = isOpen;
   $('#split-portion-row').hidden = true;
-  $('#split-custom-ways').value = '';
-  $('#split-custom-ways').focus();
   $('#split-preview').textContent = '';
+  if (!isOpen) {
+    $('#split-custom-ways').value = '';
+    setTimeout(function() { $('#split-custom-ways').focus(); }, 50);
+  }
 });
 
 var splitCustomApply = $('#split-custom-apply');
@@ -1979,11 +1983,15 @@ if (splitCustomWays) splitCustomWays.addEventListener('keydown', function(e) {
 // Split picker - my portion (dollar amount)
 var splitPortionBtn = $('#split-portion-btn');
 if (splitPortionBtn) splitPortionBtn.addEventListener('click', function() {
-  $('#split-portion-row').hidden = false;
+  var row = $('#split-portion-row');
+  var isOpen = !row.hidden;
+  $('#split-portion-row').hidden = isOpen;
   $('#split-custom-row').hidden = true;
-  $('#split-portion-amount').value = '';
-  $('#split-portion-amount').focus();
   $('#split-preview').textContent = '';
+  if (!isOpen) {
+    $('#split-portion-amount').value = '';
+    setTimeout(function() { $('#split-portion-amount').focus(); }, 50);
+  }
 });
 
 var splitPortionApply = $('#split-portion-apply');

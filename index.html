@@ -347,12 +347,12 @@
           <button id="split-portion-btn">My portion</button>
         </div>
         <div id="split-custom-row" class="split-custom-input" hidden>
-          <input id="split-custom-ways" type="number" min="2" max="20" placeholder="Number of people">
+          <input id="split-custom-ways" type="number" inputmode="numeric" min="2" max="20" placeholder="# of people">
           <button class="btn-primary" id="split-custom-apply">Apply</button>
         </div>
         <div id="split-portion-row" class="split-custom-input" hidden>
-          <span style="color:var(--text);font-size:0.9rem;">$</span>
-          <input id="split-portion-amount" type="number" min="0" step="0.01" placeholder="Your portion">
+          <span style="color:var(--text-muted);font-size:1rem;font-weight:500;">$</span>
+          <input id="split-portion-amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Amount you owe">
           <button class="btn-primary" id="split-portion-apply">Apply</button>
         </div>
         <p id="split-preview" class="split-preview"></p>

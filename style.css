@@ -1862,46 +1862,50 @@ body {
 }
 
 .split-buttons {
-  display: flex;
-  gap: 0.4rem;
-  margin-bottom: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .split-buttons button {
-  flex: 1;
-  padding: 0.65rem;
+  padding: 0.75rem 0.5rem;
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s;
+  min-height: 44px;
+  -webkit-appearance: none;
 }
 
-.split-buttons button:hover {
-  background: rgba(255,255,255,0.08);
+.split-buttons button:active {
+  background: rgba(255,255,255,0.12);
 }
 
 .split-custom-input {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .split-custom-input input {
   flex: 1;
-  padding: 0.5rem 0.65rem;
-  background: rgba(255,255,255,0.04);
+  padding: 0.7rem 0.75rem;
+  background: rgba(255,255,255,0.06);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 16px;
   font-family: inherit;
   outline: none;
+  min-height: 44px;
+  -webkit-appearance: none;
 }
 
 .split-custom-input input:focus {
@@ -1909,15 +1913,18 @@ body {
 }
 
 .split-custom-input .btn-primary {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.85rem;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
   white-space: nowrap;
+  width: auto;
+  min-height: 44px;
 }
 
 .split-preview {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   text-align: center;
+  margin-top: 0.25rem;
 }
 
 .recat-list {
