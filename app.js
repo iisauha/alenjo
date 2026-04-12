@@ -1258,7 +1258,7 @@ async function loadTransactions() {
   txContent.hidden = false;
 
   // Load user actions and ignore rules
-  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode');
+  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode');
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
@@ -1363,6 +1363,8 @@ function getEffectiveTx(tx) {
     excluded: false, amount: tx.amount, category: tx.enriched_category_primary || tx.category,
     actionType: action ? action.action_type : null,
     splitWays: action ? action.split_ways : null,
+    splitPortion: action ? action.split_portion : null,
+    reimbursement: 0,
     nickname: null, date: tx.date,
     isRecurring: false, recurringGroup: null,
     isSplit: false, isRecategorized: false
@@ -1378,9 +1380,15 @@ function getEffectiveTx(tx) {
     result.excluded = true;
     result.amount = 0;
   }
-  if (action.split_ways && action.split_ways > 1) {
+  if (action.split_portion && action.split_portion > 0) {
+    result.isSplit = true;
+    result.splitPortion = parseFloat(action.split_portion);
+    result.reimbursement = Math.abs(tx.amount) - result.splitPortion;
+    if (!result.excluded) result.amount = tx.amount > 0 ? result.splitPortion : -result.splitPortion;
+  } else if (action.split_ways && action.split_ways > 1) {
     result.isSplit = true;
     result.splitWays = action.split_ways;
+    result.reimbursement = Math.abs(tx.amount) - Math.abs(tx.amount) / action.split_ways;
     if (!result.excluded) result.amount = tx.amount / action.split_ways;
   }
   if (action.category_override) {
@@ -1648,7 +1656,10 @@ function renderTransactionMonth() {
 
     if (eff.actionType === 'reimbursed') badges += '<span class="tx-badge tx-badge-reimbursed">Reimbursed</span>';
     if (eff.actionType === 'ignored') badges += '<span class="tx-badge tx-badge-ignored">Ignored</span>';
-    if (eff.isSplit) badges += '<span class="tx-badge tx-badge-split">' + eff.splitWays + '-way split</span>';
+    if (eff.isSplit) {
+      var splitLabel = eff.splitWays ? eff.splitWays + '-way split' : 'Split';
+      badges += '<span class="tx-badge tx-badge-split">' + splitLabel + ' (+$' + formatMoney(eff.reimbursement) + ' back)</span>';
+    }
     if (eff.isRecurring) badges += '<span class="tx-badge tx-badge-recurring">Recurring</span>';
 
     var amountClass = tx.pending ? 'tx-amount-pending' : (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
@@ -1809,7 +1820,8 @@ function openActionSheet(tx) {
   var statusParts = [];
   if (action.action_type === 'ignored') statusParts.push('Ignored');
   if (action.action_type === 'reimbursed') statusParts.push('Reimbursed');
-  if (action.split_ways > 1) statusParts.push(action.split_ways + '-way split');
+  if (action.split_portion > 0) statusParts.push('Split (your portion: $' + formatMoney(parseFloat(action.split_portion)) + ')');
+  else if (action.split_ways > 1) statusParts.push(action.split_ways + '-way split');
   if (action.is_recurring) statusParts.push('Recurring');
   if (action.category_override) statusParts.push('Re-categorized');
 
@@ -1870,14 +1882,16 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
 
     if (toggle === 'split') {
       // If already split, toggle it off
-      if (existing.split_ways > 1) {
-        saveMultiAction(actionTxId, { split_ways: null });
+      if (existing.split_ways > 1 || existing.split_portion > 0) {
+        saveMultiAction(actionTxId, { split_ways: null, split_portion: null });
         return;
       }
       // Show split picker
       $('#tx-action-options').hidden = true;
       $('#split-picker').hidden = false;
       $('#split-preview').textContent = '';
+      $('#split-custom-row').hidden = true;
+      $('#split-portion-row').hidden = true;
       return;
     }
 
@@ -1916,20 +1930,73 @@ document.querySelector('.action-option-clear').addEventListener('click', functio
   clearTxAction(actionTxId);
 });
 
-// Split picker
+// Split picker - quick split buttons (2-way, 3-way)
 document.querySelectorAll('#split-picker button[data-ways]').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var ways = parseInt(btn.dataset.ways);
     var share = Math.abs(actionTx.amount) / ways;
-    $('#split-preview').textContent = 'Your share: ' + formatMoney(share);
-    // Clear exclusive action_type if set, keep other flags
+    var reimburse = Math.abs(actionTx.amount) - share;
+    $('#split-preview').textContent = 'Your share: $' + formatMoney(share) + ' -- Getting back: $' + formatMoney(reimburse);
     var existing = txActions[actionTxId] || {};
-    var updates = { split_ways: ways };
+    var updates = { split_ways: ways, split_portion: null };
     if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
       updates.action_type = null;
     }
     saveMultiAction(actionTxId, updates);
   });
+});
+
+// Split picker - custom N-way
+$('#split-custom-btn').addEventListener('click', function() {
+  $('#split-custom-row').hidden = false;
+  $('#split-portion-row').hidden = true;
+  $('#split-custom-ways').value = '';
+  $('#split-custom-ways').focus();
+  $('#split-preview').textContent = '';
+});
+
+$('#split-custom-apply').addEventListener('click', function() {
+  var ways = parseInt($('#split-custom-ways').value);
+  if (!ways || ways < 2) return;
+  var share = Math.abs(actionTx.amount) / ways;
+  var reimburse = Math.abs(actionTx.amount) - share;
+  $('#split-preview').textContent = 'Your share: $' + formatMoney(share) + ' -- Getting back: $' + formatMoney(reimburse);
+  var existing = txActions[actionTxId] || {};
+  var updates = { split_ways: ways, split_portion: null };
+  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
+    updates.action_type = null;
+  }
+  saveMultiAction(actionTxId, updates);
+});
+
+$('#split-custom-ways').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') $('#split-custom-apply').click();
+});
+
+// Split picker - my portion (dollar amount)
+$('#split-portion-btn').addEventListener('click', function() {
+  $('#split-portion-row').hidden = false;
+  $('#split-custom-row').hidden = true;
+  $('#split-portion-amount').value = '';
+  $('#split-portion-amount').focus();
+  $('#split-preview').textContent = '';
+});
+
+$('#split-portion-apply').addEventListener('click', function() {
+  var portion = parseFloat($('#split-portion-amount').value);
+  if (!portion || portion <= 0 || portion >= Math.abs(actionTx.amount)) return;
+  var reimburse = Math.abs(actionTx.amount) - portion;
+  $('#split-preview').textContent = 'Your portion: $' + formatMoney(portion) + ' -- Getting back: $' + formatMoney(reimburse);
+  var existing = txActions[actionTxId] || {};
+  var updates = { split_portion: portion, split_ways: null };
+  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
+    updates.action_type = null;
+  }
+  saveMultiAction(actionTxId, updates);
+});
+
+$('#split-portion-amount').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') $('#split-portion-apply').click();
 });
 
 // Recurring picker
@@ -2125,6 +2192,7 @@ async function saveMultiAction(txId, updates) {
     transaction_id: txId,
     action_type: updates.hasOwnProperty('action_type') ? updates.action_type : (existing.action_type || null),
     split_ways: updates.hasOwnProperty('split_ways') ? updates.split_ways : (existing.split_ways || null),
+    split_portion: updates.hasOwnProperty('split_portion') ? updates.split_portion : (existing.split_portion || null),
     category_override: updates.hasOwnProperty('category_override') ? updates.category_override : (existing.category_override || null),
     nickname: updates.hasOwnProperty('nickname') ? updates.nickname : (existing.nickname || null),
     date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override || null),
@@ -2261,7 +2329,7 @@ async function loadRecurring() {
     }
     // Load actions if not loaded
     if (Object.keys(txActions).length === 0) {
-      var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode');
+      var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode');
       if (actionsResult.data) {
         actionsResult.data.forEach(function(row) { txActions[row.transaction_id] = row; });
       }
@@ -2378,7 +2446,7 @@ function renderRecurring() {
 }
 
 function renderRecurringRow(item, isIncome) {
-  var splitLabel = item.isSplit ? ' (' + item.splitWays + '-way split)' : '';
+  var splitLabel = item.isSplit ? ' (' + (item.splitWays ? item.splitWays + '-way split' : 'Split') + ')' : '';
   var nextLabel = '';
   if (item.nextDate) {
     var today = new Date();

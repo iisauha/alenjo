@@ -339,12 +339,21 @@
         </button>
       </div>
       <div id="split-picker" class="action-sheet-sub" hidden>
-        <p class="action-sub-title">How many ways?</p>
+        <p class="action-sub-title">How do you want to split?</p>
         <div class="split-buttons">
-          <button data-ways="2">2</button>
-          <button data-ways="3">3</button>
-          <button data-ways="4">4</button>
-          <button data-ways="5">5</button>
+          <button data-ways="2">2-way</button>
+          <button data-ways="3">3-way</button>
+          <button id="split-custom-btn">Custom</button>
+          <button id="split-portion-btn">My portion</button>
+        </div>
+        <div id="split-custom-row" class="split-custom-input" hidden>
+          <input id="split-custom-ways" type="number" min="2" max="20" placeholder="Number of people">
+          <button class="btn-primary" id="split-custom-apply">Apply</button>
+        </div>
+        <div id="split-portion-row" class="split-custom-input" hidden>
+          <span style="color:var(--text);font-size:0.9rem;">$</span>
+          <input id="split-portion-amount" type="number" min="0" step="0.01" placeholder="Your portion">
+          <button class="btn-primary" id="split-portion-apply">Apply</button>
         </div>
         <p id="split-preview" class="split-preview"></p>
       </div>
