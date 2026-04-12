@@ -220,29 +220,6 @@ body {
   text-overflow: ellipsis;
 }
 
-.header-refresh {
-  background: none;
-  border: none;
-  padding: 0.3rem;
-  cursor: pointer;
-  flex-shrink: 0;
-  border-radius: 50%;
-  transition: background 0.2s;
-}
-
-.header-refresh:active {
-  background: rgba(255,255,255,0.06);
-}
-
-.header-refresh.syncing .header-logo {
-  animation: refreshPulse 1s ease-in-out infinite;
-}
-
-@keyframes refreshPulse {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.15); }
-}
-
 .header-logo {
   width: 26px;
   height: 26px;

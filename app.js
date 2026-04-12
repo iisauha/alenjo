@@ -488,15 +488,6 @@ async function backgroundSync() {
   }
 }
 
-// Manual refresh button — sync with Plaid then reload (which signs out)
-$('#btn-refresh-sync').addEventListener('click', async function() {
-  if (this.classList.contains('syncing')) return;
-  this.classList.add('syncing');
-  try {
-    await backgroundSync();
-  } catch (e) {}
-  location.reload();
-});
 
 // ============================================
 // LOGO.DEV
