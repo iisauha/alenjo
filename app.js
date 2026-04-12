@@ -1,41 +1,5 @@
 (function() {
 // ============================================
-// BETA GATE
-// ============================================
-var BETA_HASH = '165ad56f32e7b8044384c703d9e1acd559394a32e89ef76035c0de5723c65502';
-var betaForm = document.getElementById('beta-form');
-var betaPin = document.getElementById('beta-pin');
-var betaError = document.getElementById('beta-error');
-
-async function sha256(str) {
-  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
-}
-
-function checkBetaAccess() {
-  return sessionStorage.getItem('alenjo_beta') === 'granted';
-}
-
-if (checkBetaAccess()) {
-  document.getElementById('screen-beta').classList.remove('active');
-  document.getElementById('screen-login').classList.add('active');
-}
-
-betaForm.addEventListener('submit', async function(e) {
-  e.preventDefault();
-  betaError.hidden = true;
-  var hash = await sha256(betaPin.value);
-  if (hash === BETA_HASH) {
-    sessionStorage.setItem('alenjo_beta', 'granted');
-    document.getElementById('screen-beta').classList.remove('active');
-    document.getElementById('screen-login').classList.add('active');
-  } else {
-    betaError.textContent = 'Invalid access code.';
-    betaError.hidden = false;
-  }
-});
-
-// ============================================
 // SUPABASE INIT
 // ============================================
 var SUPABASE_URL = 'https://itkufrockebnlzcroigc.supabase.co';
@@ -52,8 +16,6 @@ var authEmail = $('#auth-email');
 var authPassword = $('#auth-password');
 var authSubmit = $('#auth-submit');
 var authError = $('#auth-error');
-var authToggleText = $('#auth-toggle-text');
-var authToggleLink = $('#auth-toggle-link');
 var btnConnectPlaid = $('#btn-connect-plaid');
 var btnAddAccount = $('#btn-add-account');
 // (removed investing button ref)
@@ -71,24 +33,14 @@ var loading = $('#loading');
 var headerAvatar = $('#header-avatar');
 var headerName = $('#header-name');
 
-var isSignUp = false;
 var currentUser = null;
 var userProfile = null;
 var showAvailable = true;
 var cachedAccounts = null;
 
 // ============================================
-// AUTH
+// AUTH (sign-in only, no new signups)
 // ============================================
-authToggleLink.addEventListener('click', function(e) {
-  e.preventDefault();
-  isSignUp = !isSignUp;
-  authSubmit.textContent = isSignUp ? 'Sign Up' : 'Sign In';
-  authToggleText.textContent = isSignUp ? 'Already have an account?' : "Don't have an account?";
-  authToggleLink.textContent = isSignUp ? 'Sign In' : 'Sign Up';
-  authError.hidden = true;
-});
-
 authForm.addEventListener('submit', async function(e) {
   e.preventDefault();
   authSubmit.disabled = true;
@@ -97,25 +49,10 @@ authForm.addEventListener('submit', async function(e) {
   var email = authEmail.value.trim();
   var password = authPassword.value;
 
-  var result;
-  if (isSignUp) {
-    result = await sb.auth.signUp({ email: email, password: password });
-  } else {
-    result = await sb.auth.signInWithPassword({ email: email, password: password });
-  }
+  var result = await sb.auth.signInWithPassword({ email: email, password: password });
 
   if (result.error) {
     authError.textContent = result.error.message;
-    authError.hidden = false;
-    authSubmit.disabled = false;
-    return;
-  }
-
-  if (isSignUp && result.data && result.data.user && !result.data.session) {
-    authError.textContent = 'Check your email to confirm your account.';
-    authError.style.borderColor = 'rgba(60, 130, 246, 0.3)';
-    authError.style.background = 'rgba(60, 130, 246, 0.1)';
-    authError.style.color = '#3C82F6';
     authError.hidden = false;
     authSubmit.disabled = false;
     return;
@@ -135,8 +72,7 @@ sb.auth.onAuthStateChange(function(event, session) {
     loadAccounts();
   } else {
     currentUser = null;
-    if (checkBetaAccess()) showScreen('login');
-    else showScreen('beta');
+    showScreen('login');
   }
 });
 
@@ -2571,7 +2507,7 @@ if ('serviceWorker' in navigator) {
     showScreen('app');
     loadProfile();
     loadAccounts();
-  } else if (checkBetaAccess()) {
+  } else {
     showScreen('login');
   }
 })();
