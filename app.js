@@ -1658,7 +1658,7 @@ function renderTransactionMonth() {
     if (eff.actionType === 'ignored') badges += '<span class="tx-badge tx-badge-ignored">Ignored</span>';
     if (eff.isSplit) {
       var splitLabel = eff.splitWays ? eff.splitWays + '-way split' : 'Split';
-      badges += '<span class="tx-badge tx-badge-split">' + splitLabel + ' (+$' + formatMoney(eff.reimbursement) + ' back)</span>';
+      badges += '<span class="tx-badge tx-badge-split">' + splitLabel + ' (+' + formatMoney(eff.reimbursement) + ' back)</span>';
     }
     if (eff.isRecurring) badges += '<span class="tx-badge tx-badge-recurring">Recurring</span>';
 
@@ -1820,7 +1820,7 @@ function openActionSheet(tx) {
   var statusParts = [];
   if (action.action_type === 'ignored') statusParts.push('Ignored');
   if (action.action_type === 'reimbursed') statusParts.push('Reimbursed');
-  if (action.split_portion > 0) statusParts.push('Split (your portion: $' + formatMoney(parseFloat(action.split_portion)) + ')');
+  if (action.split_portion > 0) statusParts.push('Split (your portion: ' + formatMoney(parseFloat(action.split_portion)) + ')');
   else if (action.split_ways > 1) statusParts.push(action.split_ways + '-way split');
   if (action.is_recurring) statusParts.push('Recurring');
   if (action.category_override) statusParts.push('Re-categorized');
@@ -1936,7 +1936,7 @@ document.querySelectorAll('#split-picker button[data-ways]').forEach(function(bt
     var ways = parseInt(btn.dataset.ways);
     var share = Math.abs(actionTx.amount) / ways;
     var reimburse = Math.abs(actionTx.amount) - share;
-    $('#split-preview').textContent = 'Your share: $' + formatMoney(share) + ' -- Getting back: $' + formatMoney(reimburse);
+    $('#split-preview').textContent = 'Your share: ' + formatMoney(share) + ' -- Getting back: ' + formatMoney(reimburse);
     var existing = txActions[actionTxId] || {};
     var updates = { split_ways: ways, split_portion: null };
     if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
@@ -1947,7 +1947,8 @@ document.querySelectorAll('#split-picker button[data-ways]').forEach(function(bt
 });
 
 // Split picker - custom N-way
-$('#split-custom-btn').addEventListener('click', function() {
+var splitCustomBtn = $('#split-custom-btn');
+if (splitCustomBtn) splitCustomBtn.addEventListener('click', function() {
   $('#split-custom-row').hidden = false;
   $('#split-portion-row').hidden = true;
   $('#split-custom-ways').value = '';
@@ -1955,12 +1956,13 @@ $('#split-custom-btn').addEventListener('click', function() {
   $('#split-preview').textContent = '';
 });
 
-$('#split-custom-apply').addEventListener('click', function() {
+var splitCustomApply = $('#split-custom-apply');
+if (splitCustomApply) splitCustomApply.addEventListener('click', function() {
   var ways = parseInt($('#split-custom-ways').value);
   if (!ways || ways < 2) return;
   var share = Math.abs(actionTx.amount) / ways;
   var reimburse = Math.abs(actionTx.amount) - share;
-  $('#split-preview').textContent = 'Your share: $' + formatMoney(share) + ' -- Getting back: $' + formatMoney(reimburse);
+  $('#split-preview').textContent = 'Your share: ' + formatMoney(share) + ' -- Getting back: ' + formatMoney(reimburse);
   var existing = txActions[actionTxId] || {};
   var updates = { split_ways: ways, split_portion: null };
   if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
@@ -1969,12 +1971,14 @@ $('#split-custom-apply').addEventListener('click', function() {
   saveMultiAction(actionTxId, updates);
 });
 
-$('#split-custom-ways').addEventListener('keydown', function(e) {
+var splitCustomWays = $('#split-custom-ways');
+if (splitCustomWays) splitCustomWays.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') $('#split-custom-apply').click();
 });
 
 // Split picker - my portion (dollar amount)
-$('#split-portion-btn').addEventListener('click', function() {
+var splitPortionBtn = $('#split-portion-btn');
+if (splitPortionBtn) splitPortionBtn.addEventListener('click', function() {
   $('#split-portion-row').hidden = false;
   $('#split-custom-row').hidden = true;
   $('#split-portion-amount').value = '';
@@ -1982,11 +1986,12 @@ $('#split-portion-btn').addEventListener('click', function() {
   $('#split-preview').textContent = '';
 });
 
-$('#split-portion-apply').addEventListener('click', function() {
+var splitPortionApply = $('#split-portion-apply');
+if (splitPortionApply) splitPortionApply.addEventListener('click', function() {
   var portion = parseFloat($('#split-portion-amount').value);
   if (!portion || portion <= 0 || portion >= Math.abs(actionTx.amount)) return;
   var reimburse = Math.abs(actionTx.amount) - portion;
-  $('#split-preview').textContent = 'Your portion: $' + formatMoney(portion) + ' -- Getting back: $' + formatMoney(reimburse);
+  $('#split-preview').textContent = 'Your portion: ' + formatMoney(portion) + ' -- Getting back: ' + formatMoney(reimburse);
   var existing = txActions[actionTxId] || {};
   var updates = { split_portion: portion, split_ways: null };
   if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
@@ -1995,7 +2000,8 @@ $('#split-portion-apply').addEventListener('click', function() {
   saveMultiAction(actionTxId, updates);
 });
 
-$('#split-portion-amount').addEventListener('keydown', function(e) {
+var splitPortionAmount = $('#split-portion-amount');
+if (splitPortionAmount) splitPortionAmount.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') $('#split-portion-apply').click();
 });
 
