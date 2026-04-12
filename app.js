@@ -62,21 +62,23 @@ authForm.addEventListener('submit', async function(e) {
 });
 
 // Sign out any existing session on load so user must log in every time
-sb.auth.signOut();
+// Then listen for fresh sign-ins only
+sb.auth.signOut().then(function() {
+  showScreen('login');
 
-sb.auth.onAuthStateChange(function(event, session) {
-  if (session && session.user) {
-    currentUser = session.user;
-    // Don't show app until data is loaded to avoid empty state flash
-    Promise.all([loadProfile(), loadAccounts()]).catch(function(e) {
-      console.error('Init error:', e);
-    }).then(function() {
-      showScreen('app');
-    });
-  } else {
-    currentUser = null;
-    showScreen('login');
-  }
+  sb.auth.onAuthStateChange(function(event, session) {
+    if (event === 'SIGNED_IN' && session && session.user) {
+      currentUser = session.user;
+      Promise.all([loadProfile(), loadAccounts()]).catch(function(e) {
+        console.error('Init error:', e);
+      }).then(function() {
+        showScreen('app');
+      });
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      showScreen('login');
+    }
+  });
 });
 
 // ============================================
@@ -2500,18 +2502,5 @@ if ('serviceWorker' in navigator) {
   caches.keys().then(function(keys) { keys.forEach(function(k) { caches.delete(k); }); });
 }
 
-// ============================================
-// INIT
-// ============================================
-(async function() {
-  var result = await sb.auth.getSession();
-  if (result.data.session && result.data.session.user) {
-    currentUser = result.data.session.user;
-    try { await Promise.all([loadProfile(), loadAccounts()]); } catch(e) {}
-    showScreen('app');
-  } else {
-    showScreen('login');
-  }
-})();
 
 })();
