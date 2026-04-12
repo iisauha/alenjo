@@ -55,6 +55,37 @@ body {
 }
 
 /* ================================
+   SPLASH SCREEN
+   ================================ */
+#splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+
+#splash-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  animation: splashPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes splashPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+/* ================================
    SCREENS
    ================================ */
 .screen {

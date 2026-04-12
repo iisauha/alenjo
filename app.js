@@ -124,16 +124,24 @@ authForm.addEventListener('submit', async function(e) {
   authSubmit.disabled = false;
 });
 
-sb.auth.onAuthStateChange(function(event, session) {
+function dismissSplash() {
+  var splash = document.getElementById('splash-screen');
+  if (!splash) return;
+  splash.classList.add('fade-out');
+  setTimeout(function() { splash.remove(); }, 300);
+}
+
+sb.auth.onAuthStateChange(async function(event, session) {
   if (session && session.user) {
     currentUser = session.user;
     showScreen('app');
-    loadProfile();
-    loadAccounts();
+    await Promise.all([loadProfile(), loadAccounts()]);
+    dismissSplash();
   } else {
     currentUser = null;
     if (checkBetaAccess()) showScreen('login');
     else showScreen('beta');
+    dismissSplash();
   }
 });
 
