@@ -69,7 +69,9 @@ sb.auth.signOut().then(function() {
   sb.auth.onAuthStateChange(function(event, session) {
     if (event === 'SIGNED_IN' && session && session.user) {
       currentUser = session.user;
-      Promise.all([loadProfile(), loadAccounts()]).catch(function(e) {
+      Promise.all([loadProfile(), loadAccounts()]).then(function() {
+        return Promise.all([loadTransactions(), loadRecurring()]);
+      }).catch(function(e) {
         console.error('Init error:', e);
       }).then(function() {
         showScreen('app');
