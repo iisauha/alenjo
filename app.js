@@ -939,12 +939,14 @@ function accountCard(account, type) {
 
     // Show utilization bar if credit limit is available (from Plaid or manual)
     if (limit > 0) {
-      var utilPct = Math.min((used / limit) * 100, 100);
-      var utilClass = utilPct > 75 ? 'util-high' : utilPct > 30 ? 'util-mid' : 'util-low';
+      var utilPct = used <= 0 ? 0 : Math.min((used / limit) * 100, 100);
+      var utilClass = used <= 0 ? 'util-low' : utilPct > 75 ? 'util-high' : utilPct > 30 ? 'util-mid' : 'util-low';
+      var usedDisplay = used < 0 ? '-' + formatMoney(Math.abs(used)) : formatMoney(used);
+      var utilLabel = used < 0 ? 'credit' : utilPct.toFixed(0) + '% used';
       liabHtml +=
         '<div class="liab-util-wrap">' +
           '<div class="liab-util-bar"><div class="liab-util-fill ' + utilClass + '" style="width:' + utilPct.toFixed(1) + '%"></div></div>' +
-          '<div class="liab-util-labels"><span>' + formatMoney(used) + ' / ' + formatMoney(limit) + (limitManual ? ' <span class="manual-tag">(manual)</span>' : '') + '</span><span>' + utilPct.toFixed(0) + '% used</span></div>' +
+          '<div class="liab-util-labels"><span>' + usedDisplay + ' / ' + formatMoney(limit) + (limitManual ? ' <span class="manual-tag">(manual)</span>' : '') + '</span><span>' + utilLabel + '</span></div>' +
         '</div>';
     }
 
