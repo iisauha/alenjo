@@ -251,10 +251,12 @@ document.addEventListener('click', function(e) {
 // ============================================
 // BALANCE TOGGLE
 // ============================================
-$('#net-cash-value').addEventListener('click', function() {
-  showAvailable = !showAvailable;
-  localStorage.setItem('alenjo_show_available', showAvailable ? 'true' : 'false');
-  if (cachedAccounts) renderAccounts(cachedAccounts);
+document.querySelectorAll('.hero-stat').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    showAvailable = !showAvailable;
+    localStorage.setItem('alenjo_show_available', showAvailable ? 'true' : 'false');
+    if (cachedAccounts) renderAccounts(cachedAccounts);
+  });
 });
 
 // ============================================
@@ -601,17 +603,26 @@ function renderAccounts(accounts) {
     });
   }
 
-  // Net Worth = banks - credit + savings + investments
+  // Available Cash (banks - credit) and Net Worth (everything)
   var netCashEl = $('#net-cash');
-  var netCashValue = $('#net-cash-value');
   if (hasAnyAccounts) {
     var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
     var investSum = 0;
     investments.forEach(function(a) { investSum += getDisplayBalance(a, 'bank').amount; });
+    var availableCash = bankSum - creditSum;
     var netWorth = bankSum - creditSum + savingsSum + investSum;
     netCashEl.hidden = false;
-    netCashValue.textContent = (netWorth < 0 ? '-' : '') + formatMoney(netWorth);
-    netCashValue.className = 'net-cash-value ' + (netWorth >= 0 ? 'balance-positive' : 'balance-negative');
+
+    var availEl = $('#available-value');
+    if (availEl) {
+      availEl.textContent = (availableCash < 0 ? '-' : '') + formatMoney(availableCash);
+      availEl.className = 'hero-stat-value ' + (availableCash >= 0 ? 'balance-positive' : 'balance-negative');
+    }
+    var nwEl = $('#networth-value');
+    if (nwEl) {
+      nwEl.textContent = (netWorth < 0 ? '-' : '') + formatMoney(netWorth);
+      nwEl.className = 'hero-stat-value ' + (netWorth >= 0 ? 'balance-positive' : 'balance-negative');
+    }
     var modeEl = $('#net-cash-mode');
     if (modeEl) modeEl.textContent = showAvailable ? 'Current' : 'After Pending';
   } else {
