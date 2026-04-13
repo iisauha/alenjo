@@ -1443,7 +1443,7 @@ function renderTransactionMonth() {
   // Update center text overlay for pie chart
   if (activeCategoryFilter && byCategory[activeCategoryFilter]) {
     var catAmt = byCategory[activeCategoryFilter];
-    var catPct = totalExpenses > 0 ? ((catAmt / totalExpenses) * 100).toFixed(0) + '%' : '0%';
+    var catPct = totalExpenses > 0 ? formatPct((catAmt / totalExpenses) * 100) : '0.00%';
     updatePieCenter(activeCategoryFilter, catAmt, catPct);
   } else {
     updatePieCenter(null, totalExpenses, '');
@@ -1511,12 +1511,12 @@ function renderTransactionMonth() {
   legend.innerHTML = catEntries.map(function(entry, i) {
     var cat = entry[0];
     var amt = entry[1];
-    var pct = totalExpenses > 0 ? ((amt / totalExpenses) * 100).toFixed(0) : 0;
+    var pct = totalExpenses > 0 ? formatPct((amt / totalExpenses) * 100) : '0.00%';
     var isActive = activeCategoryFilter === cat;
     return '<div class="cat-legend-item' + (isActive ? ' active' : '') + '" data-cat="' + esc(cat) + '">' +
       '<span class="cat-dot" style="background:' + CATEGORY_COLORS[i % CATEGORY_COLORS.length] + '"></span>' +
       '<span class="cat-name">' + esc(cat) + '</span>' +
-      '<span class="cat-pct">' + pct + '%</span>' +
+      '<span class="cat-pct">' + pct + '</span>' +
       '<span class="cat-amt">' + formatMoney(amt) + '</span>' +
     '</div>';
   }).join('');
@@ -2439,6 +2439,14 @@ function formatMoney(amount) {
     style: 'currency',
     currency: 'USD'
   }).format(Math.abs(amount));
+}
+
+function formatPct(value) {
+  // 3 significant figures: 45.2%, 5.03%, 0.482%, 0.0312%
+  if (value >= 10) return value.toFixed(1) + '%';
+  if (value >= 1) return value.toFixed(2) + '%';
+  if (value >= 0.1) return value.toFixed(3) + '%';
+  return value.toFixed(4) + '%';
 }
 
 // Tick all visible relative timestamps every 60s (no API calls)
