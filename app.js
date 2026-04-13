@@ -677,7 +677,7 @@ function renderAccountsSettings() {
   var byItem = {};
   cachedAccounts.forEach(function(a) {
     var key = a.plaid_item_id || 'unknown';
-    if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', plaidItemId: a.plaid_item_id_raw || null, accounts: [] };
+    if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', plaidItemId: a.plaid_item_id_raw || null, allItemIds: a.all_item_ids || [], accounts: [] };
     byItem[key].accounts.push(a);
   });
 
@@ -694,7 +694,9 @@ function renderAccountsSettings() {
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
     html += '<span class="settings-inst-detail">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ' -- ' + uniqueTypes.join(', ') + '</span>';
-    if (group.plaidItemId) html += '<span class="settings-inst-detail" style="opacity:0.5;font-size:var(--text-xs)">' + esc(group.plaidItemId) + '</span>';
+    var ids = group.allItemIds && group.allItemIds.length > 0 ? group.allItemIds : (group.plaidItemId ? [group.plaidItemId] : []);
+    var uniqueIds = ids.filter(function(id, i) { return ids.indexOf(id) === i; });
+    if (uniqueIds.length > 0) html += '<span class="settings-inst-detail" style="opacity:0.5;font-size:var(--text-xs)">' + uniqueIds.map(esc).join('<br>') + '</span>';
     html += '</div>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
