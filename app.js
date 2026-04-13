@@ -1534,70 +1534,32 @@ function renderTransactionMonth() {
   // Render transactions
   displayTx.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
-    var postedDate = tx.date;
-    var authDate = tx.authorized_date;
-    var dateHtml = '';
-    if (authDate && authDate !== postedDate) {
-      dateHtml = '<span class="tx-date-line">Auth ' + formatTxDate(authDate, null) + '</span>' +
-        '<span class="tx-date-line">Posted ' + formatTxDate(postedDate, null) + '</span>';
-    } else {
-      dateHtml = '<span class="tx-date-line">' + formatTxDate(postedDate, null) + '</span>';
-    }
-
     var displayName = eff.nickname || tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
 
     var rowClass = 'tx-row';
-    var badges = '';
     if (eff.excluded) rowClass += ' tx-actioned tx-excluded';
     else if (eff.isSplit || eff.isRecurring || eff.isRecategorized) rowClass += ' tx-actioned';
 
-    if (eff.actionType === 'reimbursed') badges += '<span class="tx-badge tx-badge-reimbursed">Reimbursed</span>';
-    if (eff.actionType === 'ignored') badges += '<span class="tx-badge tx-badge-ignored">Ignored</span>';
-    if (eff.isSplit) {
-      var splitLabel = eff.splitWays ? eff.splitWays + '-way split' : 'Split';
-      badges += '<span class="tx-badge tx-badge-split">' + splitLabel + ' (+' + formatMoney(eff.reimbursement) + ' back)</span>';
-    }
-    if (eff.isRecurring) badges += '<span class="tx-badge tx-badge-recurring">Recurring</span>';
+    // Small indicators instead of full badges
+    var indicators = '';
+    if (eff.isSplit) indicators += '<span class="tx-indicator" title="Split">&#x2702;</span>';
+    if (eff.isRecurring) indicators += '<span class="tx-indicator tx-indicator-recurring" title="Recurring">&#x21bb;</span>';
+    if (eff.actionType === 'reimbursed') indicators += '<span class="tx-indicator tx-indicator-reimbursed" title="Reimbursed">&#x2713;</span>';
 
     var amountClass = tx.pending ? 'tx-amount-pending' : (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
-    var amountHtml = '';
-    if (eff.isSplit && !eff.excluded) {
-      amountHtml = '<span class="tx-amount-original">' + (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) + '</span>' +
-        '<span class="tx-amount ' + amountClass + '">' +
-          (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(eff.amount)) +
-        '</span>';
-    } else {
-      amountHtml = '<span class="tx-amount ' + amountClass + '">' +
-        (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
-      '</span>';
-    }
-
-    var cardLabel = '';
-    if (showCardName && tx.plaid_account_id && accountMap[tx.plaid_account_id]) {
-      cardLabel = '<span class="tx-card-label">' + esc(accountMap[tx.plaid_account_id]) + '</span>';
-    }
-
-    var logoHtml = tx.enriched_logo_url ? '<img class="tx-logo" src="' + esc(tx.enriched_logo_url) + '" alt="" onerror="this.style.display=\'none\'">' : '';
-    var locationHtml = '';
-    if (tx.enriched_location_city || tx.enriched_location_region) {
-      var locParts = [tx.enriched_location_city, tx.enriched_location_region].filter(Boolean);
-      locationHtml = '<span class="tx-location">' + esc(locParts.join(', ')) + '</span>';
-    }
+    var amountVal = eff.isSplit && !eff.excluded ? eff.amount : tx.amount;
+    var amountHtml = '<span class="tx-amount ' + amountClass + '">' +
+      (amountVal < 0 ? '+' : '-') + formatMoney(Math.abs(amountVal)) +
+    '</span>';
 
     html += '<div class="' + rowClass + '" data-txid="' + esc(tx.id) + '">' +
-      logoHtml +
       '<div class="tx-info">' +
-        '<span class="tx-merchant">' + esc(displayName) + '</span>' +
-        '<div class="tx-badges">' +
-          '<span class="tx-cat-chip" style="--cat-color:' + (categoryColorMap[normalizeCategory(eff.category)] || '#6C7078') + '">' + esc(normalizeCategory(eff.category)) + '</span>' +
-          badges +
-        '</div>' +
-        cardLabel +
-        locationHtml +
+        '<span class="tx-merchant">' + esc(displayName) + indicators + '</span>' +
+        '<span class="tx-cat-chip" style="--cat-color:' + (categoryColorMap[normalizeCategory(eff.category)] || '#6C7078') + '">' + esc(normalizeCategory(eff.category)) + '</span>' +
       '</div>' +
       '<div class="tx-right">' +
         amountHtml +
-        '<div class="tx-dates">' + dateHtml + '</div>' +
+        '<span class="tx-date">' + formatTxDate(eff.date, null) + '</span>' +
       '</div>' +
     '</div>';
   });
