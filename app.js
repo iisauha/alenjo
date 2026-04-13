@@ -2402,10 +2402,10 @@ function renderRecurringRow(item, isIncome) {
   '</div>';
 }
 
-// Chart section toggle
-var chartToggle = $('#btn-toggle-chart');
-if (chartToggle) chartToggle.addEventListener('click', function() {
-  this.closest('.tx-chart-section').classList.toggle('collapsed');
+// Legend section toggle
+var legendToggle = $('#btn-toggle-legend');
+if (legendToggle) legendToggle.addEventListener('click', function() {
+  this.closest('.tx-legend-section').classList.toggle('collapsed');
 });
 
 // Recurring detail toggle

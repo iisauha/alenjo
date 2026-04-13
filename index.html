@@ -57,12 +57,12 @@
             <span class="hero-stat-label">Available</span>
             <span class="hero-stat-value" id="available-value"></span>
           </button>
+          <span id="net-cash-mode" class="net-cash-mode"></span>
           <button class="hero-stat" id="hero-networth">
             <span class="hero-stat-label">Net Worth</span>
             <span class="hero-stat-value" id="networth-value"></span>
           </button>
         </div>
-        <span id="net-cash-mode" class="net-cash-mode"></span>
       </div>
 
       <div id="connect-cta" class="connect-cta">
@@ -136,16 +136,16 @@
           <span id="tx-updated" class="tx-updated"></span>
           <button id="btn-export-csv" class="btn-export">CSV</button>
         </div>
-        <div class="tx-chart-section collapsed">
-          <button class="tx-chart-toggle" id="btn-toggle-chart">
-            <span>Spending Breakdown</span>
+        <div class="tx-chart-wrap">
+          <canvas id="tx-pie-chart"></canvas>
+          <div id="tx-pie-center" class="tx-pie-center"></div>
+        </div>
+        <div class="tx-legend-section collapsed">
+          <button class="tx-legend-toggle" id="btn-toggle-legend">
+            <span>Categories</span>
             <span class="settings-chevron"></span>
           </button>
-          <div class="tx-chart-collapsible">
-            <div class="tx-chart-wrap">
-              <canvas id="tx-pie-chart"></canvas>
-              <div id="tx-pie-center" class="tx-pie-center"></div>
-            </div>
+          <div class="tx-legend-collapsible">
             <div id="tx-category-legend"></div>
           </div>
         </div>
