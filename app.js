@@ -167,9 +167,11 @@ function applyTabOrder() {
 $('#btn-save-name').addEventListener('click', async function() {
   var name = $('#settings-name').value.trim();
   if (!name) return;
+  this.disabled = true;
   await sb.from('profiles').update({ display_name: name }).eq('id', currentUser.id);
   userProfile.display_name = name;
   updateHeaderProfile();
+  flashSaved(this);
 });
 
 // Avatar upload
@@ -610,6 +612,8 @@ function renderAccounts(accounts) {
     netCashEl.hidden = false;
     netCashValue.textContent = (netWorth < 0 ? '-' : '') + formatMoney(netWorth);
     netCashValue.className = 'net-cash-value ' + (netWorth >= 0 ? 'balance-positive' : 'balance-negative');
+    var modeEl = $('#net-cash-mode');
+    if (modeEl) modeEl.textContent = showAvailable ? 'Current' : 'After Pending';
   } else {
     netCashEl.hidden = true;
   }
@@ -1080,6 +1084,7 @@ $('#account-edit-save').addEventListener('click', function() {
 
   accountEditModal.classList.remove('visible');
   editingAccountId = null;
+  showToast('Saved');
 });
 
 $('#account-edit-cancel').addEventListener('click', function() {
@@ -2115,9 +2120,12 @@ async function saveMultiAction(txId, updates) {
   var saveResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
   if (saveResult.error) {
     console.error('Failed to save action:', saveResult.error);
-    // Retry once
     var retryResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
-    if (retryResult.error) console.error('Retry also failed:', retryResult.error);
+    if (retryResult.error) {
+      console.error('Retry also failed:', retryResult.error);
+      showToast('Failed to save');
+      return;
+    }
   }
   txActions[txId] = row;
 
@@ -2125,6 +2133,7 @@ async function saveMultiAction(txId, updates) {
     checkIgnorePattern(txId);
   }
 
+  showToast('Saved');
   renderTransactionMonth();
   closeActionSheet();
 }
@@ -2458,6 +2467,32 @@ function showError(msg) {
     setTimeout(function() { el.hidden = true; }, 5000);
   }
   console.error(msg);
+}
+
+// Toast notification
+function showToast(msg) {
+  var existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  var toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  requestAnimationFrame(function() { toast.classList.add('visible'); });
+  setTimeout(function() {
+    toast.classList.remove('visible');
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 1500);
+}
+
+// Button save feedback (briefly shows "Saved" then reverts)
+function flashSaved(btn) {
+  var orig = btn.textContent;
+  btn.textContent = 'Saved';
+  btn.disabled = true;
+  setTimeout(function() {
+    btn.textContent = orig;
+    btn.disabled = false;
+  }, 1200);
 }
 
 // ============================================

@@ -322,6 +322,14 @@ body {
   cursor: pointer;
 }
 
+.net-cash-mode {
+  font-size: var(--text-xs);
+  color: var(--accent);
+  font-weight: 500;
+  margin-top: 0.15rem;
+  cursor: pointer;
+}
+
 .connect-cta {
   text-align: center;
   padding: 3rem 1.5rem;
@@ -623,6 +631,30 @@ body {
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(1rem);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: 0.5rem 1.25rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 @keyframes spin {
@@ -2212,4 +2244,14 @@ body {
   font-family: inherit;
   cursor: pointer;
   text-align: center;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
