@@ -106,7 +106,8 @@ function switchTab(tabName) {
 
 // Settings via header avatar/name
 var prevTab = 'snapshot';
-$('#btn-open-settings').addEventListener('click', function() {
+var settingsBtn = $('#btn-open-settings');
+if (settingsBtn) settingsBtn.addEventListener('click', function() {
   var current = localStorage.getItem('alenjo_active_tab');
   if (current === 'settings') {
     // Already on settings, go back
