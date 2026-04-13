@@ -1294,18 +1294,17 @@ body {
   display: flex;
 }
 
-/* Transaction toolbar (search + filters on one row) */
+/* Transaction toolbar */
 .tx-toolbar {
   display: flex;
+  flex-direction: column;
   gap: var(--space-xs);
-  margin-bottom: var(--space-xs);
-  align-items: center;
+  margin-bottom: var(--space-sm);
 }
 
 .tx-toolbar #tx-search {
-  flex: 1;
-  min-width: 0;
-  padding: 0.5rem 0.7rem;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
   background: var(--bg-card);
   border: none;
   border-radius: var(--radius-sm);
@@ -1324,17 +1323,19 @@ body {
   box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
 }
 
-.tx-toolbar .app-select {
-  flex: 0 1 auto;
+.tx-filters {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.tx-filters .app-select {
+  flex: 1;
   min-width: 0;
   background: var(--bg-card);
   border: none;
   font-family: inherit;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-  font-size: var(--text-sm);
-  padding: 0.5rem 1.8rem 0.5rem 0.6rem;
+  font-size: var(--text-base);
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
 }
 
 /* Transaction utility row */
