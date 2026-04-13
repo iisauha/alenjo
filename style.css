@@ -259,6 +259,7 @@ body {
 .header-name {
   font-size: var(--text-base);
   font-weight: 600;
+  color: var(--accent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
