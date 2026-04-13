@@ -564,20 +564,20 @@ body {
    ================================ */
 .bottom-nav {
   display: flex;
+  justify-content: center;
   border-top: 1px solid var(--border);
   padding: 0.35rem 0.75rem;
   margin-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--bg);
-  gap: 0.25rem;
+  gap: 1.5rem;
 }
 
 .nav-item {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.1rem;
-  padding: 0.35rem 0.25rem;
+  padding: 0.3rem 0.6rem;
   background: none;
   border: none;
   color: var(--text-dim);
@@ -586,7 +586,6 @@ body {
   cursor: pointer;
   transition: color 0.2s, background 0.2s;
   border-radius: 8px;
-  min-width: 0;
 }
 
 .nav-item svg {
