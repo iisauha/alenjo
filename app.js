@@ -623,8 +623,6 @@ function renderAccounts(accounts) {
       nwEl.textContent = (netWorth < 0 ? '-' : '') + formatMoney(netWorth);
       nwEl.className = 'hero-stat-value ' + (netWorth >= 0 ? 'balance-positive' : 'balance-negative');
     }
-    var modeEl = $('#net-cash-mode');
-    if (modeEl) modeEl.textContent = showAvailable ? 'Current' : 'After Pending';
   } else {
     netCashEl.hidden = true;
   }
