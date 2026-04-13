@@ -35,7 +35,7 @@ var headerName = $('#header-name');
 
 var currentUser = null;
 var userProfile = null;
-var showAvailable = true;
+var showAvailable = localStorage.getItem('alenjo_show_available') !== 'false';
 var cachedAccounts = null;
 
 // ============================================
@@ -89,6 +89,10 @@ sb.auth.signOut().then(function() {
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   $('#screen-' + name).classList.add('active');
+  if (name === 'app') {
+    var savedTab = localStorage.getItem('alenjo_active_tab');
+    if (savedTab) switchTab(savedTab);
+  }
 }
 
 function switchTab(tabName) {
@@ -98,6 +102,7 @@ function switchTab(tabName) {
   if (tab) tab.classList.add('active');
   var nav = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
   if (nav) nav.classList.add('active');
+  localStorage.setItem('alenjo_active_tab', tabName);
 }
 
 // Bottom nav clicks
@@ -255,6 +260,7 @@ document.addEventListener('click', function(e) {
 // ============================================
 $('#net-cash-value').addEventListener('click', function() {
   showAvailable = !showAvailable;
+  localStorage.setItem('alenjo_show_available', showAvailable ? 'true' : 'false');
   if (cachedAccounts) renderAccounts(cachedAccounts);
 });
 
@@ -1279,8 +1285,14 @@ async function loadTransactions() {
     searchTimer = setTimeout(renderTransactionMonth, 200);
   });
 
-  $('#btn-toggle-ignored').addEventListener('click', function() {
+  var btnIgnored = $('#btn-toggle-ignored');
+  if (showIgnoredTx) {
+    btnIgnored.textContent = 'Hide Ignored';
+    btnIgnored.classList.add('active');
+  }
+  btnIgnored.addEventListener('click', function() {
     showIgnoredTx = !showIgnoredTx;
+    localStorage.setItem('alenjo_show_ignored', showIgnoredTx ? 'true' : 'false');
     this.textContent = showIgnoredTx ? 'Hide Ignored' : 'Show Ignored';
     this.classList.toggle('active', showIgnoredTx);
     renderTransactionMonth();
@@ -1333,14 +1345,13 @@ function getEffectiveTx(tx) {
 var txPieChart = null;
 var txPieLastMonth = null;
 var activeCategoryFilter = null;
-var showIgnoredTx = false;
+var showIgnoredTx = localStorage.getItem('alenjo_show_ignored') === 'true';
 var txPieCenterData = { label: null, amount: 0, pct: '' };
 
 // Register center text plugin globally for the doughnut chart
 var txCenterTextPlugin = {
   id: 'txCenterText',
   afterDraw: function(chart) {
-    if (txPieCenterData.amount === 0 && !txPieCenterData.label) return;
     var ctx = chart.ctx;
     var centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
     var centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
