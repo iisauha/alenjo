@@ -1463,7 +1463,7 @@ function renderTransactionMonth() {
           maintainAspectRatio: true,
           cutout: '58%',
           layout: { padding: 0 },
-          animation: { animateRotate: true, duration: 800 },
+          animation: { animateRotate: true, animateScale: false, duration: 600, easing: 'easeOutQuart' },
           plugins: {
             legend: { display: false },
             tooltip: { enabled: false }
@@ -1589,7 +1589,7 @@ function renderTransactionMonth() {
       locationHtml = '<span class="tx-location">' + esc(locParts.join(', ')) + '</span>';
     }
 
-    html += '<div class="' + rowClass + '" data-txid="' + esc(tx.id) + '">' +
+    html += '<div class="' + rowClass + '" style="--row-i:' + (displayTx.indexOf(tx)) + '" data-txid="' + esc(tx.id) + '">' +
       logoHtml +
       '<div class="tx-info">' +
         '<span class="tx-merchant">' + esc(displayName) + '</span>' +
