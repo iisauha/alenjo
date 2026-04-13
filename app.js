@@ -103,10 +103,6 @@ function switchTab(tabName) {
   var nav = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
   if (nav) nav.classList.add('active');
   localStorage.setItem('alenjo_active_tab', tabName);
-  // Resize pie chart when transactions tab becomes visible
-  if (tabName === 'transactions' && txPieChart) {
-    setTimeout(function() { txPieChart.resize(); }, 50);
-  }
 }
 
 // Bottom nav clicks
@@ -1350,53 +1346,18 @@ var txPieChart = null;
 var txPieLastMonth = null;
 var activeCategoryFilter = null;
 var showIgnoredTx = localStorage.getItem('alenjo_show_ignored') === 'true';
-var txPieCenterData = { label: null, amount: 0, pct: '' };
-
-// Register center text plugin globally for the doughnut chart
-var txCenterTextPlugin = {
-  id: 'txCenterText',
-  afterDatasetsDraw: function(chart) {
-    console.log('[PIE DEBUG] afterDatasetsDraw fired, canvas.id:', chart.canvas.id, 'chartArea:', JSON.stringify(chart.chartArea), 'centerData:', JSON.stringify(txPieCenterData));
-    // Only draw on the tx pie chart canvas, skip if chart area not ready
-    if (chart.canvas.id !== 'tx-pie-chart') {
-      console.log('[PIE DEBUG] skipped: wrong canvas');
-      return;
-    }
-    var area = chart.chartArea;
-    if (!area || area.right <= area.left || area.bottom <= area.top) {
-      console.log('[PIE DEBUG] skipped: bad area', area);
-      return;
-    }
-    console.log('[PIE DEBUG] drawing center text, amount:', txPieCenterData.amount, 'label:', txPieCenterData.label);
-    var ctx = chart.ctx;
-    var centerX = (area.left + area.right) / 2;
-    var centerY = (area.top + area.bottom) / 2;
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    if (txPieCenterData.label) {
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.font = '500 11px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(txPieCenterData.label, centerX, centerY - 18);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(formatMoney(txPieCenterData.amount), centerX, centerY + 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.45)';
-      ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(txPieCenterData.pct, centerX, centerY + 19);
-    } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.font = '500 11px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('Total', centerX, centerY - 12);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(formatMoney(txPieCenterData.amount), centerX, centerY + 8);
-    }
-    ctx.restore();
+function updatePieCenter(label, amount, pct) {
+  var el = document.getElementById('tx-pie-center');
+  if (!el) return;
+  if (label) {
+    el.innerHTML = '<div class="pie-center-label">' + esc(label) + '</div>' +
+      '<div class="pie-center-amount">' + formatMoney(amount) + '</div>' +
+      '<div class="pie-center-pct">' + pct + '</div>';
+  } else {
+    el.innerHTML = '<div class="pie-center-label">Total</div>' +
+      '<div class="pie-center-amount">' + formatMoney(amount) + '</div>';
   }
-};
-if (typeof Chart !== 'undefined') Chart.register(txCenterTextPlugin);
+}
 
 var CATEGORY_COLORS = [
   '#3C82F6', '#4DE88F', '#E84D4D', '#F59E0B', '#8B5CF6',
@@ -1479,12 +1440,13 @@ function renderTransactionMonth() {
   var catAmounts = catEntries.map(function(e) { return e[1]; });
   var totalExpenses = catAmounts.reduce(function(s, a) { return s + a; }, 0);
 
-  // Update center text data for pie chart
+  // Update center text overlay for pie chart
   if (activeCategoryFilter && byCategory[activeCategoryFilter]) {
     var catAmt = byCategory[activeCategoryFilter];
-    txPieCenterData = { label: activeCategoryFilter, amount: catAmt, pct: totalExpenses > 0 ? ((catAmt / totalExpenses) * 100).toFixed(0) + '%' : '0%' };
+    var catPct = totalExpenses > 0 ? ((catAmt / totalExpenses) * 100).toFixed(0) + '%' : '0%';
+    updatePieCenter(activeCategoryFilter, catAmt, catPct);
   } else {
-    txPieCenterData = { label: null, amount: totalExpenses, pct: '' };
+    updatePieCenter(null, totalExpenses, '');
   }
 
   // Render pie chart — update in place to avoid re-spin
@@ -1542,6 +1504,7 @@ function renderTransactionMonth() {
   } else if (txPieChart) {
     txPieChart.destroy();
     txPieChart = null;
+    document.getElementById('tx-pie-center').innerHTML = '';
   }
 
   // Render category legend

@@ -1281,9 +1281,39 @@ body {
 
 /* Pie chart */
 .tx-chart-wrap {
+  position: relative;
   max-width: 200px;
   margin: 0.5rem auto 1rem;
   overflow: hidden;
+}
+
+.tx-pie-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.tx-pie-center .pie-center-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.2;
+}
+
+.tx-pie-center .pie-center-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.4;
+}
+
+.tx-pie-center .pie-center-pct {
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  line-height: 1.2;
 }
 
 /* Category legend */
