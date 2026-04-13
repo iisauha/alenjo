@@ -1356,10 +1356,18 @@ var txPieCenterData = { label: null, amount: 0, pct: '' };
 var txCenterTextPlugin = {
   id: 'txCenterText',
   afterDatasetsDraw: function(chart) {
+    console.log('[PIE DEBUG] afterDatasetsDraw fired, canvas.id:', chart.canvas.id, 'chartArea:', JSON.stringify(chart.chartArea), 'centerData:', JSON.stringify(txPieCenterData));
     // Only draw on the tx pie chart canvas, skip if chart area not ready
-    if (chart.canvas.id !== 'tx-pie-chart') return;
+    if (chart.canvas.id !== 'tx-pie-chart') {
+      console.log('[PIE DEBUG] skipped: wrong canvas');
+      return;
+    }
     var area = chart.chartArea;
-    if (!area || area.right <= area.left || area.bottom <= area.top) return;
+    if (!area || area.right <= area.left || area.bottom <= area.top) {
+      console.log('[PIE DEBUG] skipped: bad area', area);
+      return;
+    }
+    console.log('[PIE DEBUG] drawing center text, amount:', txPieCenterData.amount, 'label:', txPieCenterData.label);
     var ctx = chart.ctx;
     var centerX = (area.left + area.right) / 2;
     var centerY = (area.top + area.bottom) / 2;
