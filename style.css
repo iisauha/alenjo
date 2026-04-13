@@ -21,6 +21,12 @@
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-hero: 2.25rem;
 }
 
 * {
@@ -46,7 +52,7 @@ html, body {
 }
 
 body {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -91,7 +97,7 @@ body {
 }
 
 .login-title {
-  font-size: 2.25rem;
+  font-size: var(--text-hero);
   font-weight: 700;
   margin-bottom: 0.25rem;
   letter-spacing: -1px;
@@ -113,7 +119,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
@@ -161,7 +167,7 @@ body {
   color: #FFFFFF;
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 1rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -184,7 +190,7 @@ body {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -205,7 +211,7 @@ body {
   border: 1px solid rgba(255, 80, 0, 0.2);
   border-radius: var(--radius-sm);
   color: var(--danger);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   margin-bottom: 1rem;
 }
 
@@ -238,7 +244,7 @@ body {
 }
 
 .header-name {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -294,14 +300,14 @@ body {
 }
 
 .net-cash-label {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--text-muted);
 }
 
 .net-cash-value {
   font-weight: 700;
-  font-size: 2.5rem;
+  font-size: var(--text-hero);
   letter-spacing: -1.5px;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
@@ -323,7 +329,7 @@ body {
 .connect-cta p {
   color: var(--text-muted);
   margin-bottom: 1.25rem;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 .connect-cta .btn-primary {
@@ -355,11 +361,11 @@ body {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 1px;
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
 }
 
 .section-total {
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
@@ -406,7 +412,7 @@ body {
 
 .account-name {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   line-height: 1.3;
   min-width: 0;
   display: -webkit-box;
@@ -418,13 +424,13 @@ body {
 
 .account-institution {
   color: var(--text-dim);
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   letter-spacing: 0.3px;
 }
 
 .account-mask {
   color: var(--text-dim);
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
 }
@@ -445,7 +451,7 @@ body {
 
 .account-balance .amount {
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   letter-spacing: -0.5px;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -453,7 +459,7 @@ body {
 
 .account-balance .label {
   color: var(--text-dim);
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   margin-top: 0.15rem;
 }
 
@@ -467,7 +473,7 @@ body {
 
 .nickname-input {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   line-height: 1.3;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.2);
@@ -522,7 +528,7 @@ body {
   background: none;
   border: none;
   color: var(--text-dim);
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   font-family: inherit;
   cursor: pointer;
   transition: color 0.2s;
@@ -569,7 +575,7 @@ body {
 }
 
 .modal-card h3 {
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   margin-bottom: 1rem;
 }
@@ -618,14 +624,14 @@ body {
   text-align: center;
   padding: 1.5rem;
   color: var(--text-dim);
-  font-size: 0.9rem;
+  font-size: var(--text-base);
 }
 
 /* ================================
    SHARED UI
    ================================ */
 .section-label {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -640,7 +646,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
@@ -656,7 +662,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-family: inherit;
   outline: none;
   appearance: none;
@@ -673,7 +679,7 @@ body {
   color: #FFFFFF;
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -685,7 +691,7 @@ body {
   color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -698,7 +704,7 @@ body {
   color: var(--danger);
   border: 1px solid rgba(255, 80, 0, 0.2);
   border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -730,7 +736,7 @@ body {
 }
 
 .settings-card-title {
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #fff;
 }
@@ -811,7 +817,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0.45rem 0;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   border-bottom: 1px solid var(--border);
 }
 
@@ -833,7 +839,7 @@ body {
 
 .sync-info-total span:last-child {
   color: #fff;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.3px;
 }
@@ -847,7 +853,7 @@ body {
 }
 
 .billing-intro {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   line-height: 1.6;
   margin-bottom: 0.5rem;
@@ -858,7 +864,7 @@ body {
 }
 
 .billing-section-title {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-muted);
   margin-bottom: 0.4rem;
@@ -867,14 +873,14 @@ body {
 }
 
 .billing-explain {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
   line-height: 1.6;
   margin-bottom: 0.4rem;
 }
 
 .billing-detail {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   padding: 0 0 0.3rem;
   line-height: 1.5;
@@ -882,7 +888,7 @@ body {
 
 .settings-hint {
   color: var(--text-dim);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   margin-bottom: 0.5rem;
 }
 
@@ -900,7 +906,7 @@ body {
   background: var(--bg-elevated);
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -920,7 +926,7 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 1rem;
+  font-size: var(--text-lg);
   cursor: pointer;
   padding: 0.2rem;
 }
@@ -959,14 +965,14 @@ body {
 
 .card-holding-ticker {
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   color: #fff;
   letter-spacing: 0.3px;
   font-variant-numeric: tabular-nums;
 }
 
 .card-holding-name {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -974,7 +980,7 @@ body {
 }
 
 .card-holding-meta {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   letter-spacing: 0.2px;
 }
@@ -989,14 +995,14 @@ body {
 
 .card-holding-value {
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   color: #fff;
   letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
 }
 
 .card-holding-change {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
@@ -1063,7 +1069,7 @@ body {
 .liab-util-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 0.55rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   margin-top: 0.2rem;
 }
@@ -1071,7 +1077,7 @@ body {
 .liab-detail {
   display: flex;
   justify-content: space-between;
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   padding: 0.15rem 0;
 }
 
@@ -1098,12 +1104,12 @@ body {
 
 .liab-detail.liab-unavailable span {
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   font-style: italic;
 }
 
 .liab-detail .manual-tag {
-  font-size: 0.5rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-weight: 400;
   opacity: 0.7;
@@ -1111,7 +1117,7 @@ body {
 
 .override-label {
   display: block;
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   margin-bottom: 0.25rem;
 }
@@ -1148,13 +1154,13 @@ body {
 }
 
 .settings-inst-name {
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #fff;
 }
 
 .settings-inst-detail {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
 }
 
@@ -1162,7 +1168,7 @@ body {
   background: none;
   border: 1px solid rgba(255, 80, 0, 0.3);
   color: var(--danger);
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   font-family: inherit;
   font-weight: 500;
   padding: 0.25rem 0.6rem;
@@ -1182,7 +1188,7 @@ body {
   gap: 0.75rem;
   padding: 4rem 1rem;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .tx-loading.visible {
@@ -1226,7 +1232,7 @@ body {
   background: var(--bg-card);
   border: none;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   padding: 0.5rem 1.8rem 0.5rem 0.6rem;
 }
 
@@ -1239,7 +1245,7 @@ body {
 }
 
 .btn-toggle-ignored {
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   font-family: inherit;
   padding: 0.3rem 0.6rem;
   background: var(--bg-card);
@@ -1258,7 +1264,7 @@ body {
 
 .tx-updated {
   flex: 1;
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   text-align: center;
 }
@@ -1269,7 +1275,7 @@ body {
   color: var(--text-muted);
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1291,7 +1297,7 @@ body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   font-family: inherit;
   padding: var(--space-xs) 0;
@@ -1339,7 +1345,7 @@ body {
 }
 
 .rec-summary-title {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -1350,7 +1356,7 @@ body {
   background: none;
   border: none;
   color: var(--accent);
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1373,12 +1379,12 @@ body {
 }
 
 .rec-chip-label {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
 }
 
 .rec-chip-value {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -1399,21 +1405,21 @@ body {
 }
 
 .tx-pie-center .pie-center-label {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: rgba(255,255,255,0.5);
   line-height: 1.2;
 }
 
 .tx-pie-center .pie-center-amount {
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 700;
   color: #fff;
   line-height: 1.4;
 }
 
 .tx-pie-center .pie-center-pct {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: rgba(255,255,255,0.45);
   line-height: 1.2;
 }
@@ -1424,7 +1430,7 @@ body {
   align-items: center;
   gap: 0.6rem;
   padding: 0.4rem 0;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   transition: background 0.2s ease, padding 0.2s ease;
@@ -1454,7 +1460,7 @@ body {
 
 .cat-pct {
   color: var(--text-dim);
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   width: 2.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -1462,7 +1468,7 @@ body {
 
 .cat-amt {
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   width: 4.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -1476,7 +1482,7 @@ body {
   border: none;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-family: inherit;
   cursor: pointer;
   margin-bottom: 0.75rem;
@@ -1484,7 +1490,7 @@ body {
 }
 
 .tx-purchase-count {
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
   margin-bottom: 0.5rem;
 }
@@ -1506,7 +1512,7 @@ body {
 }
 
 .tx-summary-label {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1514,7 +1520,7 @@ body {
 
 .tx-summary-value {
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1533,11 +1539,11 @@ body {
 
 .tx-account-name {
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 
 .tx-account-total {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1568,14 +1574,14 @@ body {
 
 .tx-merchant {
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .tx-category {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
   text-transform: capitalize;
 }
@@ -1583,7 +1589,7 @@ body {
 .tx-cat-chip {
   display: inline;
   align-self: flex-start;
-  font-size: 0.55rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   padding: 0.08rem 0.35rem;
   border-radius: 3px;
@@ -1600,7 +1606,7 @@ body {
 }
 
 .tx-indicator {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
   margin-left: 0.25rem;
 }
@@ -1623,12 +1629,12 @@ body {
 
 .tx-amount {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-variant-numeric: tabular-nums;
 }
 
 .tx-date {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
 }
 
@@ -1697,7 +1703,7 @@ body {
 
 .action-sheet-title {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1707,20 +1713,20 @@ body {
 
 .action-sheet-subtitle {
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   flex-shrink: 0;
   margin-left: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 
 .action-sheet-detail {
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
   margin-bottom: 0.5rem;
 }
 
 .action-sheet-status {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--text);
   margin-bottom: 0.75rem;
   padding: 0.5rem 0.75rem;
@@ -1736,7 +1742,7 @@ body {
 }
 
 .action-group-label {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1758,7 +1764,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1805,11 +1811,11 @@ body {
 
 .action-label {
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .action-desc {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
 }
 
@@ -1820,7 +1826,7 @@ body {
   border: none;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-family: inherit;
   cursor: pointer;
 }
@@ -1836,7 +1842,7 @@ body {
 
 .edit-field label {
   display: block;
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
   margin-bottom: 0.25rem;
 }
@@ -1848,7 +1854,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-family: inherit;
   box-sizing: border-box;
 }
@@ -1858,7 +1864,7 @@ body {
 }
 
 .action-sub-title {
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-weight: 600;
   margin-bottom: 0.5rem;
 }
@@ -1876,7 +1882,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -1916,14 +1922,14 @@ body {
 
 .split-custom-input .btn-primary {
   padding: 0.7rem 1rem;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   white-space: nowrap;
   width: auto;
   min-height: 44px;
 }
 
 .split-preview {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
   text-align: center;
   margin-top: 0.25rem;
@@ -1943,7 +1949,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-family: inherit;
   cursor: pointer;
   text-align: left;
@@ -1975,11 +1981,11 @@ body {
 }
 
 .ignore-suggestion-text strong {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 
 .ignore-suggestion-text span {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -1997,7 +2003,7 @@ body {
 }
 
 .rec-section-title {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -2025,14 +2031,14 @@ body {
 
 .rec-merchant {
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .rec-freq {
-  font-size: 0.65rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
 }
 
@@ -2047,28 +2053,28 @@ body {
 
 .rec-amount {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-variant-numeric: tabular-nums;
 }
 
 .rec-avg {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
 }
 
 .rec-expected {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
 .rec-due-soon {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--warning);
   font-weight: 500;
 }
 
 .rec-overdue {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: var(--danger);
   font-weight: 500;
 }
@@ -2087,7 +2093,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-family: inherit;
   cursor: pointer;
   text-align: center;
@@ -2107,7 +2113,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-family: inherit;
   cursor: pointer;
   text-align: center;
