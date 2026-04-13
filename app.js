@@ -703,18 +703,27 @@ async function renderAccountsSettings() {
   // Load all Plaid item tokens (active + removed)
   var itemsResult = await sb.rpc('get_user_plaid_item_ids');
   if (itemsResult.data && itemsResult.data.length > 0) {
+    var activeItems = itemsResult.data.filter(function(i) { return i.status === 'active'; });
+    var removedItems = itemsResult.data.filter(function(i) { return i.status !== 'active'; });
+
     html += '<div class="settings-tokens-section">';
-    html += '<span class="settings-inst-detail" style="margin-top:0.75rem;display:block;margin-bottom:0.35rem">Plaid Tokens (' + itemsResult.data.length + ')</span>';
-    itemsResult.data.forEach(function(item) {
-      var statusClass = item.status === 'active' ? 'balance-positive' : '';
-      var statusLabel = item.status === 'active' ? 'Active' : 'Removed';
+    html += '<span class="settings-tokens-header">Active Tokens (' + activeItems.length + ')</span>';
+    activeItems.forEach(function(item) {
       html += '<div class="settings-token-row">';
-      html += '<div class="settings-token-info">';
       html += '<span class="settings-token-id">' + esc(item.item_id) + '</span>';
-      html += '<span class="settings-token-meta">' + esc(item.institution) + ' -- <span class="' + statusClass + '">' + statusLabel + '</span> -- ' + esc(item.created) + '</span>';
-      html += '</div>';
+      html += '<span class="settings-token-meta">' + esc(item.institution) + ' -- ' + esc(item.created) + '</span>';
       html += '</div>';
     });
+
+    if (removedItems.length > 0) {
+      html += '<span class="settings-tokens-header" style="margin-top:0.5rem">Removed Tokens (' + removedItems.length + ')</span>';
+      removedItems.forEach(function(item) {
+        html += '<div class="settings-token-row settings-token-removed">';
+        html += '<span class="settings-token-id">' + esc(item.item_id) + '</span>';
+        html += '<span class="settings-token-meta">' + esc(item.institution) + ' -- ' + esc(item.created) + '</span>';
+        html += '</div>';
+      });
+    }
     html += '</div>';
   }
 
