@@ -575,7 +575,6 @@ body {
   justify-content: center;
   border-top: 1px solid var(--border);
   padding: 0.6rem 1rem;
-  padding-bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
   gap: 2rem;
   position: relative;
