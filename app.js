@@ -89,7 +89,6 @@ function showScreen(name) {
   if (name === 'app') {
     var savedTab = localStorage.getItem('alenjo_active_tab');
     if (savedTab === 'investments') savedTab = 'snapshot';
-    if (savedTab === 'recurring') savedTab = 'transactions';
     if (savedTab) switchTab(savedTab);
   }
 }
@@ -149,7 +148,7 @@ function applyTabOrder() {
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
   // Remove old tabs that no longer exist
-  var validTabs = ['snapshot', 'transactions', 'settings'];
+  var validTabs = ['snapshot', 'transactions', 'recurring', 'settings'];
   order = order.filter(function(t) { return validTabs.indexOf(t) !== -1; });
   // Ensure all valid tabs are present
   validTabs.forEach(function(t) {
@@ -207,8 +206,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'settings'; });
-  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', settings: 'Settings' };
+  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'recurring', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'recurring' || t === 'settings'; });
+  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', recurring: 'Recurring', settings: 'Settings' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +
@@ -226,7 +225,7 @@ document.addEventListener('click', function(e) {
   if (!btn || !userProfile) return;
   var tab = btn.dataset.tab;
   var dir = btn.dataset.dir;
-  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'settings'; });
+  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'recurring', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'recurring' || t === 'settings'; });
   var idx = order.indexOf(tab);
   if (idx === -1) return;
   var newIdx = dir === 'up' ? idx - 1 : idx + 1;
@@ -2263,8 +2262,10 @@ async function loadRecurring() {
   }
 
   if (txData.length === 0) {
-    var inlineSummary = $('#rec-summary-inline');
-    if (inlineSummary) inlineSummary.hidden = true;
+    var recEmpty = $('#rec-empty');
+    var recContent = $('#rec-content');
+    if (recEmpty) recEmpty.hidden = false;
+    if (recContent) recContent.hidden = true;
     return;
   }
 
@@ -2272,9 +2273,10 @@ async function loadRecurring() {
 }
 
 function renderRecurring() {
-  var inlineSummary = $('#rec-summary-inline');
-  var chipsEl = $('#rec-summary-chips');
-  var listEl = $('#rec-list-inline');
+  var recEmpty = $('#rec-empty');
+  var recContent = $('#rec-content');
+  var summaryEl = $('#rec-summary');
+  var listEl = $('#rec-list');
 
   // Group recurring-tagged transactions by recurring_group
   var groups = {};
@@ -2333,11 +2335,13 @@ function renderRecurring() {
   });
 
   if (recurringItems.length === 0) {
-    if (inlineSummary) inlineSummary.hidden = true;
+    if (recEmpty) recEmpty.hidden = false;
+    if (recContent) recContent.hidden = true;
     return;
   }
 
-  if (inlineSummary) inlineSummary.hidden = false;
+  if (recEmpty) recEmpty.hidden = true;
+  if (recContent) recContent.hidden = false;
 
   // Split into income vs expenses
   var incomeItems = recurringItems.filter(function(r) { return r.isIncome; });
@@ -2348,14 +2352,13 @@ function renderRecurring() {
   var totalIncome = incomeItems.reduce(function(s, i) { return s + i.amount; }, 0);
   var totalExpenses = expenseItems.reduce(function(s, i) { return s + i.amount; }, 0);
 
-  // Render compact chips
-  if (chipsEl) {
-    chipsEl.innerHTML =
-      (totalIncome > 0 ? '<div class="rec-summary-chip"><span class="rec-chip-label">Income</span><span class="rec-chip-value balance-positive">+' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
-      '<div class="rec-summary-chip"><span class="rec-chip-label">Costs</span><span class="rec-chip-value balance-negative">-' + formatMoney(totalExpenses) + '/mo</span></div>';
+  if (summaryEl) {
+    summaryEl.innerHTML = '<div class="tx-month-summary">' +
+      (totalIncome > 0 ? '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
+      '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Costs</span><span class="tx-summary-value balance-negative">' + formatMoney(totalExpenses) + '/mo</span></div>' +
+    '</div>';
   }
 
-  // Render full list for expandable detail
   var html = '';
   if (incomeItems.length > 0) {
     html += '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
@@ -2406,12 +2409,12 @@ if (legendToggle) legendToggle.addEventListener('click', function() {
   this.closest('.tx-legend-section').classList.toggle('collapsed');
 });
 
-// Recurring detail toggle
-var recToggle = $('#btn-toggle-recurring');
-if (recToggle) recToggle.addEventListener('click', function() {
-  var detail = $('#rec-detail-inline');
-  detail.hidden = !detail.hidden;
-  this.textContent = detail.hidden ? 'View All' : 'Hide';
+// Load recurring when switching to that tab
+document.getElementById('bottom-nav').addEventListener('click', function(e) {
+  var btn = e.target.closest('.nav-item');
+  if (btn && btn.dataset.tab === 'recurring') {
+    loadRecurring();
+  }
 });
 
 // ============================================

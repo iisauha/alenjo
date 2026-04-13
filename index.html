@@ -113,16 +113,6 @@
         <p>Connect an account to see transactions</p>
       </div>
       <div id="tx-content" hidden>
-        <div id="rec-summary-inline" class="rec-summary-inline" hidden>
-          <div class="rec-summary-header">
-            <span class="rec-summary-title">Recurring</span>
-            <button id="btn-toggle-recurring" class="btn-toggle-recurring">View All</button>
-          </div>
-          <div id="rec-summary-chips" class="rec-summary-chips"></div>
-          <div id="rec-detail-inline" class="rec-detail-inline" hidden>
-            <div id="rec-list-inline"></div>
-          </div>
-        </div>
         <div class="tx-toolbar">
           <input type="text" id="tx-search" class="app-input" placeholder="Search transactions...">
           <div class="tx-filters">
@@ -151,6 +141,17 @@
           </div>
         </div>
         <div id="tx-breakdown"></div>
+      </div>
+    </section>
+
+    <!-- RECURRING TAB -->
+    <section id="tab-recurring" class="tab-content">
+      <div id="rec-empty" class="connect-cta" hidden>
+        <p>No recurring charges yet. Mark transactions as recurring from the Transactions tab.</p>
+      </div>
+      <div id="rec-content" hidden>
+        <div id="rec-summary"></div>
+        <div id="rec-list"></div>
       </div>
     </section>
 
@@ -223,6 +224,13 @@
           <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
         </svg>
         <span>Transactions</span>
+      </button>
+      <button class="nav-item" data-tab="recurring">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        <span>Recurring</span>
       </button>
       <button class="nav-item" data-tab="settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
