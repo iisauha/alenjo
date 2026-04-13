@@ -700,23 +700,6 @@ async function renderAccountsSettings() {
     html += '</div>';
   });
 
-  // Load all Plaid item tokens (active + removed)
-  var itemsResult = await sb.rpc('get_user_plaid_item_ids');
-  if (itemsResult.data && itemsResult.data.length > 0) {
-    var removedItems = itemsResult.data.filter(function(i) { return i.status !== 'active'; });
-
-    if (removedItems.length > 0) {
-      html += '<div class="settings-tokens-section">';
-      html += '<span class="settings-tokens-header">Removed Tokens (' + removedItems.length + ')</span>';
-      removedItems.forEach(function(item) {
-        html += '<div class="settings-token-row settings-token-removed">';
-        html += '<span class="settings-token-id">' + esc(item.item_id) + '</span>';
-        html += '<span class="settings-token-meta">' + esc(item.institution) + ' -- ' + esc(item.created) + '</span>';
-        html += '</div>';
-      });
-      html += '</div>';
-    }
-  }
 
   list.innerHTML = html;
 }
