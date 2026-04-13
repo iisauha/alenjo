@@ -36,6 +36,11 @@
   padding: 0;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
 }
 
 button, select, input, .nav-item, .action-option, .action-toggle, .cat-legend-item, .tx-row, .rec-row {
