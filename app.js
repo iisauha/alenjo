@@ -685,15 +685,19 @@ async function renderAccountsSettings() {
   Object.keys(byItem).forEach(function(itemId) {
     var group = byItem[itemId];
     var acctCount = group.accounts.length;
-    var types = group.accounts.map(function(a) {
-      return a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
+    var typeCounts = {};
+    group.accounts.forEach(function(a) {
+      var t = a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
     });
-    var uniqueTypes = types.filter(function(t, i) { return types.indexOf(t) === i; });
+    var typeList = Object.keys(typeCounts).map(function(t) {
+      return typeCounts[t] + ' ' + t;
+    }).join(', ');
     html += '<div class="settings-institution">';
     html += '<div class="settings-inst-header">';
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
-    html += '<span class="settings-inst-detail">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ' -- ' + uniqueTypes.join(', ') + '</span>';
+    html += '<span class="settings-inst-detail">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ': ' + typeList + '</span>';
     html += '</div>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
