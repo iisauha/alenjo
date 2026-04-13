@@ -166,7 +166,7 @@ body {
   width: 100%;
   padding: 0.9rem;
   background: var(--accent);
-  color: #FFFFFF;
+  color: var(--text);
   border: none;
   border-radius: var(--radius-sm);
   font-size: var(--text-lg);
@@ -755,13 +755,18 @@ body {
 .btn-primary-sm {
   padding: 0.5rem 1rem;
   background: var(--accent);
-  color: #FFFFFF;
+  color: var(--text);
   border: none;
   border-radius: var(--radius-sm);
   font-size: var(--text-base);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary-sm:hover {
+  background: var(--accent-hover);
 }
 
 .btn-secondary-sm {
@@ -774,6 +779,12 @@ body {
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.btn-secondary-sm:hover {
+  border-color: rgba(255,255,255,0.15);
+  color: var(--text);
 }
 
 .btn-danger {
@@ -927,7 +938,7 @@ body {
 }
 
 .sync-info-total span:last-child {
-  color: #fff;
+  color: var(--text);
   font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.3px;
@@ -1018,6 +1029,16 @@ body {
   font-size: var(--text-lg);
   cursor: pointer;
   padding: 0.2rem;
+  transition: color 0.15s;
+}
+
+.tab-order-arrows button:not(:disabled):hover {
+  color: var(--accent);
+}
+
+.tab-order-arrows button:disabled {
+  opacity: 0.25;
+  cursor: default;
 }
 
 /* In-card holdings */
@@ -1058,7 +1079,7 @@ body {
 .card-holding-ticker {
   font-weight: 700;
   font-size: var(--text-base);
-  color: #fff;
+  color: var(--text);
   letter-spacing: 0.3px;
   font-variant-numeric: tabular-nums;
 }
@@ -1088,7 +1109,7 @@ body {
 .card-holding-value {
   font-weight: 700;
   font-size: var(--text-base);
-  color: #fff;
+  color: var(--text);
   letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
 }
@@ -1266,7 +1287,7 @@ body {
 .settings-inst-name {
   font-size: var(--text-base);
   font-weight: 600;
-  color: #fff;
+  color: var(--text);
 }
 
 .settings-inst-detail {
@@ -1276,15 +1297,16 @@ body {
 
 .btn-disconnect-inst {
   background: none;
-  border: 1px solid rgba(255, 80, 0, 0.3);
+  border: 1px solid rgba(244, 80, 48, 0.2);
   color: var(--danger);
   font-size: var(--text-sm);
   font-family: inherit;
   font-weight: 500;
   padding: 0.25rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 
@@ -1531,7 +1553,7 @@ body {
 .tx-pie-center .pie-center-amount {
   font-size: var(--text-base);
   font-weight: 700;
-  color: #fff;
+  color: var(--text);
   line-height: 1.4;
 }
 
