@@ -124,17 +124,29 @@ body {
   color: var(--text-dim);
 }
 
-/* Override browser autofill yellow background */
+/* Override browser autofill styling */
 .app-input:-webkit-autofill,
 #auth-form input:-webkit-autofill,
 .app-input:-webkit-autofill:hover,
 #auth-form input:-webkit-autofill:hover,
 .app-input:-webkit-autofill:focus,
-#auth-form input:-webkit-autofill:focus {
+#auth-form input:-webkit-autofill:focus,
+.app-input:-webkit-autofill:active,
+#auth-form input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset;
   -webkit-text-fill-color: var(--text);
   caret-color: var(--text);
   transition: background-color 5000s ease-in-out 0s;
+}
+
+#auth-form input {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#auth-form input:focus {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .app-input:focus,
