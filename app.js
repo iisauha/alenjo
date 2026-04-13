@@ -88,7 +88,7 @@ function showScreen(name) {
   $('#screen-' + name).classList.add('active');
   if (name === 'app') {
     var savedTab = localStorage.getItem('alenjo_active_tab');
-    if (savedTab === 'investments') savedTab = 'snapshot';
+    if (savedTab === 'investments' || savedTab === 'settings') savedTab = 'snapshot';
     if (savedTab === 'recurring') savedTab = 'transactions';
     if (savedTab) switchTab(savedTab);
   }
@@ -101,8 +101,21 @@ function switchTab(tabName) {
   if (tab) tab.classList.add('active');
   var nav = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
   if (nav) nav.classList.add('active');
-  localStorage.setItem('alenjo_active_tab', tabName);
+  if (tabName !== 'settings') localStorage.setItem('alenjo_active_tab', tabName);
 }
+
+// Settings via header avatar/name
+var prevTab = 'snapshot';
+$('#btn-open-settings').addEventListener('click', function() {
+  var current = localStorage.getItem('alenjo_active_tab');
+  if (current === 'settings') {
+    // Already on settings, go back
+    switchTab(prevTab || 'snapshot');
+  } else {
+    prevTab = current || 'snapshot';
+    switchTab('settings');
+  }
+});
 
 // Bottom nav clicks
 document.getElementById('bottom-nav').addEventListener('click', function(e) {
@@ -149,7 +162,7 @@ function applyTabOrder() {
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
   // Remove old tabs that no longer exist
-  var validTabs = ['snapshot', 'transactions', 'settings'];
+  var validTabs = ['snapshot', 'transactions'];
   order = order.filter(function(t) { return validTabs.indexOf(t) !== -1; });
   // Ensure all valid tabs are present
   validTabs.forEach(function(t) {
@@ -207,8 +220,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'settings'; });
-  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', settings: 'Settings' };
+  var order = (userProfile.tab_order || ['snapshot', 'transactions']).filter(function(t) { return t === 'snapshot' || t === 'transactions'; });
+  var labels = { snapshot: 'Snapshot', transactions: 'Transactions' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +

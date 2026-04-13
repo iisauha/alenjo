@@ -40,10 +40,10 @@
   <!-- APP SHELL (shared header + nav for all app screens) -->
   <div id="screen-app" class="screen">
     <header class="app-header">
-      <div class="header-user">
+      <button class="header-user" id="btn-open-settings">
         <div id="header-avatar" class="header-avatar"></div>
         <span id="header-name" class="header-name"></span>
-      </div>
+      </button>
       <img src="alenjo.png" alt="Alenjo" class="header-logo">
     </header>
 
@@ -165,17 +165,6 @@
         </div>
       </div>
 
-      <div class="settings-card">
-        <div class="settings-card-header" data-toggle="settings-tabs">
-          <h2 class="settings-card-title">Tab Order</h2>
-          <span class="settings-chevron"></span>
-        </div>
-        <div class="settings-card-body collapsed" id="settings-tabs">
-          <p class="settings-hint">Reorder your navigation tabs</p>
-          <div id="tab-order-list" class="tab-order-list"></div>
-        </div>
-      </div>
-
       <div class="settings-card" id="section-accounts">
         <div class="settings-card-header" data-toggle="settings-accounts">
           <h2 class="settings-card-title">Institutions</h2>
@@ -213,12 +202,6 @@
           <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
         </svg>
         <span>Transactions</span>
-      </button>
-      <button class="nav-item" data-tab="settings">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-        <span>Settings</span>
       </button>
     </nav>
   </div>
