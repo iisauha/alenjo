@@ -2320,14 +2320,40 @@ function renderRecurring() {
       amount = getSplitAmount(mostRecent);
     }
 
+    // Compute next expected date from purchase history
+    var computedNext = null;
+    var lastDateStr = mostRecent.date;
+    if (lastDateStr) {
+      var lp = lastDateStr.split('-');
+      var lastD = new Date(parseInt(lp[0]), parseInt(lp[1]) - 1, parseInt(lp[2]));
+      if (group.txs.length >= 2) {
+        // Calculate average interval from transaction history
+        var dates = group.txs.map(function(t) {
+          var dp = t.date.split('-');
+          return new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2])).getTime();
+        }).sort(function(a, b) { return a - b; });
+        var totalGap = 0;
+        for (var di = 1; di < dates.length; di++) {
+          totalGap += dates[di] - dates[di - 1];
+        }
+        var avgInterval = Math.round(totalGap / (dates.length - 1) / 86400000);
+        if (avgInterval < 7) avgInterval = 30; // floor at weekly
+        var nextMs = lastD.getTime() + avgInterval * 86400000;
+        computedNext = new Date(nextMs);
+      } else {
+        // Single transaction: assume monthly (same day next month)
+        computedNext = new Date(lastD.getFullYear(), lastD.getMonth() + 1, lastD.getDate());
+      }
+    }
+
     recurringItems.push({
       name: displayName,
       category: normalizeCategory(eff.category),
       amount: amount,
       isIncome: isIncome,
       isEstimate: isEstimate,
-      lastDate: mostRecent.date,
-      nextDate: action.recurring_next_date || null,
+      lastDate: lastDateStr,
+      nextDate: computedNext,
       count: group.txs.length,
       isSplit: eff.isSplit,
       splitWays: eff.splitWays
@@ -2380,13 +2406,14 @@ function renderRecurringRow(item, isIncome) {
   if (item.nextDate) {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var parts = item.nextDate.split('-');
-    var next = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    var next = item.nextDate;
+    next.setHours(0, 0, 0, 0);
     var diffDays = Math.round((next - today) / 86400000);
     if (diffDays < 0) nextLabel = '<span class="rec-overdue">Overdue by ' + Math.abs(diffDays) + 'd</span>';
-    else if (diffDays === 0) nextLabel = '<span class="rec-due-soon">Expected today</span>';
-    else if (diffDays <= 3) nextLabel = '<span class="rec-due-soon">Expected in ' + diffDays + 'd</span>';
-    else nextLabel = '<span class="rec-expected">Expected in ' + diffDays + 'd</span>';
+    else if (diffDays === 0) nextLabel = '<span class="rec-due-soon">Due today</span>';
+    else if (diffDays <= 3) nextLabel = '<span class="rec-due-soon">Due in ' + diffDays + 'd</span>';
+    else if (diffDays <= 7) nextLabel = '<span class="rec-due-soon">Due in ' + diffDays + 'd</span>';
+    else nextLabel = '<span class="rec-expected">' + diffDays + 'd until next</span>';
   }
   return '<div class="rec-row">' +
     '<div class="rec-info">' +
