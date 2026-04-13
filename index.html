@@ -48,11 +48,11 @@
     </header>
 
     <!-- SNAPSHOT TAB -->
-    <main id="tab-snapshot" class="tab-content active">
+    <section id="tab-snapshot" class="tab-content active">
       <div id="snapshot-error" class="auth-error" hidden></div>
 
       <div id="net-cash" class="net-cash-card" hidden>
-        <span class="net-cash-label">Net Cash</span>
+        <span class="net-cash-label">Net Worth</span>
         <button id="net-cash-value" class="net-cash-value"></button>
       </div>
 
@@ -69,14 +69,6 @@
         <div class="account-list" id="list-banks"></div>
       </section>
 
-      <section class="account-section" id="section-savings">
-        <div class="section-header">
-          <h2>Savings</h2>
-          <span class="section-total" id="savings-total"></span>
-        </div>
-        <div class="account-list" id="list-savings"></div>
-      </section>
-
       <section class="account-section" id="section-credit">
         <div class="section-header">
           <h2>Credit Cards</h2>
@@ -85,11 +77,26 @@
         <div class="account-list" id="list-credit"></div>
       </section>
 
-    </main>
+      <section class="account-section" id="section-inv-savings">
+        <div class="section-header">
+          <h2>Savings</h2>
+          <span class="section-total" id="inv-savings-total"></span>
+        </div>
+        <div class="account-list" id="list-inv-savings"></div>
+      </section>
 
+      <section class="account-section" id="section-inv-investments">
+        <div class="section-header">
+          <h2>Investments</h2>
+          <span class="section-total" id="inv-investments-total"></span>
+        </div>
+        <div class="account-list" id="list-inv-investments"></div>
+      </section>
+
+    </section>
 
     <!-- TRANSACTIONS TAB -->
-    <main id="tab-transactions" class="tab-content">
+    <section id="tab-transactions" class="tab-content">
       <div id="tx-loading" class="tx-loading">
         <div class="spinner"></div>
         <p>Syncing transactions...</p>
@@ -98,76 +105,47 @@
         <p>Connect an account to see transactions</p>
       </div>
       <div id="tx-content" hidden>
-        <div class="tx-search-wrap">
-          <input type="text" id="tx-search" class="app-input" placeholder="Search transactions...">
+        <div id="rec-summary-inline" class="rec-summary-inline" hidden>
+          <div class="rec-summary-header">
+            <span class="rec-summary-title">Recurring</span>
+            <button id="btn-toggle-recurring" class="btn-toggle-recurring">View All</button>
+          </div>
+          <div id="rec-summary-chips" class="rec-summary-chips"></div>
+          <div id="rec-detail-inline" class="rec-detail-inline" hidden>
+            <div id="rec-list-inline"></div>
+          </div>
         </div>
-        <div class="tx-filters">
+        <div class="tx-toolbar">
+          <input type="text" id="tx-search" class="app-input" placeholder="Search...">
           <select id="tx-month-filter" class="app-select"></select>
           <select id="tx-card-filter" class="app-select">
-            <option value="all">All Accounts</option>
+            <option value="all">All</option>
           </select>
         </div>
-        <div class="tx-toggle-row">
+        <div class="tx-utility-row">
           <button id="btn-toggle-ignored" class="btn-toggle-ignored">Show Ignored</button>
-        </div>
-        <div class="tx-subheader">
           <span id="tx-updated" class="tx-updated"></span>
-          <button id="btn-export-csv" class="btn-export">Export CSV</button>
+          <button id="btn-export-csv" class="btn-export">CSV</button>
         </div>
-        <div class="tx-chart-wrap">
-          <canvas id="tx-pie-chart"></canvas>
-          <div id="tx-pie-center" class="tx-pie-center"></div>
-        </div>
-        <div id="tx-category-legend"></div>
         <div id="tx-breakdown"></div>
-      </div>
-    </main>
-
-    <!-- INVESTMENTS TAB -->
-    <main id="tab-investments" class="tab-content">
-      <div id="inv-empty" class="connect-cta">
-        <p>Connect an investment or savings account</p>
-        <button id="btn-connect-investments" class="btn-primary">Connect Account</button>
-      </div>
-      <div id="inv-content" hidden>
-        <div id="inv-total-card" class="net-cash-card">
-          <span class="net-cash-label">Total Portfolio</span>
-          <span id="inv-total-value" class="net-cash-value"></span>
+        <div class="tx-chart-section collapsed">
+          <button class="tx-chart-toggle" id="btn-toggle-chart">
+            <span>Spending Breakdown</span>
+            <span class="settings-chevron"></span>
+          </button>
+          <div class="tx-chart-collapsible">
+            <div class="tx-chart-wrap">
+              <canvas id="tx-pie-chart"></canvas>
+              <div id="tx-pie-center" class="tx-pie-center"></div>
+            </div>
+            <div id="tx-category-legend"></div>
+          </div>
         </div>
-
-        <section class="account-section" id="section-inv-savings">
-          <div class="section-header">
-            <h2>Savings</h2>
-            <span class="section-total" id="inv-savings-total"></span>
-          </div>
-          <div class="account-list" id="list-inv-savings"></div>
-        </section>
-
-        <section class="account-section" id="section-inv-investments">
-          <div class="section-header">
-            <h2>Investment Accounts</h2>
-            <span class="section-total" id="inv-investments-total"></span>
-          </div>
-          <div class="account-list" id="list-inv-investments"></div>
-        </section>
-
       </div>
-    </main>
-
-
-    <!-- RECURRING TAB -->
-    <main id="tab-recurring" class="tab-content">
-      <div id="rec-empty" class="connect-cta">
-        <p>No recurring charges yet. Mark transactions as recurring from the Transactions tab.</p>
-      </div>
-      <div id="rec-content" hidden>
-        <div id="rec-summary"></div>
-        <div id="rec-list"></div>
-      </div>
-    </main>
+    </section>
 
     <!-- SETTINGS TAB -->
-    <main id="tab-settings" class="tab-content">
+    <section id="tab-settings" class="tab-content">
       <div class="settings-card">
         <div class="settings-card-header" data-toggle="settings-profile">
           <h2 class="settings-card-title">Profile</h2>
@@ -219,7 +197,7 @@
         </div>
       </div>
 
-    </main>
+    </section>
 
     <!-- Bottom Nav -->
     <nav class="bottom-nav" id="bottom-nav">
@@ -235,19 +213,6 @@
           <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
         </svg>
         <span>Transactions</span>
-      </button>
-      <button class="nav-item" data-tab="investments">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
-        </svg>
-        <span>Investments</span>
-      </button>
-      <button class="nav-item" data-tab="recurring">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-        </svg>
-        <span>Recurring</span>
       </button>
       <button class="nav-item" data-tab="settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

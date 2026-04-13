@@ -21,13 +21,10 @@ var btnAddAccount = $('#btn-add-account');
 // (removed investing button ref)
 var connectCta = $('#connect-cta');
 var sectionBanks = $('#section-banks');
-var sectionSavings = $('#section-savings');
 var sectionCredit = $('#section-credit');
 var listBanks = $('#list-banks');
-var listSavings = $('#list-savings');
 var listCredit = $('#list-credit');
 var banksTotal = $('#banks-total');
-var savingsTotal = $('#savings-total');
 var creditTotal = $('#credit-total');
 var loading = $('#loading');
 var headerAvatar = $('#header-avatar');
@@ -91,6 +88,8 @@ function showScreen(name) {
   $('#screen-' + name).classList.add('active');
   if (name === 'app') {
     var savedTab = localStorage.getItem('alenjo_active_tab');
+    if (savedTab === 'investments') savedTab = 'snapshot';
+    if (savedTab === 'recurring') savedTab = 'transactions';
     if (savedTab) switchTab(savedTab);
   }
 }
@@ -149,22 +148,14 @@ function applyTabOrder() {
   if (!userProfile || !userProfile.tab_order) return;
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
-  // Ensure new tabs are present in saved order
-  var dirty = false;
-  if (order.indexOf('investments') === -1) {
-    var snapIdx = order.indexOf('snapshot');
-    order.splice(snapIdx !== -1 ? snapIdx + 1 : 1, 0, 'investments');
-    dirty = true;
-  }
-  if (order.indexOf('recurring') === -1) {
-    var txIdx = order.indexOf('transactions');
-    order.splice(txIdx !== -1 ? txIdx + 1 : order.length - 1, 0, 'recurring');
-    dirty = true;
-  }
-  if (dirty) {
-    userProfile.tab_order = order;
-    sb.from('profiles').update({ tab_order: order }).eq('id', currentUser.id);
-  }
+  // Remove old tabs that no longer exist
+  var validTabs = ['snapshot', 'transactions', 'settings'];
+  order = order.filter(function(t) { return validTabs.indexOf(t) !== -1; });
+  // Ensure all valid tabs are present
+  validTabs.forEach(function(t) {
+    if (order.indexOf(t) === -1) order.push(t);
+  });
+  userProfile.tab_order = order;
   order.forEach(function(tabName) {
     var btn = nav.querySelector('[data-tab="' + tabName + '"]');
     if (btn) nav.appendChild(btn);
@@ -214,8 +205,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = (userProfile.tab_order || ['snapshot', 'investments', 'transactions', 'recurring', 'settings']).filter(function(t) { return t !== 'loans'; });
-  var labels = { snapshot: 'Snapshot', investments: 'Investments', transactions: 'Transactions', recurring: 'Recurring', settings: 'Settings' };
+  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'settings'; });
+  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', settings: 'Settings' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +
@@ -233,7 +224,7 @@ document.addEventListener('click', function(e) {
   if (!btn || !userProfile) return;
   var tab = btn.dataset.tab;
   var dir = btn.dataset.dir;
-  var order = (userProfile.tab_order || ['snapshot', 'investments', 'transactions', 'recurring', 'settings']).filter(function(t) { return t !== 'loans'; });
+  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'settings'; });
   var idx = order.indexOf(tab);
   if (idx === -1) return;
   var newIdx = dir === 'up' ? idx - 1 : idx + 1;
@@ -573,12 +564,13 @@ function renderAccounts(accounts) {
   var credits = accounts.filter(function(a) { return a.type === 'credit'; });
   var investments = accounts.filter(function(a) { return a.type === 'investment'; });
 
-  // Snapshot tab: banks + credit only
-  var hasBankAccounts = banks.length > 0 || credits.length > 0;
-  connectCta.hidden = hasBankAccounts;
+  // Snapshot tab: all account types
+  var hasAnyAccounts = banks.length > 0 || credits.length > 0 || savings.length > 0 || investments.length > 0;
+  connectCta.hidden = hasAnyAccounts;
   sectionBanks.hidden = banks.length === 0;
-  sectionSavings.hidden = true; // savings moved to investments tab
   sectionCredit.hidden = credits.length === 0;
+  $('#section-inv-savings').hidden = savings.length === 0;
+  $('#section-inv-investments').hidden = investments.length === 0;
 
   renderSection(listBanks, banks, 'bank');
   var bankSum = banks.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
@@ -590,53 +582,43 @@ function renderAccounts(accounts) {
   creditTotal.textContent = (creditSum < 0 ? '-' : '') + formatMoney(Math.abs(creditSum));
   creditTotal.className = 'section-total ' + (creditSum >= 0 ? 'balance-negative' : 'balance-positive');
 
-  // Load liabilities for credit cards + loans tab
   if (credits.length > 0 || accounts.length > 0) {
     loadLiabilities().then(function() {
       renderSection(listCredit, credits, 'credit');
     });
   }
 
-  // Net cash = banks - credit owed (savings excluded, shown in investments)
-  var netCashEl = $('#net-cash');
-  var netCashValue = $('#net-cash-value');
-  if (hasBankAccounts) {
-    var netCash = bankSum - creditSum;
-    netCashEl.hidden = false;
-    netCashValue.textContent = (netCash < 0 ? '-' : '') + formatMoney(netCash);
-    netCashValue.className = 'net-cash-value ' + (netCash >= 0 ? 'balance-positive' : 'balance-negative');
-
-  } else {
-    netCashEl.hidden = true;
-  }
-
-  // Investments tab: savings + investment accounts
-  var hasInvAccounts = savings.length > 0 || investments.length > 0;
-  $('#inv-empty').hidden = hasInvAccounts;
-  $('#inv-content').hidden = !hasInvAccounts;
-
-  var invSavingsSection = $('#section-inv-savings');
-  var invInvestmentsSection = $('#section-inv-investments');
-  invSavingsSection.hidden = savings.length === 0;
-  invInvestmentsSection.hidden = investments.length === 0;
-
   renderSection($('#list-inv-savings'), savings, 'bank');
   renderSection($('#list-inv-investments'), investments, 'bank');
-  updateInvestmentTotals(savings, investments, hasInvAccounts);
+  updateInvestmentTotals(savings, investments);
 
-  // Load holdings then re-render investment cards with consistent balances
   if (investments.length > 0) {
     loadHoldings().then(function() {
       renderSection($('#list-inv-investments'), investments, 'bank');
-      updateInvestmentTotals(savings, investments, hasInvAccounts);
+      updateInvestmentTotals(savings, investments);
     });
+  }
+
+  // Net Worth = banks - credit + savings + investments
+  var netCashEl = $('#net-cash');
+  var netCashValue = $('#net-cash-value');
+  if (hasAnyAccounts) {
+    var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
+    var investSum = 0;
+    investments.forEach(function(a) { investSum += getDisplayBalance(a, 'bank').amount; });
+    var netWorth = bankSum - creditSum + savingsSum + investSum;
+    netCashEl.hidden = false;
+    netCashValue.textContent = (netWorth < 0 ? '-' : '') + formatMoney(netWorth);
+    netCashValue.className = 'net-cash-value ' + (netWorth >= 0 ? 'balance-positive' : 'balance-negative');
+  } else {
+    netCashEl.hidden = true;
   }
 
   updateSyncInfo();
   renderAccountsSettings();
 }
 
-function updateInvestmentTotals(savings, investments, hasInvAccounts) {
+function updateInvestmentTotals(savings, investments) {
   var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
   $('#inv-savings-total').textContent = formatMoney(savingsSum);
   $('#inv-savings-total').className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
@@ -655,11 +637,6 @@ function updateInvestmentTotals(savings, investments, hasInvAccounts) {
   });
   $('#inv-investments-total').textContent = formatMoney(investSum);
   $('#inv-investments-total').className = 'section-total balance-positive';
-
-  var portfolioTotal = savingsSum + investSum;
-  $('#inv-total-value').textContent = formatMoney(portfolioTotal);
-  $('#inv-total-value').className = 'net-cash-value balance-positive';
-  $('#inv-total-card').hidden = !hasInvAccounts;
 }
 
 function renderAccountsSettings() {
@@ -2252,9 +2229,6 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 var recLoaded = false;
 
 async function loadRecurring() {
-  var recEmpty = $('#rec-empty');
-  var recContent = $('#rec-content');
-
   // Load transaction data if not already loaded
   if (txData.length === 0) {
     var result = await sb.from('synced_transactions').select('*').order('date', { ascending: false }).limit(5000);
@@ -2271,8 +2245,8 @@ async function loadRecurring() {
   }
 
   if (txData.length === 0) {
-    recEmpty.hidden = false;
-    recContent.hidden = true;
+    var inlineSummary = $('#rec-summary-inline');
+    if (inlineSummary) inlineSummary.hidden = true;
     return;
   }
 
@@ -2280,10 +2254,9 @@ async function loadRecurring() {
 }
 
 function renderRecurring() {
-  var recEmpty = $('#rec-empty');
-  var recContent = $('#rec-content');
-  var summaryEl = $('#rec-summary');
-  var listEl = $('#rec-list');
+  var inlineSummary = $('#rec-summary-inline');
+  var chipsEl = $('#rec-summary-chips');
+  var listEl = $('#rec-list-inline');
 
   // Group recurring-tagged transactions by recurring_group
   var groups = {};
@@ -2342,13 +2315,11 @@ function renderRecurring() {
   });
 
   if (recurringItems.length === 0) {
-    recEmpty.hidden = false;
-    recContent.hidden = true;
+    if (inlineSummary) inlineSummary.hidden = true;
     return;
   }
 
-  recEmpty.hidden = true;
-  recContent.hidden = false;
+  if (inlineSummary) inlineSummary.hidden = false;
 
   // Split into income vs expenses
   var incomeItems = recurringItems.filter(function(r) { return r.isIncome; });
@@ -2359,11 +2330,14 @@ function renderRecurring() {
   var totalIncome = incomeItems.reduce(function(s, i) { return s + i.amount; }, 0);
   var totalExpenses = expenseItems.reduce(function(s, i) { return s + i.amount; }, 0);
 
-  summaryEl.innerHTML = '<div class="tx-month-summary">' +
-    (totalIncome > 0 ? '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
-    '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Costs</span><span class="tx-summary-value balance-negative">' + formatMoney(totalExpenses) + '/mo</span></div>' +
-  '</div>';
+  // Render compact chips
+  if (chipsEl) {
+    chipsEl.innerHTML =
+      (totalIncome > 0 ? '<div class="rec-summary-chip"><span class="rec-chip-label">Income</span><span class="rec-chip-value balance-positive">+' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
+      '<div class="rec-summary-chip"><span class="rec-chip-label">Costs</span><span class="rec-chip-value balance-negative">-' + formatMoney(totalExpenses) + '/mo</span></div>';
+  }
 
+  // Render full list for expandable detail
   var html = '';
   if (incomeItems.length > 0) {
     html += '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
@@ -2375,7 +2349,7 @@ function renderRecurring() {
     expenseItems.forEach(function(item) { html += renderRecurringRow(item, false); });
     html += '</div>';
   }
-  listEl.innerHTML = html;
+  if (listEl) listEl.innerHTML = html;
   recLoaded = true;
 }
 
@@ -2408,12 +2382,18 @@ function renderRecurringRow(item, isIncome) {
   '</div>';
 }
 
-// Load recurring when switching to that tab
-document.getElementById('bottom-nav').addEventListener('click', function(e) {
-  var btn = e.target.closest('.nav-item');
-  if (btn && btn.dataset.tab === 'recurring') {
-    loadRecurring();
-  }
+// Chart section toggle
+var chartToggle = $('#btn-toggle-chart');
+if (chartToggle) chartToggle.addEventListener('click', function() {
+  this.closest('.tx-chart-section').classList.toggle('collapsed');
+});
+
+// Recurring detail toggle
+var recToggle = $('#btn-toggle-recurring');
+if (recToggle) recToggle.addEventListener('click', function() {
+  var detail = $('#rec-detail-inline');
+  detail.hidden = !detail.hidden;
+  this.textContent = detail.hidden ? 'View All' : 'Hide';
 });
 
 // ============================================
