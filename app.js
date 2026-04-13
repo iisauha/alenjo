@@ -677,7 +677,7 @@ function renderAccountsSettings() {
   var byItem = {};
   cachedAccounts.forEach(function(a) {
     var key = a.plaid_item_id || 'unknown';
-    if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', accounts: [] };
+    if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', plaidItemId: a.plaid_item_id_raw || null, accounts: [] };
     byItem[key].accounts.push(a);
   });
 
@@ -694,6 +694,7 @@ function renderAccountsSettings() {
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
     html += '<span class="settings-inst-detail">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ' -- ' + uniqueTypes.join(', ') + '</span>';
+    if (group.plaidItemId) html += '<span class="settings-inst-detail" style="opacity:0.5;font-size:var(--text-xs)">' + esc(group.plaidItemId) + '</span>';
     html += '</div>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
