@@ -267,9 +267,11 @@ body {
   display: none;
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem var(--pad);
   padding-bottom: 5rem;
   animation: tabFadeIn 0.25s ease-out;
+  min-width: 0;
 }
 
 .tab-content.active {
@@ -343,6 +345,8 @@ body {
    ================================ */
 .account-section {
   margin-bottom: 1.5rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .account-section[hidden] {
@@ -387,12 +391,15 @@ body {
 /* Account Card — borderless, spacing-separated */
 .account-card {
   flex: 0 0 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   padding: 1rem;
   background: var(--bg-card);
   border-radius: var(--radius);
   scroll-snap-align: start;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .account-top {
@@ -937,6 +944,7 @@ body {
   margin-top: 0.5rem;
   padding: 0.5rem 0 0.15rem;
   display: flex;
+  overflow: hidden;
   flex-direction: column;
   gap: 0.4rem;
 }
@@ -955,12 +963,14 @@ body {
   gap: 0.15rem;
   min-width: 0;
   flex: 1;
+  flex: 1;
 }
 
 .card-holding-header {
   display: flex;
   align-items: baseline;
   gap: 0.4rem;
+  min-width: 0;
 }
 
 .card-holding-ticker {
@@ -1043,6 +1053,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  overflow: hidden;
 }
 
 .liab-util-wrap {
@@ -1071,7 +1082,16 @@ body {
   justify-content: space-between;
   font-size: var(--text-xs);
   color: var(--text-dim);
+  gap: 0.5rem;
+  overflow: hidden;
   margin-top: 0.2rem;
+}
+
+.liab-util-labels span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .liab-detail {
@@ -1079,15 +1099,23 @@ body {
   justify-content: space-between;
   font-size: var(--text-sm);
   padding: 0.15rem 0;
+  gap: 0.5rem;
+  overflow: hidden;
 }
 
 .liab-detail span:first-child {
   color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .liab-detail span:last-child {
   font-weight: 600;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .liab-detail.liab-urgent span:last-child {
@@ -1370,12 +1398,14 @@ body {
 
 .rec-summary-chip {
   flex: 1;
+  min-width: 0;
   background: var(--bg-card);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.65rem;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+  overflow: hidden;
 }
 
 .rec-chip-label {
