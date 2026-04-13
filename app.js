@@ -1650,7 +1650,7 @@ window._clearCatFilter = function() {
   renderTransactionMonth();
 };
 
-// CSV Export — exports currently filtered transactions
+// CSV Export — exports categorized transactions (excludes ignored)
 $('#btn-export-csv').addEventListener('click', function() {
   var month = $('#tx-month-filter').value;
   var cardId = $('#tx-card-filter').value;
@@ -1663,22 +1663,40 @@ $('#btn-export-csv').addEventListener('click', function() {
   }
   if (activeCategoryFilter) {
     filtered = filtered.filter(function(tx) {
-      return normalizeCategory(tx.category) === activeCategoryFilter;
+      var eff = getEffectiveTx(tx);
+      return normalizeCategory(eff.category) === activeCategoryFilter;
     });
   }
 
+  // Exclude ignored transactions
+  filtered = filtered.filter(function(tx) {
+    var eff = getEffectiveTx(tx);
+    return eff.actionType !== 'ignored';
+  });
+
   if (filtered.length === 0) return;
 
-  var csvRows = ['Date,Merchant,Category,Amount,Effective Amount,Type,Status,Pending'];
+  // Sort by category, then by date
+  filtered.sort(function(a, b) {
+    var catA = normalizeCategory(getEffectiveTx(a).category);
+    var catB = normalizeCategory(getEffectiveTx(b).category);
+    if (catA !== catB) return catA.localeCompare(catB);
+    return a.date > b.date ? 1 : a.date < b.date ? -1 : 0;
+  });
+
+  var csvRows = ['Category,Date,Merchant,Amount,Your Share,Type,Split,Reimbursed'];
+  var currentCat = '';
   filtered.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
-    var merchant = (tx.merchant_name || tx.name || 'Unknown').replace(/"/g, '""');
     var cat = normalizeCategory(eff.category).replace(/"/g, '""');
+    var merchant = (eff.nickname || tx.merchant_name || tx.name || 'Unknown').replace(/"/g, '""');
     var type = tx.amount < 0 ? 'Income' : 'Expense';
-    var status = eff.actionType || 'normal';
+    var splitInfo = eff.isSplit ? (eff.splitWays ? eff.splitWays + '-way' : 'Custom') : '';
+    var reimbursed = eff.actionType === 'reimbursed' ? 'Yes' : '';
     csvRows.push(
-      tx.date + ',"' + merchant + '","' + cat + '",' +
-      tx.amount.toFixed(2) + ',' + eff.amount.toFixed(2) + ',' + type + ',' + status + ',' + (tx.pending ? 'Yes' : 'No')
+      '"' + cat + '",' + tx.date + ',"' + merchant + '",' +
+      tx.amount.toFixed(2) + ',' + eff.amount.toFixed(2) + ',' +
+      type + ',' + splitInfo + ',' + reimbursed
     );
   });
 
