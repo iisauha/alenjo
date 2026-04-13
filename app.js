@@ -103,6 +103,10 @@ function switchTab(tabName) {
   var nav = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
   if (nav) nav.classList.add('active');
   localStorage.setItem('alenjo_active_tab', tabName);
+  // Resize pie chart when transactions tab becomes visible
+  if (tabName === 'transactions' && txPieChart) {
+    setTimeout(function() { txPieChart.resize(); }, 50);
+  }
 }
 
 // Bottom nav clicks
@@ -1351,16 +1355,19 @@ var txPieCenterData = { label: null, amount: 0, pct: '' };
 // Register center text plugin globally for the doughnut chart
 var txCenterTextPlugin = {
   id: 'txCenterText',
-  afterDraw: function(chart) {
+  afterDatasetsDraw: function(chart) {
+    // Only draw on the tx pie chart canvas, skip if chart area not ready
+    if (chart.canvas.id !== 'tx-pie-chart') return;
+    var area = chart.chartArea;
+    if (!area || area.right <= area.left || area.bottom <= area.top) return;
     var ctx = chart.ctx;
-    var centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
-    var centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+    var centerX = (area.left + area.right) / 2;
+    var centerY = (area.top + area.bottom) / 2;
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     if (txPieCenterData.label) {
-      // Category selected: show name, amount, %
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.font = '500 11px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText(txPieCenterData.label, centerX, centerY - 18);
@@ -1371,7 +1378,6 @@ var txCenterTextPlugin = {
       ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText(txPieCenterData.pct, centerX, centerY + 19);
     } else {
-      // No category: show total
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.font = '500 11px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText('Total', centerX, centerY - 12);
