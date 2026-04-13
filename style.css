@@ -224,8 +224,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem var(--pad);
-  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding: 0.5rem var(--pad);
+  padding-top: max(0.5rem, env(safe-area-inset-top));
 }
 
 .header-user {
@@ -254,11 +254,11 @@ body {
 }
 
 .header-logo {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
   flex-shrink: 0;
-  opacity: 0.6;
+  opacity: 0.5;
   display: block;
 }
 
@@ -559,10 +559,10 @@ body {
 .bottom-nav {
   display: flex;
   border-top: 1px solid var(--border);
-  padding: 0.4rem 0.35rem;
-  padding-bottom: max(0.4rem, env(safe-area-inset-bottom));
+  padding: 0.25rem 0.5rem;
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
   background: var(--bg);
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 .nav-item {
@@ -570,17 +570,22 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.4rem 0.25rem;
+  gap: 0.1rem;
+  padding: 0.3rem 0.2rem;
   background: none;
   border: none;
   color: var(--text-dim);
-  font-size: var(--text-xs);
+  font-size: 0.625rem;
   font-family: inherit;
   cursor: pointer;
   transition: color 0.2s, background 0.2s;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   min-width: 0;
+}
+
+.nav-item svg {
+  width: 18px;
+  height: 18px;
 }
 
 .nav-item.active {
@@ -793,11 +798,15 @@ body {
    SETTINGS
    ================================ */
 .settings-card {
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  margin-bottom: 0.5rem;
+  background: none;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
   overflow: hidden;
   animation: staggerIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.settings-card:last-child {
+  border-bottom: none;
 }
 
 .settings-card:nth-child(1) { animation-delay: 0s; }
@@ -809,7 +818,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.85rem 1rem;
+  padding: 0.9rem 0;
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
@@ -818,7 +827,7 @@ body {
 .settings-card-title {
   font-size: var(--text-base);
   font-weight: 600;
-  color: #fff;
+  color: var(--text);
 }
 
 .settings-chevron {
@@ -836,7 +845,7 @@ body {
 }
 
 .settings-card-body {
-  padding: 0 1rem 0.75rem;
+  padding: 0 0 0.75rem;
   transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
   max-height: 1200px;
   opacity: 1;
@@ -857,15 +866,15 @@ body {
 .settings-avatar-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .settings-avatar {
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: var(--bg-elevated);
+  background: var(--bg-card);
   background-size: cover;
   background-position: center;
   flex-shrink: 0;
@@ -975,7 +984,7 @@ body {
 .tab-order-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.25rem;
 }
 
 .tab-order-item {
@@ -1235,10 +1244,10 @@ body {
 }
 
 .settings-institution {
-  background: var(--bg-elevated);
+  background: var(--bg-card);
   border-radius: var(--radius-sm);
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.35rem;
 }
 
 .settings-inst-header {
