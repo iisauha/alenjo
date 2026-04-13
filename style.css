@@ -2183,10 +2183,53 @@ body {
 
 .rec-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.rec-row-paused {
+  opacity: 0.4;
+}
+
+.rec-paused-label {
+  font-size: var(--text-xs);
+  color: var(--warning);
+  font-weight: 500;
+  margin-left: 0.3rem;
+}
+
+.rec-varies {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.rec-actions {
+  width: 100%;
+  display: flex;
+  gap: var(--space-xs);
+  padding-top: var(--space-xs);
+}
+
+.rec-action-btn {
+  flex: 1;
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.rec-action-delete {
+  color: var(--danger);
+  border-color: rgba(244, 80, 48, 0.2);
 }
 
 .rec-info {

@@ -1186,7 +1186,7 @@ async function loadTransactions() {
   txContent.hidden = false;
 
   // Load user actions and ignore rules
-  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode');
+  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted');
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
@@ -1807,13 +1807,15 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
 
     if (toggle === 'recurring') {
       if (existing.is_recurring) {
-        // Already recurring: show date picker with existing preferences to edit
-        pendingRecurringGroup = existing.recurring_group || (actionTx.merchant_name || actionTx.name || 'Unknown').toLowerCase().trim();
-        showRecurringDatePicker(existing);
+        // Toggle off: just unmark this single transaction
+        saveMultiAction(actionTxId, { is_recurring: false, recurring_group: null });
         return;
       }
-      // Show recurring picker to match or create new
-      showRecurringPicker();
+      // Create/join recurring group and auto-match all past transactions from same merchant
+      var merchantKey = normalizeMerchant(actionTx.merchant_name || actionTx.name);
+      var groupKey = merchantKey;
+      saveMultiAction(actionTxId, { is_recurring: true, recurring_group: groupKey });
+      autoMatchRecurring(groupKey, merchantKey);
       return;
     }
 
@@ -1924,141 +1926,6 @@ if (splitPortionAmount) splitPortionAmount.addEventListener('keydown', function(
 });
 
 // Recurring picker
-var pendingRecurringGroup = null;
-
-function showRecurringPicker() {
-  $('#tx-action-options').hidden = true;
-  var picker = $('#recurring-picker');
-  picker.hidden = false;
-  var list = $('#recurring-match-list');
-
-  // Find existing recurring groups from txActions
-  var groups = {};
-  txData.forEach(function(tx) {
-    var a = txActions[tx.id];
-    if (!a || !a.is_recurring) return;
-    var groupKey = a.recurring_group || (tx.merchant_name || tx.name || 'Unknown').toLowerCase().trim();
-    if (!groups[groupKey]) {
-      groups[groupKey] = {
-        name: a.nickname || tx.merchant_name || tx.name || 'Unknown',
-        key: groupKey,
-        lastAmount: Math.abs(tx.amount),
-        lastDate: tx.date
-      };
-    }
-    if (tx.date > groups[groupKey].lastDate) {
-      groups[groupKey].lastAmount = Math.abs(tx.amount);
-      groups[groupKey].lastDate = tx.date;
-      if (a.nickname) groups[groupKey].name = a.nickname;
-    }
-  });
-
-  var groupList = Object.values(groups).sort(function(a, b) { return a.name.localeCompare(b.name); });
-
-  if (groupList.length > 0) {
-    list.innerHTML = groupList.map(function(g) {
-      return '<button class="recat-option" data-group="' + esc(g.key) + '">' + esc(g.name) + ' (' + formatMoney(g.lastAmount) + ')</button>';
-    }).join('');
-
-    list.querySelectorAll('.recat-option').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        pendingRecurringGroup = btn.dataset.group;
-        showRecurringDatePicker();
-      });
-    });
-  } else {
-    list.innerHTML = '<p style="font-size:0.75rem;color:var(--text-dim)">No existing recurring items yet</p>';
-  }
-}
-
-$('#recurring-new').addEventListener('click', function() {
-  if (!actionTxId) return;
-  pendingRecurringGroup = (actionTx.merchant_name || actionTx.name || 'Unknown').toLowerCase().trim();
-  showRecurringDatePicker();
-});
-
-var pendingRecurringMode = 'recent';
-
-function showRecurringDatePicker(existing) {
-  $('#recurring-picker').hidden = true;
-  $('#tx-action-options').hidden = true;
-  $('#recurring-date-picker').hidden = false;
-
-  var mode = (existing && existing.recurring_amount_mode) || 'recent';
-  var nextDate = (existing && existing.recurring_next_date) || '';
-  pendingRecurringMode = mode;
-
-  $('#recurring-custom-date').value = nextDate;
-  $('#recurring-remove').hidden = !(existing && existing.is_recurring);
-
-  document.querySelectorAll('.recurring-mode-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.mode === mode);
-  });
-
-  // Check if nextDate matches any preset offset
-  document.querySelectorAll('.recurring-date-btn').forEach(function(b) {
-    b.classList.remove('active');
-    if (nextDate) {
-      var offset = parseInt(b.dataset.offset);
-      var d = new Date();
-      d.setDate(d.getDate() + offset);
-      var presetStr = d.toISOString().split('T')[0];
-      if (presetStr === nextDate) b.classList.add('active');
-    }
-  });
-}
-
-// Amount mode toggle
-document.querySelectorAll('.recurring-mode-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    pendingRecurringMode = btn.dataset.mode;
-    document.querySelectorAll('.recurring-mode-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-  });
-});
-
-// Preset date buttons
-document.querySelectorAll('.recurring-date-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.recurring-date-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    var offset = parseInt(btn.dataset.offset);
-    if (isNaN(offset)) {
-      // Custom button -- show date picker
-      $('#custom-date-wrap').hidden = false;
-      $('#recurring-custom-date').value = '';
-    } else {
-      // Preset -- calculate date, hide custom picker
-      var d = new Date();
-      d.setDate(d.getDate() + offset);
-      $('#recurring-custom-date').value = d.toISOString().split('T')[0];
-      $('#custom-date-wrap').hidden = true;
-    }
-  });
-});
-
-$('#recurring-date-save').addEventListener('click', function() {
-  if (!actionTxId || !pendingRecurringGroup) return;
-  var nextDate = $('#recurring-custom-date').value || null;
-  finishRecurringSave(nextDate);
-});
-
-$('#recurring-date-skip').addEventListener('click', function() {
-  if (!actionTxId || !pendingRecurringGroup) return;
-  finishRecurringSave(null);
-});
-
-$('#recurring-remove').addEventListener('click', function() {
-  if (!actionTxId) return;
-  saveMultiAction(actionTxId, { is_recurring: false, recurring_group: null, recurring_next_date: null, recurring_amount_mode: 'recent' });
-  pendingRecurringGroup = null;
-});
-
-function finishRecurringSave(nextDate) {
-  var updates = { is_recurring: true, recurring_group: pendingRecurringGroup, recurring_next_date: nextDate, recurring_amount_mode: pendingRecurringMode };
-  saveMultiAction(actionTxId, updates);
-  pendingRecurringGroup = null;
-}
 
 // Re-categorize picker
 function showRecatPicker() {
@@ -2123,7 +1990,9 @@ async function saveMultiAction(txId, updates) {
     is_recurring: updates.hasOwnProperty('is_recurring') ? updates.is_recurring : (existing.is_recurring || false),
     recurring_group: updates.hasOwnProperty('recurring_group') ? updates.recurring_group : (existing.recurring_group || null),
     recurring_next_date: updates.hasOwnProperty('recurring_next_date') ? updates.recurring_next_date : (existing.recurring_next_date || null),
-    recurring_amount_mode: updates.hasOwnProperty('recurring_amount_mode') ? updates.recurring_amount_mode : (existing.recurring_amount_mode || 'recent')
+    recurring_amount_mode: updates.hasOwnProperty('recurring_amount_mode') ? updates.recurring_amount_mode : (existing.recurring_amount_mode || 'recent'),
+    recurring_paused: updates.hasOwnProperty('recurring_paused') ? updates.recurring_paused : (existing.recurring_paused || false),
+    recurring_deleted: updates.hasOwnProperty('recurring_deleted') ? updates.recurring_deleted : (existing.recurring_deleted || false)
   };
   var saveResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
   if (saveResult.error) {
@@ -2151,6 +2020,46 @@ async function clearTxAction(txId) {
   delete txActions[txId];
   renderTransactionMonth();
   closeActionSheet();
+}
+
+// ============================================
+// AUTO-MATCH RECURRING
+// ============================================
+async function autoMatchRecurring(groupKey, merchantKey) {
+  var toTag = [];
+  txData.forEach(function(tx) {
+    if (tx.id === actionTxId) return; // already saved above
+    var existing = txActions[tx.id];
+    if (existing && existing.is_recurring) return; // already recurring
+    var txMerchant = normalizeMerchant(tx.merchant_name || tx.name);
+    if (txMerchant === merchantKey) {
+      toTag.push(tx);
+    }
+  });
+  if (toTag.length === 0) return;
+  var rows = toTag.map(function(tx) {
+    var existing = txActions[tx.id] || {};
+    return {
+      user_id: currentUser.id,
+      transaction_id: tx.id,
+      action_type: existing.action_type || null,
+      split_ways: existing.split_ways || null,
+      split_portion: existing.split_portion || null,
+      category_override: existing.category_override || null,
+      nickname: existing.nickname || null,
+      date_override: existing.date_override || null,
+      is_recurring: true,
+      recurring_group: groupKey,
+      recurring_next_date: existing.recurring_next_date || null,
+      recurring_amount_mode: existing.recurring_amount_mode || 'recent',
+      recurring_paused: existing.recurring_paused || false,
+      recurring_deleted: existing.recurring_deleted || false
+    };
+  });
+  await sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' });
+  rows.forEach(function(r) { txActions[r.transaction_id] = r; });
+  showToast(toTag.length + ' past transaction' + (toTag.length > 1 ? 's' : '') + ' matched');
+  renderTransactionMonth();
 }
 
 // ============================================
@@ -2254,7 +2163,7 @@ async function loadRecurring() {
     }
     // Load actions if not loaded
     if (Object.keys(txActions).length === 0) {
-      var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode');
+      var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted');
       if (actionsResult.data) {
         actionsResult.data.forEach(function(row) { txActions[row.transaction_id] = row; });
       }
@@ -2293,31 +2202,40 @@ function renderRecurring() {
   var recurringItems = [];
   Object.keys(groups).forEach(function(key) {
     var group = groups[key];
-    // Sort by date descending to get most recent
     group.txs.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
     var mostRecent = group.txs[0];
     var action = txActions[mostRecent.id] || {};
     var eff = getEffectiveTx(mostRecent);
     var displayName = eff.nickname || mostRecent.merchant_name || mostRecent.name || 'Unknown';
     var isIncome = mostRecent.amount < 0;
-    var amountMode = action.recurring_amount_mode || 'recent';
-    var amount;
-    var isEstimate = false;
+    var isPaused = action.recurring_paused || false;
+    var isDeleted = action.recurring_deleted || false;
+
+    // Skip deleted groups
+    if (isDeleted) return;
 
     function getSplitAmount(t) {
       var a = txActions[t.id];
       var raw = Math.abs(t.amount);
-      return (a && a.split_ways > 1) ? raw / a.split_ways : raw;
+      if (a && a.split_portion > 0) return parseFloat(a.split_portion);
+      if (a && a.split_ways > 1) return raw / a.split_ways;
+      return raw;
     }
 
-    if (amountMode === 'average' && group.txs.length > 1) {
-      var total = group.txs.reduce(function(s, t) {
-        return s + getSplitAmount(t);
-      }, 0);
-      amount = total / group.txs.length;
-      isEstimate = true;
-    } else {
-      amount = getSplitAmount(mostRecent);
+    // Always use most recent amount as primary
+    var amount = getSplitAmount(mostRecent);
+
+    // Check if amounts vary significantly
+    var varies = false;
+    if (group.txs.length >= 2) {
+      var amounts = group.txs.map(getSplitAmount);
+      var median = amounts.slice().sort(function(a, b) { return a - b; })[Math.floor(amounts.length / 2)];
+      var maxDev = Math.max.apply(null, amounts.map(function(a) { return Math.abs(a - median) / median; }));
+      varies = maxDev > 0.15;
+      // If most recent is an outlier, show median instead
+      if (Math.abs(amount - median) / median > 1) {
+        amount = median;
+      }
     }
 
     // Compute next expected date from purchase history
@@ -2327,7 +2245,6 @@ function renderRecurring() {
       var lp = lastDateStr.split('-');
       var lastD = new Date(parseInt(lp[0]), parseInt(lp[1]) - 1, parseInt(lp[2]));
       if (group.txs.length >= 2) {
-        // Calculate average interval from transaction history
         var dates = group.txs.map(function(t) {
           var dp = t.date.split('-');
           return new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2])).getTime();
@@ -2337,21 +2254,21 @@ function renderRecurring() {
           totalGap += dates[di] - dates[di - 1];
         }
         var avgInterval = Math.round(totalGap / (dates.length - 1) / 86400000);
-        if (avgInterval < 7) avgInterval = 30; // floor at weekly
-        var nextMs = lastD.getTime() + avgInterval * 86400000;
-        computedNext = new Date(nextMs);
+        if (avgInterval < 7) avgInterval = 30;
+        computedNext = new Date(lastD.getTime() + avgInterval * 86400000);
       } else {
-        // Single transaction: assume monthly (same day next month)
         computedNext = new Date(lastD.getFullYear(), lastD.getMonth() + 1, lastD.getDate());
       }
     }
 
     recurringItems.push({
+      groupKey: key,
       name: displayName,
       category: normalizeCategory(eff.category),
       amount: amount,
       isIncome: isIncome,
-      isEstimate: isEstimate,
+      varies: varies,
+      isPaused: isPaused,
       lastDate: lastDateStr,
       nextDate: computedNext,
       count: group.txs.length,
@@ -2375,8 +2292,8 @@ function renderRecurring() {
   incomeItems.sort(function(a, b) { return b.amount - a.amount; });
   expenseItems.sort(function(a, b) { return b.amount - a.amount; });
 
-  var totalIncome = incomeItems.reduce(function(s, i) { return s + i.amount; }, 0);
-  var totalExpenses = expenseItems.reduce(function(s, i) { return s + i.amount; }, 0);
+  var totalIncome = incomeItems.filter(function(i) { return !i.isPaused; }).reduce(function(s, i) { return s + i.amount; }, 0);
+  var totalExpenses = expenseItems.filter(function(i) { return !i.isPaused; }).reduce(function(s, i) { return s + i.amount; }, 0);
 
   if (summaryEl) {
     summaryEl.innerHTML = '<div class="tx-month-summary">' +
@@ -2401,31 +2318,36 @@ function renderRecurring() {
 }
 
 function renderRecurringRow(item, isIncome) {
-  var splitLabel = item.isSplit ? ' (' + (item.splitWays ? item.splitWays + '-way split' : 'Split') + ')' : '';
+  var splitLabel = item.isSplit ? ' (split)' : '';
+  var variesLabel = item.varies ? ' <span class="rec-varies">varies</span>' : '';
+  var pausedLabel = item.isPaused ? ' <span class="rec-paused-label">Paused</span>' : '';
   var nextLabel = '';
-  if (item.nextDate) {
+  if (item.nextDate && !item.isPaused) {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var next = item.nextDate;
+    var next = new Date(item.nextDate.getTime());
     next.setHours(0, 0, 0, 0);
     var diffDays = Math.round((next - today) / 86400000);
-    if (diffDays < 0) nextLabel = '<span class="rec-overdue">Overdue by ' + Math.abs(diffDays) + 'd</span>';
+    if (diffDays < 0) nextLabel = '<span class="rec-overdue">Overdue ' + Math.abs(diffDays) + 'd</span>';
     else if (diffDays === 0) nextLabel = '<span class="rec-due-soon">Due today</span>';
-    else if (diffDays <= 3) nextLabel = '<span class="rec-due-soon">Due in ' + diffDays + 'd</span>';
-    else if (diffDays <= 7) nextLabel = '<span class="rec-due-soon">Due in ' + diffDays + 'd</span>';
-    else nextLabel = '<span class="rec-expected">' + diffDays + 'd until next</span>';
+    else if (diffDays <= 7) nextLabel = '<span class="rec-due-soon">' + diffDays + 'd</span>';
+    else nextLabel = '<span class="rec-expected">' + diffDays + 'd</span>';
   }
-  return '<div class="rec-row">' +
+  var rowClass = 'rec-row' + (item.isPaused ? ' rec-row-paused' : '');
+  return '<div class="' + rowClass + '" data-group="' + esc(item.groupKey) + '">' +
     '<div class="rec-info">' +
-      '<span class="rec-merchant">' + esc(item.name) + '</span>' +
-      '<span class="rec-freq">' + esc(item.category) + splitLabel + '</span>' +
-      (nextLabel ? nextLabel : '') +
+      '<span class="rec-merchant">' + esc(item.name) + splitLabel + pausedLabel + '</span>' +
+      '<span class="rec-freq">' + esc(item.category) + variesLabel + '</span>' +
     '</div>' +
     '<div class="rec-right">' +
       '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
-        (item.isEstimate ? '~' : '') + (isIncome ? '+' : '-') + formatMoney(item.amount) +
+        (item.varies ? '~' : '') + (isIncome ? '+' : '-') + formatMoney(item.amount) +
       '</span>' +
-      '<span class="rec-avg">' + (item.isEstimate ? 'avg/mo' : '/mo') + '</span>' +
+      (nextLabel ? nextLabel : '<span class="rec-avg">/mo</span>') +
+    '</div>' +
+    '<div class="rec-actions" hidden>' +
+      '<button class="rec-action-btn" data-action="' + (item.isPaused ? 'resume' : 'pause') + '">' + (item.isPaused ? 'Resume' : 'Pause') + '</button>' +
+      '<button class="rec-action-btn rec-action-delete" data-action="delete">Delete</button>' +
     '</div>' +
   '</div>';
 }
@@ -2443,6 +2365,69 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
     loadRecurring();
   }
 });
+
+// Recurring row tap to expand actions
+document.addEventListener('click', function(e) {
+  var row = e.target.closest('.rec-row');
+  if (!row) return;
+
+  // Handle action button clicks
+  var actionBtn = e.target.closest('.rec-action-btn');
+  if (actionBtn) {
+    var action = actionBtn.dataset.action;
+    var groupKey = row.dataset.group;
+    handleRecurringAction(action, groupKey);
+    return;
+  }
+
+  // Toggle action visibility
+  var actions = row.querySelector('.rec-actions');
+  if (!actions) return;
+  var wasHidden = actions.hidden;
+  // Close all others first
+  document.querySelectorAll('.rec-actions').forEach(function(a) { a.hidden = true; });
+  actions.hidden = !wasHidden;
+});
+
+async function handleRecurringAction(action, groupKey) {
+  var txIds = [];
+  txData.forEach(function(tx) {
+    var a = txActions[tx.id];
+    if (a && a.is_recurring && a.recurring_group === groupKey) {
+      txIds.push(tx.id);
+    }
+  });
+  if (txIds.length === 0) return;
+
+  if (action === 'pause' || action === 'resume') {
+    var isPausing = action === 'pause';
+    var rows = txIds.map(function(id) {
+      var existing = txActions[id] || {};
+      return Object.assign({}, existing, {
+        user_id: currentUser.id,
+        transaction_id: id,
+        recurring_paused: isPausing
+      });
+    });
+    await sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' });
+    rows.forEach(function(r) { txActions[r.transaction_id] = r; });
+    showToast(isPausing ? 'Paused' : 'Resumed');
+    renderRecurring();
+  } else if (action === 'delete') {
+    // Mark as deleted on the most recent transaction (preserves past data)
+    var mostRecentId = txIds[0]; // txs are sorted desc by date
+    var existing = txActions[mostRecentId] || {};
+    var row = Object.assign({}, existing, {
+      user_id: currentUser.id,
+      transaction_id: mostRecentId,
+      recurring_deleted: true
+    });
+    await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
+    txActions[mostRecentId] = row;
+    showToast('Recurring deleted');
+    renderRecurring();
+  }
+}
 
 // ============================================
 // AI CHAT (inline on Snapshot)
