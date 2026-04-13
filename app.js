@@ -67,7 +67,7 @@ sb.auth.signOut().then(function() {
     if (event === 'SIGNED_IN' && session && session.user) {
       currentUser = session.user;
       Promise.all([loadProfile(), loadAccounts()]).then(function() {
-        return Promise.all([loadTransactions(), loadRecurring()]);
+        return loadTransactions();
       }).catch(function(e) {
         console.error('Init error:', e);
       }).then(function() {
@@ -89,6 +89,7 @@ function showScreen(name) {
   if (name === 'app') {
     var savedTab = localStorage.getItem('alenjo_active_tab');
     if (savedTab === 'investments') savedTab = 'snapshot';
+    if (savedTab === 'recurring') savedTab = 'transactions';
     if (savedTab) switchTab(savedTab);
   }
 }
@@ -148,7 +149,7 @@ function applyTabOrder() {
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
   // Remove old tabs that no longer exist
-  var validTabs = ['snapshot', 'transactions', 'recurring', 'settings'];
+  var validTabs = ['snapshot', 'transactions', 'settings'];
   order = order.filter(function(t) { return validTabs.indexOf(t) !== -1; });
   // Ensure all valid tabs are present
   validTabs.forEach(function(t) {
@@ -206,8 +207,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'recurring', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'recurring' || t === 'settings'; });
-  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', recurring: 'Recurring', settings: 'Settings' };
+  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'settings']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'settings'; });
+  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', settings: 'Settings' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +
@@ -1732,7 +1733,6 @@ function openActionSheet(tx) {
   if (action.action_type === 'reimbursed') statusParts.push('Reimbursed');
   if (action.split_portion > 0) statusParts.push('Split (your portion: ' + formatMoney(parseFloat(action.split_portion)) + ')');
   else if (action.split_ways > 1) statusParts.push(action.split_ways + '-way split');
-  if (action.is_recurring) statusParts.push('Recurring');
   if (action.category_override) statusParts.push('Re-categorized');
 
   var statusEl = $('#tx-action-status');
@@ -1746,7 +1746,6 @@ function openActionSheet(tx) {
     var t = btn.dataset.toggle;
     var isActive = false;
     if (t === 'split') isActive = action.split_ways > 1;
-    else if (t === 'recurring') isActive = !!action.is_recurring;
     else if (t === 'recategorized') isActive = !!action.category_override;
     else if (t === 'reimbursed') isActive = action.action_type === 'reimbursed';
     else if (t === 'ignored') isActive = action.action_type === 'ignored';
@@ -1757,8 +1756,6 @@ function openActionSheet(tx) {
   $('#split-picker').hidden = true;
   $('#recat-picker').hidden = true;
   $('#edit-picker').hidden = true;
-  $('#recurring-picker').hidden = true;
-  $('#recurring-date-picker').hidden = true;
   $('#tx-action-options').hidden = false;
 
   actionSheet.classList.add('visible');
@@ -1802,20 +1799,6 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
       $('#split-preview').textContent = '';
       $('#split-custom-row').hidden = true;
       $('#split-portion-row').hidden = true;
-      return;
-    }
-
-    if (toggle === 'recurring') {
-      if (existing.is_recurring) {
-        // Toggle off: just unmark this single transaction
-        saveMultiAction(actionTxId, { is_recurring: false, recurring_group: null });
-        return;
-      }
-      // Create/join recurring group and auto-match all past transactions from same merchant
-      var merchantKey = normalizeMerchant(actionTx.merchant_name || actionTx.name);
-      var groupKey = merchantKey;
-      saveMultiAction(actionTxId, { is_recurring: true, recurring_group: groupKey });
-      autoMatchRecurring(groupKey, merchantKey);
       return;
     }
 
@@ -2356,14 +2339,6 @@ function renderRecurringRow(item, isIncome) {
 var legendToggle = $('#btn-toggle-legend');
 if (legendToggle) legendToggle.addEventListener('click', function() {
   this.closest('.tx-legend-section').classList.toggle('collapsed');
-});
-
-// Load recurring when switching to that tab
-document.getElementById('bottom-nav').addEventListener('click', function(e) {
-  var btn = e.target.closest('.nav-item');
-  if (btn && btn.dataset.tab === 'recurring') {
-    loadRecurring();
-  }
 });
 
 // Recurring row tap to expand actions
