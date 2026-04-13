@@ -666,18 +666,18 @@ function updateInvestmentTotals(savings, investments) {
   $('#inv-investments-total').className = 'section-total balance-positive';
 }
 
-function renderAccountsSettings() {
+async function renderAccountsSettings() {
   var list = $('#accounts-list');
   if (!cachedAccounts || cachedAccounts.length === 0) {
-    list.innerHTML = '<p style="color:var(--text-dim);font-size:0.75rem">No accounts connected.</p>';
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">No accounts connected.</p>';
     return;
   }
 
-  // Group by plaid_item_id (institution)
+  // Group active accounts by plaid_item_id for disconnect buttons
   var byItem = {};
   cachedAccounts.forEach(function(a) {
     var key = a.plaid_item_id || 'unknown';
-    if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', plaidItemId: a.plaid_item_id_raw || null, allItemIds: a.all_item_ids || [], accounts: [] };
+    if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', accounts: [] };
     byItem[key].accounts.push(a);
   });
 
@@ -694,14 +694,30 @@ function renderAccountsSettings() {
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
     html += '<span class="settings-inst-detail">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ' -- ' + uniqueTypes.join(', ') + '</span>';
-    var ids = group.allItemIds && group.allItemIds.length > 0 ? group.allItemIds : (group.plaidItemId ? [group.plaidItemId] : []);
-    var uniqueIds = ids.filter(function(id, i) { return ids.indexOf(id) === i; });
-    if (uniqueIds.length > 0) html += '<span class="settings-inst-detail" style="opacity:0.5;font-size:var(--text-xs)">' + uniqueIds.map(esc).join('<br>') + '</span>';
     html += '</div>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
     html += '</div>';
   });
+
+  // Load all Plaid item tokens (active + removed)
+  var itemsResult = await sb.rpc('get_user_plaid_item_ids');
+  if (itemsResult.data && itemsResult.data.length > 0) {
+    html += '<div class="settings-tokens-section">';
+    html += '<span class="settings-inst-detail" style="margin-top:0.75rem;display:block;margin-bottom:0.35rem">Plaid Tokens (' + itemsResult.data.length + ')</span>';
+    itemsResult.data.forEach(function(item) {
+      var statusClass = item.status === 'active' ? 'balance-positive' : '';
+      var statusLabel = item.status === 'active' ? 'Active' : 'Removed';
+      html += '<div class="settings-token-row">';
+      html += '<div class="settings-token-info">';
+      html += '<span class="settings-token-id">' + esc(item.item_id) + '</span>';
+      html += '<span class="settings-token-meta">' + esc(item.institution) + ' -- <span class="' + statusClass + '">' + statusLabel + '</span> -- ' + esc(item.created) + '</span>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
   list.innerHTML = html;
 }
 
