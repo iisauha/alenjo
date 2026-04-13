@@ -810,14 +810,9 @@ body {
    ================================ */
 .settings-card {
   background: none;
-  border-bottom: 1px solid var(--border);
   margin-bottom: 0;
   overflow: hidden;
   animation: staggerIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.settings-card:last-child {
-  border-bottom: none;
 }
 
 .settings-card:nth-child(1) { animation-delay: 0s; }

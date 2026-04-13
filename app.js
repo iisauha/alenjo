@@ -755,9 +755,9 @@ async function updateSyncInfo() {
 
   // Conversational intro
   var parts = [];
-  if (bankAccounts.length > 0) parts.push(bankAccounts.length + ' bank');
-  if (creditAccounts.length > 0) parts.push(creditAccounts.length + ' credit card');
-  if (invAccounts.length > 0) parts.push(invAccounts.length + ' investment');
+  if (bankAccounts.length > 0) parts.push(bankAccounts.length + ' bank' + (bankAccounts.length !== 1 ? 's' : ''));
+  if (creditAccounts.length > 0) parts.push(creditAccounts.length + ' credit card' + (creditAccounts.length !== 1 ? 's' : ''));
+  if (invAccounts.length > 0) parts.push(invAccounts.length + ' investment' + (invAccounts.length !== 1 ? 's' : ''));
   html += '<p class="billing-intro">We want to be transparent about what it costs to run your account. You have <strong>' + totalAccounts + ' account' + (totalAccounts !== 1 ? 's' : '') + '</strong> connected' + (parts.length > 0 ? ' (' + parts.join(', ') + ')' : '') + '. We use Plaid to sync your data securely with your bank. Here is exactly what that costs.</p>';
 
   // Explain each product, then show the charge
