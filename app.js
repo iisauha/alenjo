@@ -162,7 +162,7 @@ function applyTabOrder() {
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
   // Remove old tabs that no longer exist
-  var validTabs = ['snapshot', 'transactions'];
+  var validTabs = ['snapshot', 'transactions', 'recurring'];
   order = order.filter(function(t) { return validTabs.indexOf(t) !== -1; });
   // Ensure all valid tabs are present
   validTabs.forEach(function(t) {
@@ -220,8 +220,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 function renderTabOrder() {
   var list = $('#tab-order-list');
   if (!list || !userProfile) return;
-  var order = (userProfile.tab_order || ['snapshot', 'transactions']).filter(function(t) { return t === 'snapshot' || t === 'transactions'; });
-  var labels = { snapshot: 'Snapshot', transactions: 'Transactions' };
+  var order = (userProfile.tab_order || ['snapshot', 'transactions', 'recurring']).filter(function(t) { return t === 'snapshot' || t === 'transactions' || t === 'recurring'; });
+  var labels = { snapshot: 'Snapshot', transactions: 'Transactions', recurring: 'Recurring' };
 
   list.innerHTML = order.map(function(tab, i) {
     return '<div class="tab-order-item" data-tab="' + tab + '">' +
