@@ -2510,13 +2510,42 @@ var recAddState = {
   anchorDate: ''
 };
 
+var recSelectedMerchants = {}; // key -> match object
+var recLastSearchResults = [];
+
 function openRecAddSheet() {
   recAddState = { name: '', matchingTxs: [], amount: 0, amountMode: 'recent', isIncome: false, frequency: 'monthly', frequencyDays: null, anchorDate: '' };
+  recSelectedMerchants = {};
+  recLastSearchResults = [];
   recSearchInput.value = '';
   recSearchResults.innerHTML = '';
+  updateRecSearchFooter();
   showRecStep('search');
   recAddSheet.classList.add('visible');
   setTimeout(function() { recSearchInput.focus(); }, 300);
+}
+
+function updateRecSearchFooter() {
+  var existing = document.getElementById('rec-search-footer');
+  var count = Object.keys(recSelectedMerchants).length;
+  if (count === 0) {
+    if (existing) existing.remove();
+    return;
+  }
+  if (!existing) {
+    existing = document.createElement('div');
+    existing.id = 'rec-search-footer';
+    existing.className = 'rec-search-footer';
+    recStepSearch.appendChild(existing);
+  }
+  var names = Object.keys(recSelectedMerchants).map(function(k) { return recSelectedMerchants[k].name; });
+  var label = names.length === 1 ? names[0] : names.length + ' selected';
+  existing.innerHTML = '<div class="rec-search-footer-info"><span class="rec-search-footer-label">' + esc(label) + '</span>' +
+    (names.length > 1 ? '<span class="rec-search-footer-names">' + names.map(esc).join(', ') + '</span>' : '') +
+    '</div><button class="btn-primary-sm" id="rec-search-continue">Continue</button>';
+  $('#rec-search-continue').addEventListener('click', function() {
+    proceedWithSelectedMerchants();
+  });
 }
 
 function closeRecAddSheet() {
@@ -2587,53 +2616,113 @@ recSearchInput.addEventListener('input', function() {
     // Limit to 20
     results = results.slice(0, 20);
 
-    recSearchResults.innerHTML = results.map(function(r) {
-      return '<button class="rec-search-item" data-key="' + esc(r.key) + '">' +
-        '<div class="rec-search-item-info">' +
-          '<span class="rec-search-item-name">' + esc(r.name) + '</span>' +
-          '<span class="rec-search-item-meta">' + r.count + ' transaction' + (r.count === 1 ? '' : 's') + '</span>' +
-        '</div>' +
-        '<span class="rec-search-item-amount">' + formatMoney(r.recentAmount) + '</span>' +
-      '</button>';
-    }).join('');
+    recLastSearchResults = results;
+    renderRecSearchItems(results);
 
     if (results.length === 0) {
       recSearchResults.innerHTML = '<div class="rec-search-empty">No matching transactions</div>';
     }
-
-    // Attach click handlers -- show transaction detail for this merchant
-    recSearchResults.querySelectorAll('.rec-search-item').forEach(function(item) {
-      item.addEventListener('click', function() {
-        var key = item.dataset.key;
-        var match = results.find(function(r) { return r.key === key; });
-        if (match) showMerchantTxDetail(match);
-      });
-    });
   }, 150);
 });
 
+function renderRecSearchItems(results) {
+  recSearchResults.innerHTML = results.map(function(r) {
+    var isSelected = !!recSelectedMerchants[r.key];
+    return '<button class="rec-search-item' + (isSelected ? ' rec-search-item-selected' : '') + '" data-key="' + esc(r.key) + '">' +
+      '<div class="rec-search-item-check">' + (isSelected ? '<span class="rec-check-on"></span>' : '<span class="rec-check-off"></span>') + '</div>' +
+      '<div class="rec-search-item-info">' +
+        '<span class="rec-search-item-name">' + esc(r.name) + '</span>' +
+        '<span class="rec-search-item-meta">' + r.count + ' transaction' + (r.count === 1 ? '' : 's') + '</span>' +
+      '</div>' +
+      '<span class="rec-search-item-amount">' + formatMoney(r.recentAmount) + '</span>' +
+    '</button>';
+  }).join('');
+
+  // Toggle selection on click
+  recSearchResults.querySelectorAll('.rec-search-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      var key = item.dataset.key;
+      if (recSelectedMerchants[key]) {
+        delete recSelectedMerchants[key];
+      } else {
+        var match = results.find(function(r) { return r.key === key; });
+        if (match) recSelectedMerchants[key] = match;
+      }
+      renderRecSearchItems(results);
+      updateRecSearchFooter();
+    });
+  });
+}
+
+function proceedWithSelectedMerchants() {
+  var keys = Object.keys(recSelectedMerchants);
+  if (keys.length === 0) return;
+
+  // Combine all selected merchants into one match
+  var allTxs = [];
+  var allAmounts = [];
+  var names = [];
+  var isIncome = false;
+
+  keys.forEach(function(key) {
+    var m = recSelectedMerchants[key];
+    allTxs = allTxs.concat(m.txs);
+    allAmounts = allAmounts.concat(m.amounts);
+    names.push(m.name);
+    if (m.isIncome) isIncome = true;
+  });
+
+  // Sort transactions by date desc
+  allTxs.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
+
+  // Use first selected name as primary, user can edit later
+  var primaryName = names[0];
+
+  // Show combined transaction detail
+  var combined = {
+    key: keys.join('+'),
+    name: primaryName,
+    names: names,
+    count: allTxs.length,
+    recentAmount: allAmounts[0],
+    isIncome: isIncome,
+    txs: allTxs,
+    amounts: allAmounts.map(function(a) { return Math.abs(a); })
+  };
+
+  showMerchantTxDetail(combined);
+}
+
 function showMerchantTxDetail(match) {
-  // Show all transactions for this merchant so user can review before adding
-  var txs = match.txs.slice(0, 15); // cap at 15 most recent
+  var txs = match.txs.slice(0, 20);
   var html = '<div class="rec-tx-detail">';
   html += '<div class="rec-tx-detail-header">';
   html += '<button class="rec-tx-detail-back" id="rec-tx-back">&larr;</button>';
-  html += '<span class="rec-tx-detail-name">' + esc(match.name) + '</span>';
+  if (match.names && match.names.length > 1) {
+    html += '<span class="rec-tx-detail-name">' + match.names.map(esc).join(', ') + '</span>';
+  } else {
+    html += '<span class="rec-tx-detail-name">' + esc(match.name) + '</span>';
+  }
   html += '</div>';
   html += '<div class="rec-tx-detail-summary">' + match.txs.length + ' transaction' + (match.txs.length === 1 ? '' : 's') + ' found</div>';
   html += '<div class="rec-tx-detail-list">';
   txs.forEach(function(tx) {
     var d = parseLocalDate(tx.date);
     var dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    var merchantName = tx.merchant_name || tx.enriched_merchant_name || tx.name || '';
     var amt = Math.abs(tx.amount);
     var isIncome = tx.amount < 0;
     html += '<div class="rec-tx-detail-item">';
-    html += '<span class="rec-tx-detail-date">' + dateStr + '</span>';
+    html += '<div class="rec-tx-detail-item-left"><span class="rec-tx-detail-date">' + dateStr + '</span>';
+    if (match.names && match.names.length > 1) {
+      html += '<span class="rec-tx-detail-merchant">' + esc(merchantName) + '</span>';
+    }
+    html += '</div>';
     html += '<span class="rec-tx-detail-amt ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' + (isIncome ? '+' : '-') + formatMoney(amt) + '</span>';
     html += '</div>';
   });
-  if (match.txs.length > 15) {
-    html += '<div class="rec-tx-detail-more">and ' + (match.txs.length - 15) + ' more</div>';
+  if (match.txs.length > 20) {
+    html += '<div class="rec-tx-detail-more">and ' + (match.txs.length - 20) + ' more</div>';
   }
   html += '</div>';
   html += '<button class="btn-primary" id="rec-tx-select" style="width:100%;margin-top:0.75rem">Use This</button>';
@@ -2642,8 +2731,8 @@ function showMerchantTxDetail(match) {
   recSearchResults.innerHTML = html;
 
   $('#rec-tx-back').addEventListener('click', function() {
-    // Re-trigger search to go back to results
-    recSearchInput.dispatchEvent(new Event('input'));
+    renderRecSearchItems(recLastSearchResults);
+    updateRecSearchFooter();
   });
 
   $('#rec-tx-select').addEventListener('click', function() {
