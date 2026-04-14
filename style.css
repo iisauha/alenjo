@@ -127,7 +127,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: var(--text-base);
+  font-size: 16px;
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
