@@ -645,7 +645,17 @@ function renderAccounts(accounts) {
     if (venmoPending > 0) availableCash += venmoPending;
 
     var netWorth = bankSum - creditSum + savingsSum + investSum + venmoPending;
-    cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum, venmoPending: venmoPending };
+    // Store individual account details for projection suggestions
+    var suggestionAccounts = [];
+    savings.forEach(function(a) {
+      var bal = getDisplayBalance(a, 'bank').amount;
+      if (bal > 0) suggestionAccounts.push({ name: a.nickname || a.name || 'Savings', institution: a.institution || '', amount: bal, type: 'savings' });
+    });
+    investments.forEach(function(a) {
+      var bal = getDisplayBalance(a, 'bank').amount;
+      if (bal > 0) suggestionAccounts.push({ name: a.nickname || a.name || 'Investment', institution: a.institution || '', amount: bal, type: 'investment' });
+    });
+    cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum, venmoPending: venmoPending, suggestionAccounts: suggestionAccounts };
     netCashEl.hidden = false;
 
     var availEl = $('#available-value');
@@ -2386,48 +2396,38 @@ function renderRecurringBills() {
     // Budget projection
     var availCash = cachedBalances.available;
     var surplus = availCash + totalIncome - totalExpenses;
+    var availLabel = (availCash < 0 ? '-' : '') + formatMoney(Math.abs(availCash));
 
     if (totalExpenses > 0 || totalIncome > 0) {
       if (surplus < 0) {
         var needed = Math.abs(surplus);
         summaryHtml += '<div class="rec-projection rec-projection-warn">';
-        summaryHtml += '<div class="rec-projection-title">May need additional funds</div>';
+        summaryHtml += '<div class="rec-projection-header"><span class="rec-projection-title">May need additional funds</span><span class="rec-projection-shortfall">~' + formatMoney(needed) + '</span></div>';
         summaryHtml += '<div class="rec-projection-body">';
-        if (availCash < 0) {
-          summaryHtml += 'Your checking is ' + formatMoney(Math.abs(availCash)) + ' overdrawn.';
-        } else {
-          summaryHtml += 'You have ' + formatMoney(availCash) + ' available.';
-        }
-        if (totalIncome > 0) summaryHtml += ' With ' + formatMoney(totalIncome) + ' in expected income';
-        summaryHtml += ', your ' + formatMoney(totalExpenses) + ' in expenses over the next ' + horizonLabel + ' may not be fully covered.</div>';
+        summaryHtml += 'You currently have ' + availLabel + ' available.';
+        if (totalIncome > 0) summaryHtml += ' With ' + formatMoney(totalIncome) + ' in expected income,';
+        summaryHtml += ' your ' + formatMoney(totalExpenses) + ' in expenses over the next ' + horizonLabel + ' may not be fully covered.</div>';
 
-        summaryHtml += '<div class="rec-projection-shortfall">~' + formatMoney(needed) + ' needed</div>';
-
-        var suggestions = [];
-        if (cachedBalances.savings > 0) suggestions.push({ name: 'Savings', amount: cachedBalances.savings });
-        if (cachedBalances.investments > 0) suggestions.push({ name: 'Investments', amount: cachedBalances.investments });
-
+        var suggestions = cachedBalances.suggestionAccounts || [];
         if (suggestions.length > 0) {
-          summaryHtml += '<div class="rec-projection-suggest">Consider transferring from:</div>';
+          summaryHtml += '<div class="rec-projection-suggest">Consider transferring from</div>';
           summaryHtml += '<div class="rec-projection-accounts">';
           suggestions.forEach(function(s) {
-            summaryHtml += '<div class="rec-projection-account"><span>' + s.name + '</span><span class="balance-positive">' + formatMoney(s.amount) + '</span></div>';
+            var instLabel = s.institution ? '<span class="rec-projection-inst">' + esc(s.institution) + '</span>' : '';
+            summaryHtml += '<div class="rec-projection-account"><div class="rec-projection-account-info"><span class="rec-projection-account-name">' + esc(s.name) + '</span>' + instLabel + '</div><span class="balance-positive">' + formatMoney(s.amount) + '</span></div>';
           });
           summaryHtml += '</div>';
         }
         summaryHtml += '</div>';
       } else {
         summaryHtml += '<div class="rec-projection rec-projection-ok">';
-        summaryHtml += '<div class="rec-projection-title">On track</div>';
+        summaryHtml += '<div class="rec-projection-header"><span class="rec-projection-title">On track</span>';
+        if (surplus > 0) summaryHtml += '<span class="rec-projection-surplus">+' + formatMoney(surplus) + '</span>';
+        summaryHtml += '</div>';
         summaryHtml += '<div class="rec-projection-body">';
-        if (availCash < 0) {
-          summaryHtml += 'Your checking is ' + formatMoney(Math.abs(availCash)) + ' overdrawn, but';
-        } else {
-          summaryHtml += 'You have ' + formatMoney(availCash) + ' available';
-        }
+        summaryHtml += 'You currently have ' + availLabel + ' available';
         if (totalIncome > 0) summaryHtml += ' with ' + formatMoney(totalIncome) + ' in expected income';
-        summaryHtml += ' -- enough to cover your ' + formatMoney(totalExpenses) + ' in expenses over the next ' + horizonLabel + '.';
-        if (surplus > 0) summaryHtml += ' About ' + formatMoney(surplus) + ' remaining after.';
+        summaryHtml += ' -- enough to cover ' + formatMoney(totalExpenses) + ' in expenses over the next ' + horizonLabel + '.';
         summaryHtml += '</div>';
         summaryHtml += '</div>';
       }
