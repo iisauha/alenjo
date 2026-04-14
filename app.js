@@ -2468,12 +2468,14 @@ function openRecDetailSheet(billId) {
   if (days <= 0) {
     actionsHtml += '<button class="btn-primary" id="rec-detail-confirm" style="width:100%;margin-bottom:0.5rem">Confirm Paid</button>';
   }
+  actionsHtml += '<button class="btn-secondary" id="rec-detail-edit" style="width:100%;margin-bottom:0.5rem">Edit</button>';
   actionsHtml += '<button class="btn-danger" id="rec-detail-delete" style="width:100%">Delete</button>';
   actionsEl.innerHTML = actionsHtml;
 
   // Bind actions
   var confirmBtn = $('#rec-detail-confirm');
   if (confirmBtn) confirmBtn.addEventListener('click', function() { confirmBillAndClose(billId); });
+  $('#rec-detail-edit').addEventListener('click', function() { editBill(billId); });
   $('#rec-detail-delete').addEventListener('click', function() { deleteBillAndClose(billId); });
 
   recDetailSheet.classList.add('visible');
@@ -2487,6 +2489,52 @@ $('#rec-detail-cancel').addEventListener('click', closeRecDetailSheet);
 recDetailSheet.addEventListener('click', function(e) {
   if (e.target === recDetailSheet) closeRecDetailSheet();
 });
+
+var recEditingBillId = null;
+
+function editBill(billId) {
+  var bill = recBills.find(function(b) { return b.id === billId; });
+  if (!bill) return;
+
+  recEditingBillId = billId;
+  closeRecDetailSheet();
+
+  // Open add sheet in edit mode, pre-populated
+  recAddState = {
+    name: bill.name,
+    matchingTxs: [],
+    amount: parseFloat(bill.amount),
+    amountMode: 'custom',
+    isIncome: bill.is_income,
+    frequency: bill.frequency,
+    frequencyDays: bill.frequency_days,
+    anchorDate: bill.next_due_date
+  };
+
+  recSelectedMerchants = {};
+  recSearchInput.value = '';
+  recSearchResults.innerHTML = '';
+
+  // Go straight to the search step so they can search for new merchants or proceed
+  // Show current bill info with option to search more
+  recSearchResults.innerHTML = '<div class="rec-edit-current">' +
+    '<div class="rec-edit-current-header">Currently: <strong>' + esc(bill.name) + '</strong></div>' +
+    '<div class="rec-edit-current-detail">' + formatMoney(bill.amount) + ' / ' + getFrequencyLabel(bill.frequency, bill.frequency_days) + '</div>' +
+    '<p class="rec-edit-hint">Search to add more merchants, or skip to edit amount and frequency.</p>' +
+    '<button class="btn-primary-sm" id="rec-edit-skip" style="margin-top:0.5rem">Skip to Amount</button>' +
+  '</div>';
+
+  updateRecSearchFooter();
+  showRecStep('search');
+  recAddSheet.classList.add('visible');
+
+  $('#rec-edit-skip').addEventListener('click', function() {
+    // Go to amount step with current values
+    var amounts = [parseFloat(bill.amount)];
+    var match = { name: bill.name, amounts: amounts, txs: [], isIncome: bill.is_income };
+    selectRecTransaction(match);
+  });
+}
 
 // ============================================
 // RECURRING ADD FLOW
@@ -2514,6 +2562,7 @@ var recSelectedMerchants = {}; // key -> match object
 var recLastSearchResults = [];
 
 function openRecAddSheet() {
+  recEditingBillId = null;
   recAddState = { name: '', matchingTxs: [], amount: 0, amountMode: 'recent', isIncome: false, frequency: 'monthly', frequencyDays: null, anchorDate: '' };
   recSelectedMerchants = {};
   recLastSearchResults = [];
@@ -2597,17 +2646,18 @@ recSearchInput.addEventListener('input', function() {
       if (!matchesName && !matchesAmount) return;
 
       if (!merchants[key]) {
-        merchants[key] = { name: name, amounts: [], txs: [], isIncome: tx.amount < 0 };
+        merchants[key] = { name: name, txs: [], isIncome: tx.amount < 0 };
       }
-      merchants[key].amounts.push(Math.abs(tx.amount));
       merchants[key].txs.push(tx);
     });
 
     // Build result list
     var results = Object.keys(merchants).map(function(key) {
       var m = merchants[key];
-      var recent = m.amounts[0];
-      return { key: key, name: m.name, count: m.txs.length, recentAmount: recent, isIncome: m.isIncome, txs: m.txs, amounts: m.amounts };
+      // Sort txs by date descending so most recent is first
+      m.txs.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
+      var amounts = m.txs.map(function(t) { return Math.abs(t.amount); });
+      return { key: key, name: m.name, count: m.txs.length, recentAmount: amounts[0], isIncome: m.isIncome, txs: m.txs, amounts: amounts };
     });
 
     // Sort by transaction count (most frequent first)
@@ -2660,14 +2710,12 @@ function proceedWithSelectedMerchants() {
 
   // Combine all selected merchants into one match
   var allTxs = [];
-  var allAmounts = [];
   var names = [];
   var isIncome = false;
 
   keys.forEach(function(key) {
     var m = recSelectedMerchants[key];
     allTxs = allTxs.concat(m.txs);
-    allAmounts = allAmounts.concat(m.amounts);
     names.push(m.name);
     if (m.isIncome) isIncome = true;
   });
@@ -2675,10 +2723,11 @@ function proceedWithSelectedMerchants() {
   // Sort transactions by date desc
   allTxs.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
 
-  // Use first selected name as primary, user can edit later
+  // Recompute amounts from sorted transactions
+  var allAmounts = allTxs.map(function(t) { return Math.abs(t.amount); });
+
   var primaryName = names[0];
 
-  // Show combined transaction detail
   var combined = {
     key: keys.join('+'),
     name: primaryName,
@@ -2687,7 +2736,7 @@ function proceedWithSelectedMerchants() {
     recentAmount: allAmounts[0],
     isIncome: isIncome,
     txs: allTxs,
-    amounts: allAmounts.map(function(a) { return Math.abs(a); })
+    amounts: allAmounts
   };
 
   showMerchantTxDetail(combined);
@@ -2892,7 +2941,6 @@ $('#rec-freq-save').addEventListener('click', async function() {
   var nextDue = computeNextDueDate(recAddState.anchorDate, recAddState.frequency, recAddState.frequencyDays, null);
 
   var row = {
-    user_id: currentUser.id,
     name: recAddState.name,
     amount: Math.round(recAddState.amount * 100) / 100,
     is_income: recAddState.isIncome,
@@ -2902,12 +2950,25 @@ $('#rec-freq-save').addEventListener('click', async function() {
     next_due_date: nextDue
   };
 
-  var result = await sb.from('recurring_bills').insert(row).select();
-  if (result.data && result.data[0]) {
-    recBills.push(result.data[0]);
+  if (recEditingBillId) {
+    // Update existing bill
+    var updateResult = await sb.from('recurring_bills').update(row).eq('id', recEditingBillId).select();
+    if (updateResult.data && updateResult.data[0]) {
+      var idx = recBills.findIndex(function(b) { return b.id === recEditingBillId; });
+      if (idx !== -1) recBills[idx] = updateResult.data[0];
+    }
+    recEditingBillId = null;
+    showToast('Bill updated');
+  } else {
+    // Insert new bill
+    row.user_id = currentUser.id;
+    var result = await sb.from('recurring_bills').insert(row).select();
+    if (result.data && result.data[0]) {
+      recBills.push(result.data[0]);
+    }
+    showToast('Recurring bill added');
   }
 
-  showToast('Recurring bill added');
   closeRecAddSheet();
   renderRecurringBills();
 });

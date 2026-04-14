@@ -2523,6 +2523,13 @@ body {
   margin: 0;
 }
 
+.rec-date-input {
+  max-width: 100%;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .rec-selected-amount {
   margin-top: 0.75rem;
   font-size: var(--text-sm);
@@ -2722,6 +2729,31 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.rec-edit-current {
+  padding: 0.75rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.5rem;
+}
+
+.rec-edit-current-header {
+  font-size: var(--text-base);
+  margin-bottom: 0.2rem;
+}
+
+.rec-edit-current-detail {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-edit-hint {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-top: 0.5rem;
+  line-height: 1.5;
 }
 
 .rec-search-footer-names {
