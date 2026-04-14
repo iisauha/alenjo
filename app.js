@@ -299,7 +299,7 @@ async function openPlaidLink(products) {
     var data = await res.json();
 
     if (!res.ok || !data.link_token) {
-      showError('Could not connect to your bank. ' + (data.detail || data.error || 'Please try again.'));
+      showError('Could not connect to your bank. ' + (data.detail || data.error || 'Check your connection and try again.'));
       showLoading(false);
       return;
     }
@@ -348,14 +348,14 @@ async function openPlaidLink(products) {
       onExit: function(err) {
         showLoading(false);
         if (err) {
-          showError('Connection failed: ' + (err.display_message || err.error_message || 'Please try again'));
+          showError('Connection failed: ' + (err.display_message || err.error_message || 'Check your connection and try again.'));
         }
       }
     });
 
     handler.open();
   } catch (err) {
-    showError('Connection error: ' + err.message);
+    showError('Could not reach your bank. ' + err.message);
     showLoading(false);
   }
 }
@@ -387,7 +387,7 @@ async function grantInvestmentConsent() {
     });
     var data = await res.json();
     if (!res.ok || !data.link_token) {
-      showError('Could not start the consent process. ' + (data.detail || data.error || 'Please try again.'));
+      showError('Could not update account permissions. ' + (data.detail || data.error || 'Check your connection and try again.'));
       showLoading(false);
       return;
     }
@@ -401,7 +401,7 @@ async function grantInvestmentConsent() {
     });
     handler.open();
   } catch (err) {
-    showError('Consent error: ' + err.message);
+    showError('Could not update account permissions. ' + err.message);
     showLoading(false);
   }
 }
@@ -723,7 +723,7 @@ document.addEventListener('click', async function(e) {
   var group = cachedAccounts.filter(function(a) { return a.plaid_item_id === itemId; });
   var instName = group.length > 0 ? (group[0].institution || 'this institution') : 'this institution';
   var acctCount = group.length;
-  if (!confirm('Disconnect ' + instName + '? This removes all ' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ' from Plaid and deletes their data.')) return;
+  if (!confirm('Disconnect ' + instName + '? This will remove ' + (acctCount === 1 ? 'this account' : 'all ' + acctCount + ' accounts') + ' and delete their transaction history.')) return;
   btn.disabled = true;
   btn.textContent = '...';
   try {
@@ -745,11 +745,11 @@ document.addEventListener('click', async function(e) {
       cachedLiabilities = null;
       renderAccounts(cachedAccounts);
     } else {
-      btn.textContent = 'Error';
+      btn.textContent = 'Failed';
       btn.disabled = false;
     }
   } catch (err) {
-    btn.textContent = 'Error';
+    btn.textContent = 'Failed';
     btn.disabled = false;
   }
 });
@@ -998,7 +998,7 @@ function accountCard(account, type) {
 
     if (details) liabHtml += details;
     if (!liab && !details) {
-      liabHtml += '<div class="liab-detail liab-unavailable"><span>Card details not available from this institution</span></div>';
+      liabHtml += '<div class="liab-detail liab-unavailable"><span>Your bank doesn\'t share card details. Tap to add them manually.</span></div>';
     }
 
     liabHtml += '</div>';
@@ -1216,7 +1216,7 @@ async function loadTransactions() {
     }
     txEmpty.hidden = false;
     txContent.hidden = true;
-    txEmpty.querySelector('p').textContent = 'No transactions found. Your bank may take a few minutes to sync.';
+    txEmpty.querySelector('p').textContent = 'No transactions yet. Your bank may take a few minutes to send data after connecting.';
     return;
   }
 
@@ -2138,12 +2138,12 @@ function showIgnoreSuggestion(merchantKey, displayName, count) {
   banner.className = 'ignore-suggestion';
   banner.innerHTML =
     '<div class="ignore-suggestion-text">' +
-      '<strong>Auto-ignore ' + esc(displayName) + '?</strong>' +
-      '<span>You\'ve ignored ' + count + ' transactions from this merchant</span>' +
+      '<strong>Always ignore ' + esc(displayName) + '?</strong>' +
+      '<span>You\'ve ignored ' + count + ' transactions from this merchant. Future ones will be ignored automatically.</span>' +
     '</div>' +
     '<div class="ignore-suggestion-actions">' +
-      '<button class="btn-primary-sm" id="ignore-suggestion-yes">Yes</button>' +
-      '<button class="btn-secondary-sm" id="ignore-suggestion-no">Dismiss</button>' +
+      '<button class="btn-primary-sm" id="ignore-suggestion-yes">Always Ignore</button>' +
+      '<button class="btn-secondary-sm" id="ignore-suggestion-no">Not Now</button>' +
     '</div>';
 
   var txContent = document.getElementById('tx-content');
@@ -2463,7 +2463,7 @@ var recConfirmCallback = null;
 function showConfirmModal(billName, nextDateStr, callback) {
   var modal = recConfirmModal;
   var textEl = $('#rec-confirm-text');
-  textEl.innerHTML = 'Mark <strong>' + esc(billName) + '</strong> as paid? The next due date will move to <strong>' + nextDateStr + '</strong> and it won\'t appear again until then.';
+  textEl.innerHTML = 'Mark <strong>' + esc(billName) + '</strong> as paid? It won\'t appear again until <strong>' + nextDateStr + '</strong>.';
   recConfirmCallback = callback;
   modal.classList.add('visible');
 }
@@ -2500,7 +2500,7 @@ async function confirmBill(billId) {
 
   bill.last_confirmed_date = today;
   bill.next_due_date = newNext;
-  showToast('Confirmed');
+  showToast('Bill marked as paid');
   renderRecurringBills();
 }
 
@@ -2512,7 +2512,7 @@ async function confirmBillAndClose(billId) {
 async function deleteBill(billId) {
   await sb.from('recurring_bills').delete().eq('id', billId);
   recBills = recBills.filter(function(b) { return b.id !== billId; });
-  showToast('Deleted');
+  showToast('Bill deleted');
   renderRecurringBills();
 }
 
@@ -2567,7 +2567,7 @@ function openRecDetailSheet(billId) {
   // Actions
   var actionsEl = $('#rec-detail-actions');
   var actionsHtml = '';
-  actionsHtml += '<button class="btn-primary" id="rec-detail-confirm" style="width:100%;margin-bottom:0.5rem">Confirm Paid</button>';
+  actionsHtml += '<button class="btn-primary" id="rec-detail-confirm" style="width:100%;margin-bottom:0.5rem">Mark as Paid</button>';
   actionsHtml += '<button class="btn-secondary" id="rec-detail-edit" style="width:100%;margin-bottom:0.5rem">Edit</button>';
   actionsHtml += '<button class="btn-danger" id="rec-detail-delete" style="width:100%">Delete</button>';
   actionsEl.innerHTML = actionsHtml;
@@ -3088,11 +3088,13 @@ $('#rec-freq-back').addEventListener('click', function() { showRecStep('amount')
 // Save
 $('#rec-freq-save').addEventListener('click', async function() {
   if (!recAddState.name || !recAddState.amount || !recAddState.anchorDate) {
-    showToast('Please fill in all fields');
+    if (!recAddState.name) showToast('Enter a name for this bill');
+    else if (!recAddState.amount) showToast('Set an amount for this bill');
+    else showToast('Pick a next due date');
     return;
   }
   if (recAddState.frequency === 'custom' && (!recAddState.frequencyDays || recAddState.frequencyDays < 1)) {
-    showToast('Enter a valid number of days');
+    showToast('Enter a number of days (1-730)');
     return;
   }
 

@@ -152,7 +152,7 @@
       </div>
       <div id="rec-empty" class="connect-cta" hidden>
         <p class="rec-onboard-title">Track your recurring bills</p>
-        <p class="rec-onboard-desc">Search your transactions to find subscriptions, rent, utilities, or any regular charge. Set how often it repeats, and Alenjo will track when each bill is due and alert you if it goes overdue.</p>
+        <p class="rec-onboard-desc">Find subscriptions, rent, utilities, or any regular charge in your transactions. Alenjo tracks when each bill is due and alerts you if it goes overdue.</p>
         <button id="btn-add-recurring-empty" class="btn-primary">Add Your First Bill</button>
       </div>
       <div id="rec-content" hidden>
@@ -232,12 +232,12 @@
     <!-- Recurring Confirm Modal -->
     <div id="rec-confirm-modal" class="modal-overlay">
       <div class="modal-card">
-        <h3>Confirm Payment</h3>
+        <h3>Mark as Paid</h3>
         <p id="rec-confirm-text" class="rec-confirm-text"></p>
-        <p class="rec-confirm-hint">To undo this later, edit the bill and reset the starting date.</p>
+        <p class="rec-confirm-hint">You can undo this by editing the bill and changing the next date.</p>
         <div class="modal-actions">
           <button id="rec-confirm-no" class="btn-secondary-sm">Cancel</button>
-          <button id="rec-confirm-yes" class="btn-primary-sm">Yes, Confirm</button>
+          <button id="rec-confirm-yes" class="btn-primary-sm">Mark Paid</button>
         </div>
       </div>
     </div>
@@ -364,7 +364,7 @@
         <p class="action-group-label">Actions</p>
         <div class="action-toggles">
           <button class="action-toggle" data-toggle="split">Split</button>
-          <button class="action-toggle" data-toggle="recategorized">Re-categorize</button>
+          <button class="action-toggle" data-toggle="recategorized">Change Category</button>
           <button class="action-toggle" data-toggle="edit">Edit</button>
         </div>
         <p class="action-group-label" style="margin-top:0.6rem">Mark as</p>
@@ -426,7 +426,7 @@
   <script>
     window.onerror = function(msg, src, line) {
       var el = document.getElementById('auth-error') || document.getElementById('snapshot-error');
-      if (el) { el.textContent = 'Error: ' + msg; el.hidden = false; }
+      if (el) { el.textContent = 'Something went wrong. Try reloading the page.'; el.hidden = false; }
       console.error('JS Error:', msg, src, line);
       // If critical error on load, offer reload
       if (!window._appLoaded) {
