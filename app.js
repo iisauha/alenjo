@@ -2329,46 +2329,19 @@ function getDaysUntilDue(bill) {
   return Math.round((due - today) / 86400000);
 }
 
-// Count how many times a bill occurs within a number of days from today
+// A recurring bill only has one active occurrence at a time (the next_due_date).
+// The user must confirm it before the next occurrence appears.
+// This returns 1 if the bill's next_due_date falls within the horizon (or is overdue), 0 otherwise.
 function countOccurrencesInHorizon(bill, horizonDays) {
   var today = new Date();
   today.setHours(0, 0, 0, 0);
   var end = new Date(today.getTime() + horizonDays * 86400000);
-  var count = 0;
   var d = parseLocalDate(bill.next_due_date);
   d.setHours(0, 0, 0, 0);
 
-  // Also count overdue (past due dates count as 1)
-  if (d <= today) count = 1;
-
-  // Walk forward from next_due_date
-  var freq = bill.frequency;
-  var freqDays = bill.frequency_days;
-  var current = new Date(d);
-
-  // If overdue, advance once first
-  if (current <= today) {
-    if (freq === 'biweekly') current.setDate(current.getDate() + 14);
-    else if (freq === 'monthly') current.setMonth(current.getMonth() + 1);
-    else if (freq === 'quarterly') current.setMonth(current.getMonth() + 3);
-    else if (freq === 'semiannual') current.setMonth(current.getMonth() + 6);
-    else if (freq === 'annual') current.setFullYear(current.getFullYear() + 1);
-    else if (freq === 'custom' && freqDays) current.setDate(current.getDate() + freqDays);
-    else current.setMonth(current.getMonth() + 1);
-  }
-
-  while (current <= end) {
-    count++;
-    if (freq === 'biweekly') current.setDate(current.getDate() + 14);
-    else if (freq === 'monthly') current.setMonth(current.getMonth() + 1);
-    else if (freq === 'quarterly') current.setMonth(current.getMonth() + 3);
-    else if (freq === 'semiannual') current.setMonth(current.getMonth() + 6);
-    else if (freq === 'annual') current.setFullYear(current.getFullYear() + 1);
-    else if (freq === 'custom' && freqDays) current.setDate(current.getDate() + freqDays);
-    else current.setMonth(current.getMonth() + 1);
-  }
-
-  return Math.max(count, 0);
+  // Show if overdue or within the horizon window
+  if (d <= end) return 1;
+  return 0;
 }
 
 function renderRecurringBills() {
@@ -2516,12 +2489,10 @@ function renderBillRow(bill) {
   }
 
   var freqLabel = getFrequencyLabel(bill.frequency, bill.frequency_days);
-  var occurrences = countOccurrencesInHorizon(bill, recHorizonDays);
-  var occLabel = occurrences > 1 ? ' <span class="rec-occ-badge">' + occurrences + 'x</span>' : '';
 
   return '<div class="rec-row' + rowExtraClass + '" data-bill-id="' + bill.id + '">' +
     '<div class="rec-info">' +
-      '<span class="rec-merchant">' + esc(bill.name) + occLabel + '</span>' +
+      '<span class="rec-merchant">' + esc(bill.name) + '</span>' +
       '<span class="rec-freq">' + esc(freqLabel) + '</span>' +
     '</div>' +
     '<div class="rec-right">' +
