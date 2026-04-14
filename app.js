@@ -2223,7 +2223,7 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 // ============================================
 var recBills = [];
 var recBillsLoaded = false;
-var recHorizonDays = 14;
+var recHorizonDays = 30;
 
 async function loadRecurringBills() {
   var recLoading = $('#rec-loading');
@@ -2308,6 +2308,48 @@ function getDaysUntilDue(bill) {
   return Math.round((due - today) / 86400000);
 }
 
+// Count how many times a bill occurs within a number of days from today
+function countOccurrencesInHorizon(bill, horizonDays) {
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var end = new Date(today.getTime() + horizonDays * 86400000);
+  var count = 0;
+  var d = parseLocalDate(bill.next_due_date);
+  d.setHours(0, 0, 0, 0);
+
+  // Also count overdue (past due dates count as 1)
+  if (d <= today) count = 1;
+
+  // Walk forward from next_due_date
+  var freq = bill.frequency;
+  var freqDays = bill.frequency_days;
+  var current = new Date(d);
+
+  // If overdue, advance once first
+  if (current <= today) {
+    if (freq === 'biweekly') current.setDate(current.getDate() + 14);
+    else if (freq === 'monthly') current.setMonth(current.getMonth() + 1);
+    else if (freq === 'quarterly') current.setMonth(current.getMonth() + 3);
+    else if (freq === 'semiannual') current.setMonth(current.getMonth() + 6);
+    else if (freq === 'annual') current.setFullYear(current.getFullYear() + 1);
+    else if (freq === 'custom' && freqDays) current.setDate(current.getDate() + freqDays);
+    else current.setMonth(current.getMonth() + 1);
+  }
+
+  while (current <= end) {
+    count++;
+    if (freq === 'biweekly') current.setDate(current.getDate() + 14);
+    else if (freq === 'monthly') current.setMonth(current.getMonth() + 1);
+    else if (freq === 'quarterly') current.setMonth(current.getMonth() + 3);
+    else if (freq === 'semiannual') current.setMonth(current.getMonth() + 6);
+    else if (freq === 'annual') current.setFullYear(current.getFullYear() + 1);
+    else if (freq === 'custom' && freqDays) current.setDate(current.getDate() + freqDays);
+    else current.setMonth(current.getMonth() + 1);
+  }
+
+  return Math.max(count, 0);
+}
+
 function renderRecurringBills() {
   var recEmpty = $('#rec-empty');
   var recContent = $('#rec-content');
@@ -2323,85 +2365,70 @@ function renderRecurringBills() {
   if (recEmpty) recEmpty.hidden = true;
   if (recContent) recContent.hidden = false;
 
-  // Filter to horizon for totals and projection
-  var horizonBills = recBills.filter(function(b) {
-    var days = getDaysUntilDue(b);
-    return days <= recHorizonDays || days <= 0;
+  // Compute actual totals within the horizon (multiple occurrences counted)
+  var totalIncome = 0;
+  var totalExpenses = 0;
+  recBills.forEach(function(b) {
+    var occurrences = countOccurrencesInHorizon(b, recHorizonDays);
+    var totalForBill = parseFloat(b.amount) * occurrences;
+    if (b.is_income) totalIncome += totalForBill;
+    else totalExpenses += totalForBill;
   });
-  var incomeItems = horizonBills.filter(function(b) { return b.is_income; });
-  var expenseItems = horizonBills.filter(function(b) { return !b.is_income; });
 
-  // Compute monthly-equivalent totals
-  function toMonthly(bill) {
-    var amt = parseFloat(bill.amount);
-    if (bill.frequency === 'biweekly') return amt * (365.25 / 14 / 12);
-    if (bill.frequency === 'quarterly') return amt / 3;
-    if (bill.frequency === 'semiannual') return amt / 6;
-    if (bill.frequency === 'annual') return amt / 12;
-    if (bill.frequency === 'custom' && bill.frequency_days) return amt * (30.44 / bill.frequency_days);
-    return amt; // monthly
-  }
-
-  var totalIncome = incomeItems.reduce(function(s, b) { return s + toMonthly(b); }, 0);
-  var totalExpenses = expenseItems.reduce(function(s, b) { return s + toMonthly(b); }, 0);
+  var horizonLabel = recHorizonDays <= 30 ? '30 days' : recHorizonDays <= 60 ? '60 days' : recHorizonDays <= 90 ? '90 days' : recHorizonDays <= 180 ? '6 months' : 'year';
 
   if (summaryEl) {
     var summaryHtml = '<div class="tx-month-summary">' +
-      (totalIncome > 0 ? '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">+' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
-      '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Expenses</span><span class="tx-summary-value balance-negative">-' + formatMoney(totalExpenses) + '/mo</span></div>' +
+      (totalIncome > 0 ? '<div class="tx-summary-item"><span class="tx-summary-label">Income (' + horizonLabel + ')</span><span class="tx-summary-value balance-positive">+' + formatMoney(totalIncome) + '</span></div>' : '') +
+      '<div class="tx-summary-item"><span class="tx-summary-label">Expenses (' + horizonLabel + ')</span><span class="tx-summary-value balance-negative">-' + formatMoney(totalExpenses) + '</span></div>' +
     '</div>';
 
-    // Budget projection: can the user cover this month's recurring?
+    // Budget projection
     var availCash = cachedBalances.available;
-    var coverageBalance = (availCash > 0 ? availCash : 0) + totalIncome;
-    var shortfall = totalExpenses - coverageBalance;
-    var balanceLabel = availCash >= 0
-      ? formatMoney(availCash) + ' available'
-      : '-' + formatMoney(Math.abs(availCash)) + ' overdrawn';
+    var surplus = availCash + totalIncome - totalExpenses;
 
-    if (totalExpenses > 0) {
-      if (shortfall > 0 || availCash < 0) {
-        var actualShortfall = totalExpenses - (availCash + totalIncome);
-        if (actualShortfall < 0) actualShortfall = 0;
-        // If balance is negative, the shortfall includes the overdraft
-        if (availCash < 0) actualShortfall = totalExpenses + Math.abs(availCash) - totalIncome;
-        if (actualShortfall < 0) actualShortfall = 0;
-
+    if (totalExpenses > 0 || totalIncome > 0) {
+      if (surplus < 0) {
+        var needed = Math.abs(surplus);
         summaryHtml += '<div class="rec-projection rec-projection-warn">';
         summaryHtml += '<div class="rec-projection-title">May need additional funds</div>';
         summaryHtml += '<div class="rec-projection-body">';
         if (availCash < 0) {
-          summaryHtml += 'Your checking is currently ' + formatMoney(Math.abs(availCash)) + ' overdrawn.';
+          summaryHtml += 'Your checking is ' + formatMoney(Math.abs(availCash)) + ' overdrawn.';
         } else {
           summaryHtml += 'You have ' + formatMoney(availCash) + ' available.';
         }
-        if (totalIncome > 0) summaryHtml += ' With ' + formatMoney(totalIncome) + ' in expected income,';
-        else summaryHtml += ' Without expected income,';
-        summaryHtml += ' your recurring expenses of ' + formatMoney(totalExpenses) + ' may not be fully covered.</div>';
+        if (totalIncome > 0) summaryHtml += ' With ' + formatMoney(totalIncome) + ' in expected income';
+        summaryHtml += ', your ' + formatMoney(totalExpenses) + ' in expenses over the next ' + horizonLabel + ' may not be fully covered.</div>';
 
-        if (actualShortfall > 0) {
-          summaryHtml += '<div class="rec-projection-shortfall">~' + formatMoney(actualShortfall) + ' needed</div>';
+        summaryHtml += '<div class="rec-projection-shortfall">~' + formatMoney(needed) + ' needed</div>';
 
-          var suggestions = [];
-          if (cachedBalances.savings > 0) suggestions.push({ name: 'Savings', amount: cachedBalances.savings });
-          if (cachedBalances.investments > 0) suggestions.push({ name: 'Investments', amount: cachedBalances.investments });
+        var suggestions = [];
+        if (cachedBalances.savings > 0) suggestions.push({ name: 'Savings', amount: cachedBalances.savings });
+        if (cachedBalances.investments > 0) suggestions.push({ name: 'Investments', amount: cachedBalances.investments });
 
-          if (suggestions.length > 0) {
-            summaryHtml += '<div class="rec-projection-suggest">Consider transferring from:</div>';
-            summaryHtml += '<div class="rec-projection-accounts">';
-            suggestions.forEach(function(s) {
-              summaryHtml += '<div class="rec-projection-account"><span>' + s.name + '</span><span class="balance-positive">' + formatMoney(s.amount) + '</span></div>';
-            });
-            summaryHtml += '</div>';
-          }
+        if (suggestions.length > 0) {
+          summaryHtml += '<div class="rec-projection-suggest">Consider transferring from:</div>';
+          summaryHtml += '<div class="rec-projection-accounts">';
+          suggestions.forEach(function(s) {
+            summaryHtml += '<div class="rec-projection-account"><span>' + s.name + '</span><span class="balance-positive">' + formatMoney(s.amount) + '</span></div>';
+          });
+          summaryHtml += '</div>';
         }
         summaryHtml += '</div>';
       } else {
         summaryHtml += '<div class="rec-projection rec-projection-ok">';
-        summaryHtml += '<div class="rec-projection-title">On track this month</div>';
-        summaryHtml += '<div class="rec-projection-body">You have ' + formatMoney(availCash) + ' available';
+        summaryHtml += '<div class="rec-projection-title">On track</div>';
+        summaryHtml += '<div class="rec-projection-body">';
+        if (availCash < 0) {
+          summaryHtml += 'Your checking is ' + formatMoney(Math.abs(availCash)) + ' overdrawn, but';
+        } else {
+          summaryHtml += 'You have ' + formatMoney(availCash) + ' available';
+        }
         if (totalIncome > 0) summaryHtml += ' with ' + formatMoney(totalIncome) + ' in expected income';
-        summaryHtml += ' -- enough to cover your ' + formatMoney(totalExpenses) + ' in recurring expenses.</div>';
+        summaryHtml += ' -- enough to cover your ' + formatMoney(totalExpenses) + ' in expenses over the next ' + horizonLabel + '.';
+        if (surplus > 0) summaryHtml += ' About ' + formatMoney(surplus) + ' remaining after.';
+        summaryHtml += '</div>';
         summaryHtml += '</div>';
       }
     }
@@ -2409,10 +2436,9 @@ function renderRecurringBills() {
     summaryEl.innerHTML = summaryHtml;
   }
 
-  // Filter bills by selected time horizon
+  // Filter bills that have at least one occurrence in the horizon
   var filtered = recBills.filter(function(b) {
-    var days = getDaysUntilDue(b);
-    return days <= recHorizonDays || days <= 0; // always show overdue
+    return countOccurrencesInHorizon(b, recHorizonDays) > 0;
   });
 
   var sorted = filtered.slice().sort(function(a, b) {
@@ -2479,10 +2505,12 @@ function renderBillRow(bill) {
   }
 
   var freqLabel = getFrequencyLabel(bill.frequency, bill.frequency_days);
+  var occurrences = countOccurrencesInHorizon(bill, recHorizonDays);
+  var occLabel = occurrences > 1 ? ' <span class="rec-occ-badge">' + occurrences + 'x</span>' : '';
 
   return '<div class="rec-row' + rowExtraClass + '" data-bill-id="' + bill.id + '">' +
     '<div class="rec-info">' +
-      '<span class="rec-merchant">' + esc(bill.name) + '</span>' +
+      '<span class="rec-merchant">' + esc(bill.name) + occLabel + '</span>' +
       '<span class="rec-freq">' + esc(freqLabel) + '</span>' +
     '</div>' +
     '<div class="rec-right">' +
