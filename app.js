@@ -297,7 +297,7 @@ async function openPlaidLink(products) {
     var data = await res.json();
 
     if (!res.ok || !data.link_token) {
-      showError('Failed to start Plaid: ' + (data.detail || data.error || 'Unknown error'));
+      showError('Could not connect to your bank. ' + (data.detail || data.error || 'Please try again.'));
       showLoading(false);
       return;
     }
@@ -385,7 +385,7 @@ async function grantInvestmentConsent() {
     });
     var data = await res.json();
     if (!res.ok || !data.link_token) {
-      showError('Failed to start consent flow: ' + (data.detail || data.error || 'Unknown error'));
+      showError('Could not start the consent process. ' + (data.detail || data.error || 'Please try again.'));
       showLoading(false);
       return;
     }
@@ -669,7 +669,7 @@ function updateInvestmentTotals(savings, investments) {
 async function renderAccountsSettings() {
   var list = $('#accounts-list');
   if (!cachedAccounts || cachedAccounts.length === 0) {
-    list.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">No accounts connected.</p>';
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">No accounts linked yet.</p>';
     return;
   }
 
@@ -750,7 +750,7 @@ async function updateSyncInfo() {
   var billingSection = $('#section-billing');
   var billingEl = $('#billing-info');
   if (!cachedAccounts || cachedAccounts.length === 0) {
-    billingEl.innerHTML = '<p style="color:var(--text-dim);font-size:0.75rem">Connect an account to see billing.</p>';
+    billingEl.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">Link an account to see your billing details.</p>';
     return;
   }
   // Count by type
@@ -1207,7 +1207,7 @@ async function loadTransactions() {
     }
     txEmpty.hidden = false;
     txContent.hidden = true;
-    txEmpty.querySelector('p').textContent = 'No transactions yet. Try again in a moment.';
+    txEmpty.querySelector('p').textContent = 'No transactions found. Your bank may take a few minutes to sync.';
     return;
   }
 
@@ -1784,7 +1784,7 @@ function openActionSheet(tx) {
 
   var statusEl = $('#tx-action-status');
   var hasActions = statusParts.length > 0;
-  statusEl.textContent = hasActions ? 'Currently: ' + statusParts.join(', ') : '';
+  statusEl.textContent = hasActions ? statusParts.join(', ') : '';
   statusEl.hidden = !hasActions;
   document.querySelector('.action-option-clear').hidden = !hasActions;
 
@@ -1878,7 +1878,7 @@ document.querySelectorAll('#split-picker button[data-ways]').forEach(function(bt
     var ways = parseInt(btn.dataset.ways);
     var share = Math.abs(actionTx.amount) / ways;
     var reimburse = Math.abs(actionTx.amount) - share;
-    $('#split-preview').textContent = 'Your share: ' + formatMoney(share) + ' -- Getting back: ' + formatMoney(reimburse);
+    $('#split-preview').textContent = 'You pay ' + formatMoney(share) + ', get back ' + formatMoney(reimburse);
     var existing = txActions[actionTxId] || {};
     var updates = { split_ways: ways, split_portion: null };
     if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
@@ -1908,7 +1908,7 @@ if (splitCustomApply) splitCustomApply.addEventListener('click', function() {
   if (!ways || ways < 2) return;
   var share = Math.abs(actionTx.amount) / ways;
   var reimburse = Math.abs(actionTx.amount) - share;
-  $('#split-preview').textContent = 'Your share: ' + formatMoney(share) + ' -- Getting back: ' + formatMoney(reimburse);
+  $('#split-preview').textContent = 'You pay ' + formatMoney(share) + ', get back ' + formatMoney(reimburse);
   var existing = txActions[actionTxId] || {};
   var updates = { split_ways: ways, split_portion: null };
   if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
@@ -1941,7 +1941,7 @@ if (splitPortionApply) splitPortionApply.addEventListener('click', function() {
   var portion = parseFloat($('#split-portion-amount').value);
   if (!portion || portion <= 0 || portion >= Math.abs(actionTx.amount)) return;
   var reimburse = Math.abs(actionTx.amount) - portion;
-  $('#split-preview').textContent = 'Your portion: ' + formatMoney(portion) + ' -- Getting back: ' + formatMoney(reimburse);
+  $('#split-preview').textContent = 'You pay ' + formatMoney(portion) + ', get back ' + formatMoney(reimburse);
   var existing = txActions[actionTxId] || {};
   var updates = { split_portion: portion, split_ways: null };
   if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
