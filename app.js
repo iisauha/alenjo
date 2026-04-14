@@ -651,10 +651,6 @@ function renderAccounts(accounts) {
       var bal = getDisplayBalance(a, 'bank').amount;
       if (bal > 0) suggestionAccounts.push({ name: a.nickname || a.name || 'Savings', institution: a.institution || '', amount: bal, type: 'savings' });
     });
-    investments.forEach(function(a) {
-      var bal = getDisplayBalance(a, 'bank').amount;
-      if (bal > 0) suggestionAccounts.push({ name: a.nickname || a.name || 'Investment', institution: a.institution || '', amount: bal, type: 'investment' });
-    });
     cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum, venmoPending: venmoPending, suggestionAccounts: suggestionAccounts };
     netCashEl.hidden = false;
 
