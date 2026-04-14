@@ -35,6 +35,7 @@ var userProfile = null;
 var showAvailable = localStorage.getItem('alenjo_show_available') !== 'false';
 var cachedAccounts = null;
 var cachedBalances = { available: 0, savings: 0, investments: 0 };
+var cachedPendingRequests = [];
 
 // ============================================
 // AUTH (sign-in only, no new signups)
@@ -421,6 +422,7 @@ async function loadAccounts() {
   }
 
   cachedAccounts = result.data || [];
+  await loadPendingRequests();
   renderAccounts(cachedAccounts);
   resolveLogos();
 
@@ -627,31 +629,20 @@ function renderAccounts(accounts) {
     investments.forEach(function(a) { investSum += getDisplayBalance(a, 'bank').amount; });
     var availableCash = bankSum - creditSum;
 
-    // Add Venmo pending incoming (requests you've sent that haven't been paid yet)
-    var venmoPending = 0;
-    var venmoAccountIds = [];
-    banks.concat(savings).forEach(function(a) {
-      if (a.institution && a.institution.toLowerCase().indexOf('venmo') !== -1) {
-        if (a.plaid_account_id) venmoAccountIds.push(a.plaid_account_id);
-      }
-    });
-    if (venmoAccountIds.length > 0 && txData.length > 0) {
-      txData.forEach(function(tx) {
-        if (tx.pending && venmoAccountIds.indexOf(tx.plaid_account_id) !== -1 && tx.amount < 0) {
-          venmoPending += Math.abs(tx.amount);
-        }
-      });
+    // Add manual pending requests to available balance
+    var totalPendingIncoming = 0;
+    if (cachedPendingRequests.length > 0) {
+      cachedPendingRequests.forEach(function(pr) { totalPendingIncoming += parseFloat(pr.amount); });
+      availableCash += totalPendingIncoming;
     }
-    if (venmoPending > 0) availableCash += venmoPending;
 
-    var netWorth = bankSum - creditSum + savingsSum + investSum + venmoPending;
-    // Store individual account details for projection suggestions
+    var netWorth = bankSum - creditSum + savingsSum + investSum + totalPendingIncoming;
     var suggestionAccounts = [];
     savings.forEach(function(a) {
       var bal = getDisplayBalance(a, 'bank').amount;
       if (bal > 0) suggestionAccounts.push({ name: a.nickname || a.name || 'Savings', institution: a.institution || '', amount: bal, type: 'savings' });
     });
-    cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum, venmoPending: venmoPending, suggestionAccounts: suggestionAccounts };
+    cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum, pendingIncoming: totalPendingIncoming, suggestionAccounts: suggestionAccounts };
     netCashEl.hidden = false;
 
     var availEl = $('#available-value');
@@ -659,16 +650,15 @@ function renderAccounts(accounts) {
       var availText = (availableCash < 0 ? '-' : '') + formatMoney(availableCash);
       availEl.textContent = availText;
       availEl.className = 'hero-stat-value ' + (availableCash >= 0 ? 'balance-positive' : 'balance-negative');
-      // Show Venmo pending tooltip if applicable
-      var pendingNote = document.getElementById('venmo-pending-note');
-      if (venmoPending > 0) {
+      var pendingNote = document.getElementById('pending-incoming-note');
+      if (totalPendingIncoming > 0) {
         if (!pendingNote) {
           pendingNote = document.createElement('div');
-          pendingNote.id = 'venmo-pending-note';
+          pendingNote.id = 'pending-incoming-note';
           pendingNote.className = 'venmo-pending-note';
           availEl.parentNode.appendChild(pendingNote);
         }
-        pendingNote.textContent = 'Includes ' + formatMoney(venmoPending) + ' in Venmo pending requests';
+        pendingNote.textContent = 'Includes ' + formatMoney(totalPendingIncoming) + ' in pending requests';
         pendingNote.hidden = false;
       } else if (pendingNote) {
         pendingNote.hidden = true;
@@ -1038,18 +1028,12 @@ function accountCard(account, type) {
     liabHtml += '</div>';
   }
 
-  // Venmo pending requests for this account
-  var venmoPendingHtml = '';
-  if (account.institution && account.institution.toLowerCase().indexOf('venmo') !== -1 && account.plaid_account_id && txData.length > 0) {
-    var pendingAmt = 0;
-    txData.forEach(function(tx) {
-      if (tx.pending && tx.plaid_account_id === account.plaid_account_id && tx.amount < 0) {
-        pendingAmt += Math.abs(tx.amount);
-      }
-    });
-    if (pendingAmt > 0) {
-      venmoPendingHtml = '<div class="venmo-pending-line">+' + formatMoney(pendingAmt) + ' pending</div>';
-    }
+  // Pending requests for this account
+  var pendingHtml = '';
+  var acctPending = cachedPendingRequests.filter(function(pr) { return pr.account_id === account.id; });
+  if (acctPending.length > 0) {
+    var pendingTotal = acctPending.reduce(function(s, pr) { return s + parseFloat(pr.amount); }, 0);
+    pendingHtml = '<div class="venmo-pending-line">+' + formatMoney(pendingTotal) + ' pending (' + acctPending.length + ')</div>';
   }
 
   return '<div class="account-card" data-id="' + account.id + '">' +
@@ -1062,7 +1046,7 @@ function accountCard(account, type) {
       '</div>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + '">' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
-        venmoPendingHtml +
+        pendingHtml +
         '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
@@ -1103,6 +1087,79 @@ function setCardOverrides(accountId, data) {
     }
     localStorage.setItem('alenjo_card_overrides', JSON.stringify(all));
   } catch (e) { console.error('Override save error:', e); }
+}
+
+// ============================================
+// PENDING REQUESTS
+// ============================================
+async function loadPendingRequests() {
+  var result = await sb.from('pending_requests').select('*').order('created_at', { ascending: false });
+  cachedPendingRequests = result.data || [];
+}
+
+async function addPendingRequest(accountId, name, amount) {
+  var row = { user_id: currentUser.id, account_id: accountId, name: name, amount: Math.round(amount * 100) / 100 };
+  var result = await sb.from('pending_requests').insert(row).select();
+  if (result.data && result.data[0]) cachedPendingRequests.unshift(result.data[0]);
+  renderAccounts(cachedAccounts);
+}
+
+async function removePendingRequest(id) {
+  await sb.from('pending_requests').delete().eq('id', id);
+  cachedPendingRequests = cachedPendingRequests.filter(function(pr) { return pr.id !== id; });
+  renderAccounts(cachedAccounts);
+}
+
+function renderPendingRequestsInModal(accountId) {
+  var container = document.getElementById('pending-requests-section');
+  if (!container) return;
+  var items = cachedPendingRequests.filter(function(pr) { return pr.account_id === accountId; });
+
+  var html = '<div class="pending-section-header">Pending Requests</div>';
+  html += '<p class="pending-section-desc">Track money owed to you on this account.</p>';
+
+  if (items.length > 0) {
+    html += '<div class="pending-list">';
+    items.forEach(function(pr) {
+      html += '<div class="pending-item" data-id="' + pr.id + '">' +
+        '<div class="pending-item-info"><span class="pending-item-name">' + esc(pr.name) + '</span></div>' +
+        '<div class="pending-item-right"><span class="pending-item-amount">+' + formatMoney(pr.amount) + '</span>' +
+        '<button class="pending-item-remove" data-id="' + pr.id + '">&times;</button></div>' +
+      '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="pending-add-row">' +
+    '<input type="text" id="pending-add-name" class="app-input" placeholder="Who owes you?" style="flex:1">' +
+    '<input type="number" id="pending-add-amount" class="app-input" inputmode="decimal" step="0.01" min="0" placeholder="$" style="width:5rem">' +
+    '<button class="btn-primary-sm" id="pending-add-btn">Add</button>' +
+  '</div>';
+
+  container.innerHTML = html;
+  container.style.display = '';
+
+  // Bind add
+  var addBtn = document.getElementById('pending-add-btn');
+  if (addBtn) addBtn.addEventListener('click', function() {
+    var nameInput = document.getElementById('pending-add-name');
+    var amtInput = document.getElementById('pending-add-amount');
+    var name = nameInput.value.trim();
+    var amt = parseFloat(amtInput.value);
+    if (!name || isNaN(amt) || amt <= 0) return;
+    addPendingRequest(accountId, name, amt).then(function() {
+      renderPendingRequestsInModal(accountId);
+    });
+  });
+
+  // Bind removes
+  container.querySelectorAll('.pending-item-remove').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      removePendingRequest(btn.dataset.id).then(function() {
+        renderPendingRequestsInModal(accountId);
+      });
+    });
+  });
 }
 
 // Account edit modal (nickname + card overrides)
@@ -1147,6 +1204,15 @@ document.addEventListener('click', function(e) {
   }
 
   overridesSection.style.display = showOverrides ? '' : 'none';
+
+  // Show pending requests section for non-credit accounts
+  var pendingSection = document.getElementById('pending-requests-section');
+  if (acct && acct.type !== 'credit') {
+    renderPendingRequestsInModal(editingAccountId);
+  } else if (pendingSection) {
+    pendingSection.style.display = 'none';
+  }
+
   accountEditModal.classList.add('visible');
   nicknameInput.focus();
   nicknameInput.select();
