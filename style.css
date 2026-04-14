@@ -65,6 +65,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
+  line-height: 1.5;
 }
 
 /* ================================
@@ -107,7 +108,7 @@ body {
   font-size: var(--text-hero);
   font-weight: 700;
   margin-bottom: 0.25rem;
-  letter-spacing: -1px;
+  letter-spacing: -0.03em;
 }
 
 #auth-form {
@@ -338,13 +339,13 @@ body {
   font-weight: 500;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
 }
 
 .hero-stat-value {
   font-weight: 700;
   font-size: var(--text-xl);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.02em;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   color: var(--text);
@@ -416,14 +417,14 @@ body {
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
   font-size: var(--text-sm);
 }
 
 .section-total {
   font-size: var(--text-base);
   font-weight: 600;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -485,14 +486,14 @@ body {
 .account-institution {
   color: var(--text-dim);
   font-size: var(--text-sm);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.02em;
 }
 
 .account-mask {
   color: var(--text-dim);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 .account-logo {
@@ -512,7 +513,7 @@ body {
 .account-balance .amount {
   font-weight: 700;
   font-size: var(--text-xl);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.02em;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
@@ -728,7 +729,7 @@ body {
   font-weight: 500;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
   margin-bottom: 0.6rem;
 }
 
@@ -950,7 +951,7 @@ body {
   color: var(--text);
   font-size: var(--text-lg);
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.02em;
 }
 
 .billing-section {
@@ -978,7 +979,7 @@ body {
   color: var(--text-muted);
   margin-bottom: 0.4rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 .billing-explain {
@@ -1089,7 +1090,7 @@ body {
   font-weight: 700;
   font-size: var(--text-base);
   color: var(--text);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1104,7 +1105,7 @@ body {
 .card-holding-meta {
   font-size: var(--text-xs);
   color: var(--text-dim);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.02em;
 }
 
 .card-holding-right {
@@ -1119,7 +1120,7 @@ body {
   font-weight: 700;
   font-size: var(--text-base);
   color: var(--text);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1316,7 +1317,7 @@ body {
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
   margin-bottom: 0.25rem;
 }
 
@@ -1536,7 +1537,7 @@ body {
   font-weight: 500;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 .btn-toggle-recurring {
@@ -1704,7 +1705,7 @@ body {
   font-size: var(--text-xs);
   color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 .tx-summary-value {
@@ -1789,7 +1790,7 @@ body {
   color: var(--cat-color);
   background: color-mix(in srgb, var(--cat-color) 12%, transparent);
   text-transform: capitalize;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   width: fit-content;
 }
@@ -1865,7 +1866,7 @@ body {
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.02em;
 }
 
 .tx-badge-split {
@@ -1994,7 +1995,7 @@ body {
   font-size: var(--text-xs);
   color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
   margin-bottom: 0.3rem;
 }
 
@@ -2255,7 +2256,7 @@ body {
   font-size: var(--text-sm);
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
   margin-bottom: 0.6rem;
   padding-bottom: 0.4rem;
   border-bottom: 1px solid var(--border);
