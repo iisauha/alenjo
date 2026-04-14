@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="theme-color" content="#060B14">
   <title>Alenjo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -151,8 +151,9 @@
         <p>Loading recurring bills...</p>
       </div>
       <div id="rec-empty" class="connect-cta" hidden>
-        <p>No recurring bills yet. Tap the button below to add one from your transactions.</p>
-        <button id="btn-add-recurring-empty" class="btn-primary">Add Recurring</button>
+        <p class="rec-onboard-title">Track your recurring bills</p>
+        <p class="rec-onboard-desc">Search your transactions to find subscriptions, rent, utilities, or any regular charge. Set how often it repeats, and Alenjo will track when each bill is due and alert you if it goes overdue.</p>
+        <button id="btn-add-recurring-empty" class="btn-primary">Add Your First Bill</button>
       </div>
       <div id="rec-content" hidden>
         <div id="rec-summary"></div>
@@ -224,6 +225,20 @@
         </div>
 
         <button class="action-sheet-cancel" id="rec-add-cancel">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Recurring Bill Detail Sheet -->
+    <div id="rec-detail-sheet" class="action-sheet-overlay">
+      <div class="action-sheet">
+        <div class="action-sheet-header">
+          <span id="rec-detail-name" class="action-sheet-title"></span>
+          <span id="rec-detail-amount" class="action-sheet-subtitle"></span>
+        </div>
+        <div id="rec-detail-status" class="rec-detail-status"></div>
+        <div id="rec-detail-info" class="rec-detail-info"></div>
+        <div id="rec-detail-actions" class="action-sheet-options"></div>
+        <button class="action-sheet-cancel" id="rec-detail-cancel">Cancel</button>
       </div>
     </div>
 

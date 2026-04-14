@@ -68,6 +68,8 @@ sb.auth.signOut().then(function() {
       currentUser = session.user;
       Promise.all([loadProfile(), loadAccounts()]).then(function() {
         return loadTransactions();
+      }).then(function() {
+        return loadRecurringBills();
       }).catch(function(e) {
         console.error('Init error:', e);
       }).then(function() {
@@ -2344,24 +2346,11 @@ function renderRecurringBills() {
 
   if (listEl) listEl.innerHTML = html;
 
-  // Attach row event listeners
+  // Tap row to open detail sheet
   listEl.querySelectorAll('.rec-row').forEach(function(row) {
-    row.addEventListener('click', function(e) {
-      if (e.target.closest('.rec-action-btn')) return;
-      var actions = row.querySelector('.rec-actions');
-      if (!actions) return;
-      var wasHidden = actions.hidden;
-      document.querySelectorAll('.rec-actions').forEach(function(a) { a.hidden = true; });
-      actions.hidden = !wasHidden;
-    });
-  });
-
-  listEl.querySelectorAll('.rec-action-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var billId = btn.closest('.rec-row').dataset.billId;
-      var action = btn.dataset.action;
-      if (action === 'confirm') confirmBill(billId);
-      else if (action === 'delete') deleteBill(billId);
+    row.addEventListener('click', function() {
+      var billId = row.dataset.billId;
+      openRecDetailSheet(billId);
     });
   });
 }
@@ -2399,10 +2388,6 @@ function renderBillRow(bill) {
       '</span>' +
       statusLabel +
     '</div>' +
-    '<div class="rec-actions" hidden>' +
-      (days <= 0 ? '<button class="rec-action-btn rec-action-confirm" data-action="confirm">Confirm Paid</button>' : '') +
-      '<button class="rec-action-btn rec-action-delete" data-action="delete">Delete</button>' +
-    '</div>' +
   '</div>';
 }
 
@@ -2424,12 +2409,84 @@ async function confirmBill(billId) {
   renderRecurringBills();
 }
 
-async function deleteBill(billId) {
-  await sb.from('recurring_bills').delete().eq('id', billId);
-  recBills = recBills.filter(function(b) { return b.id !== billId; });
-  showToast('Deleted');
-  renderRecurringBills();
+async function confirmBillAndClose(billId) {
+  await confirmBill(billId);
+  closeRecDetailSheet();
 }
+
+async function deleteBillAndClose(billId) {
+  await deleteBill(billId);
+  closeRecDetailSheet();
+}
+
+// ============================================
+// RECURRING DETAIL SHEET
+// ============================================
+var recDetailSheet = $('#rec-detail-sheet');
+
+function openRecDetailSheet(billId) {
+  var bill = recBills.find(function(b) { return b.id === billId; });
+  if (!bill) return;
+
+  var days = getDaysUntilDue(bill);
+  var amt = parseFloat(bill.amount);
+  var isIncome = bill.is_income;
+
+  $('#rec-detail-name').textContent = bill.name;
+  $('#rec-detail-amount').textContent = (isIncome ? '+' : '-') + formatMoney(amt);
+  $('#rec-detail-amount').className = 'action-sheet-subtitle ' + (isIncome ? 'balance-positive' : 'balance-negative');
+
+  // Status
+  var statusEl = $('#rec-detail-status');
+  if (days < 0) {
+    var absDays = Math.abs(days);
+    statusEl.innerHTML = '<span class="rec-overdue">' + absDays + ' day' + (absDays === 1 ? '' : 's') + ' overdue</span>';
+  } else if (days === 0) {
+    statusEl.innerHTML = '<span class="rec-overdue">Due today</span>';
+  } else if (days <= 7) {
+    statusEl.innerHTML = '<span class="rec-due-soon">' + days + ' day' + (days === 1 ? '' : 's') + ' left</span>';
+  } else {
+    statusEl.innerHTML = '<span class="rec-expected">' + days + ' days left</span>';
+  }
+
+  // Info
+  var infoEl = $('#rec-detail-info');
+  var freqLabel = getFrequencyLabel(bill.frequency, bill.frequency_days);
+  var nextDate = parseLocalDate(bill.next_due_date);
+  var nextStr = nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  var infoHtml = '<div class="rec-detail-row"><span class="rec-detail-label">Frequency</span><span>' + esc(freqLabel) + '</span></div>';
+  infoHtml += '<div class="rec-detail-row"><span class="rec-detail-label">Next due</span><span>' + nextStr + '</span></div>';
+  if (bill.last_confirmed_date) {
+    var confDate = parseLocalDate(bill.last_confirmed_date);
+    infoHtml += '<div class="rec-detail-row"><span class="rec-detail-label">Last confirmed</span><span>' + confDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + '</span></div>';
+  }
+  infoEl.innerHTML = infoHtml;
+
+  // Actions
+  var actionsEl = $('#rec-detail-actions');
+  var actionsHtml = '';
+  if (days <= 0) {
+    actionsHtml += '<button class="btn-primary" id="rec-detail-confirm" style="width:100%;margin-bottom:0.5rem">Confirm Paid</button>';
+  }
+  actionsHtml += '<button class="btn-danger" id="rec-detail-delete" style="width:100%">Delete</button>';
+  actionsEl.innerHTML = actionsHtml;
+
+  // Bind actions
+  var confirmBtn = $('#rec-detail-confirm');
+  if (confirmBtn) confirmBtn.addEventListener('click', function() { confirmBillAndClose(billId); });
+  $('#rec-detail-delete').addEventListener('click', function() { deleteBillAndClose(billId); });
+
+  recDetailSheet.classList.add('visible');
+}
+
+function closeRecDetailSheet() {
+  recDetailSheet.classList.remove('visible');
+}
+
+$('#rec-detail-cancel').addEventListener('click', closeRecDetailSheet);
+recDetailSheet.addEventListener('click', function(e) {
+  if (e.target === recDetailSheet) closeRecDetailSheet();
+});
 
 // ============================================
 // RECURRING ADD FLOW
@@ -2544,16 +2601,55 @@ recSearchInput.addEventListener('input', function() {
       recSearchResults.innerHTML = '<div class="rec-search-empty">No matching transactions</div>';
     }
 
-    // Attach click handlers
+    // Attach click handlers -- show transaction detail for this merchant
     recSearchResults.querySelectorAll('.rec-search-item').forEach(function(item) {
       item.addEventListener('click', function() {
         var key = item.dataset.key;
         var match = results.find(function(r) { return r.key === key; });
-        if (match) selectRecTransaction(match);
+        if (match) showMerchantTxDetail(match);
       });
     });
   }, 150);
 });
+
+function showMerchantTxDetail(match) {
+  // Show all transactions for this merchant so user can review before adding
+  var txs = match.txs.slice(0, 15); // cap at 15 most recent
+  var html = '<div class="rec-tx-detail">';
+  html += '<div class="rec-tx-detail-header">';
+  html += '<button class="rec-tx-detail-back" id="rec-tx-back">&larr;</button>';
+  html += '<span class="rec-tx-detail-name">' + esc(match.name) + '</span>';
+  html += '</div>';
+  html += '<div class="rec-tx-detail-summary">' + match.txs.length + ' transaction' + (match.txs.length === 1 ? '' : 's') + ' found</div>';
+  html += '<div class="rec-tx-detail-list">';
+  txs.forEach(function(tx) {
+    var d = parseLocalDate(tx.date);
+    var dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    var amt = Math.abs(tx.amount);
+    var isIncome = tx.amount < 0;
+    html += '<div class="rec-tx-detail-item">';
+    html += '<span class="rec-tx-detail-date">' + dateStr + '</span>';
+    html += '<span class="rec-tx-detail-amt ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' + (isIncome ? '+' : '-') + formatMoney(amt) + '</span>';
+    html += '</div>';
+  });
+  if (match.txs.length > 15) {
+    html += '<div class="rec-tx-detail-more">and ' + (match.txs.length - 15) + ' more</div>';
+  }
+  html += '</div>';
+  html += '<button class="btn-primary" id="rec-tx-select" style="width:100%;margin-top:0.75rem">Use This</button>';
+  html += '</div>';
+
+  recSearchResults.innerHTML = html;
+
+  $('#rec-tx-back').addEventListener('click', function() {
+    // Re-trigger search to go back to results
+    recSearchInput.dispatchEvent(new Event('input'));
+  });
+
+  $('#rec-tx-select').addEventListener('click', function() {
+    selectRecTransaction(match);
+  });
+}
 
 function selectRecTransaction(match) {
   recAddState.name = match.name;
