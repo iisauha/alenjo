@@ -2270,46 +2270,68 @@ body {
   color: var(--text-muted);
 }
 
-/* Swipe-to-confirm wrapper */
-.rec-row-wrap {
-  position: relative;
-  overflow: hidden;
-  border-bottom: 1px solid var(--border);
+/* Horizon filter bar */
+.rec-horizon-bar {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
 
-.rec-swipe-confirm {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--success);
-  color: #fff;
-  font-weight: 600;
+.rec-horizon-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.rec-horizon-btn {
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
   font-size: var(--text-sm);
   font-family: inherit;
   cursor: pointer;
 }
 
+.rec-horizon-btn.active {
+  background: var(--accent-subtle);
+  border-color: rgba(60, 130, 246, 0.2);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Confirm modal text */
+.rec-confirm-text {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 0.5rem;
+}
+
+.rec-confirm-hint {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
 .rec-row {
-  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
-  background: var(--bg);
-  z-index: 1;
-  will-change: transform;
 }
 
 .rec-row-overdue {
   border-left: 3px solid var(--danger);
   padding-left: 0.6rem;
+  margin-left: -0.6rem;
 }
 
 .rec-row-paused {

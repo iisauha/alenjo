@@ -156,6 +156,13 @@
         <button id="btn-add-recurring-empty" class="btn-primary">Add Your First Bill</button>
       </div>
       <div id="rec-content" hidden>
+        <div class="rec-horizon-bar">
+          <button class="rec-horizon-btn active" data-days="14">2 Weeks</button>
+          <button class="rec-horizon-btn" data-days="30">30 Days</button>
+          <button class="rec-horizon-btn" data-days="60">60 Days</button>
+          <button class="rec-horizon-btn" data-days="90">90 Days</button>
+          <button class="rec-horizon-btn" data-days="365">Year</button>
+        </div>
         <div id="rec-summary"></div>
         <div id="rec-list"></div>
         <button id="btn-add-recurring" class="btn-secondary" style="width:100%;margin-top:1rem">+ Add Recurring</button>
@@ -225,6 +232,19 @@
         </div>
 
         <button class="action-sheet-cancel" id="rec-add-cancel">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Recurring Confirm Modal -->
+    <div id="rec-confirm-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h3>Confirm Payment</h3>
+        <p id="rec-confirm-text" class="rec-confirm-text"></p>
+        <p class="rec-confirm-hint">To undo this later, edit the bill and reset the starting date.</p>
+        <div class="modal-actions">
+          <button id="rec-confirm-no" class="btn-secondary-sm">Cancel</button>
+          <button id="rec-confirm-yes" class="btn-primary-sm">Yes, Confirm</button>
+        </div>
       </div>
     </div>
 

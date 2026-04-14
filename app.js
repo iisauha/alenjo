@@ -2223,6 +2223,7 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 // ============================================
 var recBills = [];
 var recBillsLoaded = false;
+var recHorizonDays = 14;
 
 async function loadRecurringBills() {
   var recLoading = $('#rec-loading');
@@ -2322,8 +2323,13 @@ function renderRecurringBills() {
   if (recEmpty) recEmpty.hidden = true;
   if (recContent) recContent.hidden = false;
 
-  var incomeItems = recBills.filter(function(b) { return b.is_income; });
-  var expenseItems = recBills.filter(function(b) { return !b.is_income; });
+  // Filter to horizon for totals and projection
+  var horizonBills = recBills.filter(function(b) {
+    var days = getDaysUntilDue(b);
+    return days <= recHorizonDays || days <= 0;
+  });
+  var incomeItems = horizonBills.filter(function(b) { return b.is_income; });
+  var expenseItems = horizonBills.filter(function(b) { return !b.is_income; });
 
   // Compute monthly-equivalent totals
   function toMonthly(bill) {
@@ -2403,14 +2409,18 @@ function renderRecurringBills() {
     summaryEl.innerHTML = summaryHtml;
   }
 
-  // Sort: overdue first, then by days until due
-  var sorted = recBills.slice().sort(function(a, b) {
+  // Filter bills by selected time horizon
+  var filtered = recBills.filter(function(b) {
+    var days = getDaysUntilDue(b);
+    return days <= recHorizonDays || days <= 0; // always show overdue
+  });
+
+  var sorted = filtered.slice().sort(function(a, b) {
     return getDaysUntilDue(a) - getDaysUntilDue(b);
   });
 
   var html = '';
 
-  // Overdue / due today section
   var overdueItems = sorted.filter(function(b) { return getDaysUntilDue(b) <= 0; });
   var upcomingItems = sorted.filter(function(b) { return getDaysUntilDue(b) > 0; });
 
@@ -2420,13 +2430,11 @@ function renderRecurringBills() {
     html += '</div>';
   }
 
-  if (incomeItems.length > 0) {
-    var upIncome = upcomingItems.filter(function(b) { return b.is_income; });
-    if (upIncome.length > 0) {
-      html += '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
-      upIncome.forEach(function(bill) { html += renderBillRow(bill); });
-      html += '</div>';
-    }
+  var upIncome = upcomingItems.filter(function(b) { return b.is_income; });
+  if (upIncome.length > 0) {
+    html += '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
+    upIncome.forEach(function(bill) { html += renderBillRow(bill); });
+    html += '</div>';
   }
 
   var upExpenses = upcomingItems.filter(function(b) { return !b.is_income; });
@@ -2436,63 +2444,17 @@ function renderRecurringBills() {
     html += '</div>';
   }
 
+  if (filtered.length === 0 && recBills.length > 0) {
+    html += '<div class="rec-search-empty">No bills due in the next ' + recHorizonDays + ' days</div>';
+  }
+
   if (listEl) listEl.innerHTML = html;
 
-  // Attach swipe and tap handlers
-  listEl.querySelectorAll('.rec-row-wrap').forEach(function(wrap) {
-    var row = wrap.querySelector('.rec-row');
-    var confirmLayer = wrap.querySelector('.rec-swipe-confirm');
-    var billId = wrap.dataset.billId;
-    var startX = 0;
-    var currentX = 0;
-    var swiping = false;
-    var swipeThreshold = 80;
-
-    row.addEventListener('touchstart', function(e) {
-      startX = e.touches[0].clientX;
-      currentX = 0;
-      swiping = true;
-      row.style.transition = 'none';
-    }, { passive: true });
-
-    row.addEventListener('touchmove', function(e) {
-      if (!swiping) return;
-      var dx = e.touches[0].clientX - startX;
-      if (dx > 0) dx = 0; // only swipe left
-      if (dx < -140) dx = -140;
-      currentX = dx;
-      row.style.transform = 'translateX(' + dx + 'px)';
-    }, { passive: true });
-
-    row.addEventListener('touchend', function() {
-      swiping = false;
-      row.style.transition = 'transform 0.3s ease';
-      if (currentX < -swipeThreshold) {
-        row.style.transform = 'translateX(-120px)';
-        wrap.classList.add('rec-row-swiped');
-      } else {
-        row.style.transform = 'translateX(0)';
-        wrap.classList.remove('rec-row-swiped');
-      }
-    });
-
-    // Tap row (not during swipe) to open detail
+  // Tap row to open detail sheet
+  listEl.querySelectorAll('.rec-row').forEach(function(row) {
     row.addEventListener('click', function() {
-      if (wrap.classList.contains('rec-row-swiped')) {
-        row.style.transition = 'transform 0.3s ease';
-        row.style.transform = 'translateX(0)';
-        wrap.classList.remove('rec-row-swiped');
-        return;
-      }
-      openRecDetailSheet(billId);
+      openRecDetailSheet(row.dataset.billId);
     });
-
-    // Confirm button behind swipe
-    if (confirmLayer) {
-      confirmLayer.addEventListener('click', function() {
-        confirmBill(billId);
-      });
-    }
   });
 }
 
@@ -2518,22 +2480,59 @@ function renderBillRow(bill) {
 
   var freqLabel = getFrequencyLabel(bill.frequency, bill.frequency_days);
 
-  return '<div class="rec-row-wrap" data-bill-id="' + bill.id + '">' +
-    '<div class="rec-swipe-confirm">Confirm</div>' +
-    '<div class="rec-row' + rowExtraClass + '">' +
-      '<div class="rec-info">' +
-        '<span class="rec-merchant">' + esc(bill.name) + '</span>' +
-        '<span class="rec-freq">' + esc(freqLabel) + '</span>' +
-      '</div>' +
-      '<div class="rec-right">' +
-        '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
-          (isIncome ? '+' : '-') + formatMoney(amt) +
-        '</span>' +
-        statusLabel +
-      '</div>' +
+  return '<div class="rec-row' + rowExtraClass + '" data-bill-id="' + bill.id + '">' +
+    '<div class="rec-info">' +
+      '<span class="rec-merchant">' + esc(bill.name) + '</span>' +
+      '<span class="rec-freq">' + esc(freqLabel) + '</span>' +
+    '</div>' +
+    '<div class="rec-right">' +
+      '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
+        (isIncome ? '+' : '-') + formatMoney(amt) +
+      '</span>' +
+      statusLabel +
     '</div>' +
   '</div>';
 }
+
+// Horizon filter
+document.querySelectorAll('.rec-horizon-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.rec-horizon-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    recHorizonDays = parseInt(btn.dataset.days);
+    renderRecurringBills();
+  });
+});
+
+// Confirm modal
+var recConfirmModal = $('#rec-confirm-modal');
+var recConfirmCallback = null;
+
+function showConfirmModal(billName, nextDateStr, callback) {
+  var modal = recConfirmModal;
+  var textEl = $('#rec-confirm-text');
+  textEl.innerHTML = 'Mark <strong>' + esc(billName) + '</strong> as paid? The next due date will move to <strong>' + nextDateStr + '</strong> and it won\'t appear again until then.';
+  recConfirmCallback = callback;
+  modal.classList.add('visible');
+}
+
+$('#rec-confirm-no').addEventListener('click', function() {
+  recConfirmModal.classList.remove('visible');
+  recConfirmCallback = null;
+});
+
+$('#rec-confirm-yes').addEventListener('click', function() {
+  recConfirmModal.classList.remove('visible');
+  if (recConfirmCallback) recConfirmCallback();
+  recConfirmCallback = null;
+});
+
+recConfirmModal.addEventListener('click', function(e) {
+  if (e.target === recConfirmModal) {
+    recConfirmModal.classList.remove('visible');
+    recConfirmCallback = null;
+  }
+});
 
 async function confirmBill(billId) {
   var bill = recBills.find(function(b) { return b.id === billId; });
@@ -2616,16 +2615,24 @@ function openRecDetailSheet(billId) {
   // Actions
   var actionsEl = $('#rec-detail-actions');
   var actionsHtml = '';
-  if (days <= 0) {
-    actionsHtml += '<button class="btn-primary" id="rec-detail-confirm" style="width:100%;margin-bottom:0.5rem">Confirm Paid</button>';
-  }
+  actionsHtml += '<button class="btn-primary" id="rec-detail-confirm" style="width:100%;margin-bottom:0.5rem">Confirm Paid</button>';
   actionsHtml += '<button class="btn-secondary" id="rec-detail-edit" style="width:100%;margin-bottom:0.5rem">Edit</button>';
   actionsHtml += '<button class="btn-danger" id="rec-detail-delete" style="width:100%">Delete</button>';
   actionsEl.innerHTML = actionsHtml;
 
+  // Compute the next date after confirmation for the modal message
+  var today = formatLocalDate(new Date());
+  var futureNext = computeNextDueDate(bill.anchor_date, bill.frequency, bill.frequency_days, today);
+  var futureDate = parseLocalDate(futureNext);
+  var futureStr = futureDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
   // Bind actions
-  var confirmBtn = $('#rec-detail-confirm');
-  if (confirmBtn) confirmBtn.addEventListener('click', function() { confirmBillAndClose(billId); });
+  $('#rec-detail-confirm').addEventListener('click', function() {
+    closeRecDetailSheet();
+    showConfirmModal(bill.name, futureStr, function() {
+      confirmBill(billId);
+    });
+  });
   $('#rec-detail-edit').addEventListener('click', function() { editBill(billId); });
   $('#rec-detail-delete').addEventListener('click', function() { deleteBillAndClose(billId); });
 
