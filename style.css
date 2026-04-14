@@ -44,7 +44,7 @@
 }
 
 button, select, input, .nav-item, .action-option, .action-toggle, .cat-legend-item, .tx-row, .rec-row {
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
 button:active, .action-toggle:active, .nav-item:active {
@@ -285,6 +285,7 @@ body {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  contain: layout style;
   padding: 0.5rem var(--pad);
   padding-bottom: 5rem;
   animation: tabFadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1439,7 +1440,7 @@ body {
   border-radius: var(--radius-sm);
   color: var(--text-dim);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
   white-space: nowrap;
 }
 
@@ -2019,7 +2020,7 @@ body {
   font-family: inherit;
   cursor: pointer;
   text-align: center;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 .action-toggle.active {
@@ -2136,7 +2137,7 @@ body {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
   min-height: 44px;
   -webkit-appearance: none;
 }

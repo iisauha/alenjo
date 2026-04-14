@@ -847,13 +847,20 @@ function renderSection(listEl, items, type) {
     }
     listEl.parentElement.appendChild(dots);
 
+    var scrollTicking = false;
     listEl.addEventListener('scroll', function() {
-      var cardWidth = listEl.firstElementChild ? listEl.firstElementChild.offsetWidth : 1;
-      var idx = Math.round(listEl.scrollLeft / cardWidth);
-      dots.querySelectorAll('.scroll-dot').forEach(function(d, j) {
-        d.classList.toggle('active', j === idx);
-      });
-    });
+      if (!scrollTicking) {
+        requestAnimationFrame(function() {
+          var cardWidth = listEl.firstElementChild ? listEl.firstElementChild.offsetWidth : 1;
+          var idx = Math.round(listEl.scrollLeft / cardWidth);
+          dots.querySelectorAll('.scroll-dot').forEach(function(d, j) {
+            d.classList.toggle('active', j === idx);
+          });
+          scrollTicking = false;
+        });
+        scrollTicking = true;
+      }
+    }, { passive: true });
   }
 }
 
