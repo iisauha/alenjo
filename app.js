@@ -2489,15 +2489,15 @@ function renderBillRow(bill) {
   var rowExtraClass = '';
   if (days < 0) {
     var absDays = Math.abs(days);
-    statusLabel = '<span class="rec-overdue">' + absDays + ' day' + (absDays === 1 ? '' : 's') + ' overdue</span>';
+    statusLabel = '<span class="rec-overdue">' + absDays + ' day' + (absDays === 1 ? '' : 's') + ' ago</span>';
     rowExtraClass = ' rec-row-overdue';
   } else if (days === 0) {
-    statusLabel = '<span class="rec-overdue">Due today</span>';
+    statusLabel = '<span class="rec-overdue">Today</span>';
     rowExtraClass = ' rec-row-overdue';
   } else if (days <= 7) {
-    statusLabel = '<span class="rec-due-soon">' + days + ' day' + (days === 1 ? '' : 's') + ' left</span>';
+    statusLabel = '<span class="rec-due-soon">In ' + days + ' day' + (days === 1 ? '' : 's') + '</span>';
   } else {
-    statusLabel = '<span class="rec-expected">' + days + ' days left</span>';
+    statusLabel = '<span class="rec-expected">In ' + days + ' days</span>';
   }
 
   var freqLabel = getFrequencyLabel(bill.frequency, bill.frequency_days);
@@ -2614,13 +2614,13 @@ function openRecDetailSheet(billId) {
   var statusEl = $('#rec-detail-status');
   if (days < 0) {
     var absDays = Math.abs(days);
-    statusEl.innerHTML = '<span class="rec-overdue">' + absDays + ' day' + (absDays === 1 ? '' : 's') + ' overdue</span>';
+    statusEl.innerHTML = '<span class="rec-overdue">' + absDays + ' day' + (absDays === 1 ? '' : 's') + ' ago</span>';
   } else if (days === 0) {
-    statusEl.innerHTML = '<span class="rec-overdue">Due today</span>';
+    statusEl.innerHTML = '<span class="rec-overdue">Today</span>';
   } else if (days <= 7) {
-    statusEl.innerHTML = '<span class="rec-due-soon">' + days + ' day' + (days === 1 ? '' : 's') + ' left</span>';
+    statusEl.innerHTML = '<span class="rec-due-soon">In ' + days + ' day' + (days === 1 ? '' : 's') + '</span>';
   } else {
-    statusEl.innerHTML = '<span class="rec-expected">' + days + ' days left</span>';
+    statusEl.innerHTML = '<span class="rec-expected">In ' + days + ' days</span>';
   }
 
   // Info
@@ -2629,7 +2629,7 @@ function openRecDetailSheet(billId) {
   var nextDate = parseLocalDate(bill.next_due_date);
   var nextStr = nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   var infoHtml = '<div class="rec-detail-row"><span class="rec-detail-label">Frequency</span><span>' + esc(freqLabel) + '</span></div>';
-  infoHtml += '<div class="rec-detail-row"><span class="rec-detail-label">Next due</span><span>' + nextStr + '</span></div>';
+  infoHtml += '<div class="rec-detail-row"><span class="rec-detail-label">Next date</span><span>' + nextStr + '</span></div>';
   if (bill.last_confirmed_date) {
     var confDate = parseLocalDate(bill.last_confirmed_date);
     infoHtml += '<div class="rec-detail-row"><span class="rec-detail-label">Last confirmed</span><span>' + confDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + '</span></div>';
@@ -2711,10 +2711,43 @@ function editBill(billId) {
   recAddSheet.classList.add('visible');
 
   $('#rec-edit-skip').addEventListener('click', function() {
-    // Go to amount step with current values
-    var amounts = [parseFloat(bill.amount)];
-    var match = { name: bill.name, amounts: amounts, txs: [], isIncome: bill.is_income };
-    selectRecTransaction(match);
+    // Go to amount step with current values pre-filled
+    var amt = parseFloat(bill.amount);
+    recAddState.amount = amt;
+    recAddState.amountMode = 'custom';
+
+    // Update income/expense toggle
+    var expBtn = $('#rec-type-expense');
+    var incBtn = $('#rec-type-income');
+    if (bill.is_income) {
+      incBtn.classList.add('active');
+      expBtn.classList.remove('active');
+    } else {
+      expBtn.classList.add('active');
+      incBtn.classList.remove('active');
+    }
+
+    // Render amount step showing just the custom value
+    var infoEl = $('#rec-amount-info');
+    infoEl.innerHTML = '<span class="rec-amount-name">' + esc(bill.name) + '</span>' +
+      '<span class="rec-amount-meta">Editing existing bill</span>';
+
+    var modesEl = $('#rec-amount-modes');
+    modesEl.innerHTML = '<button class="recurring-mode-btn active" data-mode="custom">Custom</button>';
+    $('#rec-custom-amount-row').hidden = false;
+    $('#rec-custom-amount').value = amt.toFixed(2);
+    var selectedAmtEl = $('#rec-selected-amount');
+    selectedAmtEl.textContent = 'Amount: ' + formatMoney(amt);
+
+    $('#rec-custom-amount').addEventListener('input', function() {
+      var v = parseFloat(this.value);
+      if (!isNaN(v) && v > 0) {
+        recAddState.amount = v;
+        selectedAmtEl.textContent = 'Amount: ' + formatMoney(v);
+      }
+    });
+
+    showRecStep('amount');
   });
 }
 
@@ -3077,16 +3110,26 @@ $('#rec-type-income').addEventListener('click', function() {
 // Amount step navigation
 $('#rec-amount-back').addEventListener('click', function() { showRecStep('search'); });
 $('#rec-amount-next').addEventListener('click', function() {
-  // Set default anchor date to today
-  var today = formatLocalDate(new Date());
-  $('#rec-anchor-date').value = today;
-  recAddState.anchorDate = today;
+  // If editing, preserve the saved frequency and date; otherwise default
+  if (recEditingBillId && recAddState.anchorDate) {
+    $('#rec-anchor-date').value = recAddState.anchorDate;
+  } else {
+    var today = formatLocalDate(new Date());
+    $('#rec-anchor-date').value = today;
+    recAddState.anchorDate = today;
+  }
 
-  // Reset frequency selection
+  // Set frequency buttons to match saved state
+  var freq = recAddState.frequency || 'monthly';
   document.querySelectorAll('#rec-freq-options .recurring-date-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.querySelector('#rec-freq-options [data-freq="monthly"]').classList.add('active');
-  recAddState.frequency = 'monthly';
-  $('#rec-custom-freq-row').hidden = true;
+  var freqBtn = document.querySelector('#rec-freq-options [data-freq="' + freq + '"]');
+  if (freqBtn) freqBtn.classList.add('active');
+  else document.querySelector('#rec-freq-options [data-freq="monthly"]').classList.add('active');
+
+  $('#rec-custom-freq-row').hidden = freq !== 'custom';
+  if (freq === 'custom' && recAddState.frequencyDays) {
+    $('#rec-custom-freq-days').value = recAddState.frequencyDays;
+  }
 
   showRecStep('freq');
 });
@@ -3125,7 +3168,8 @@ $('#rec-freq-save').addEventListener('click', async function() {
     return;
   }
 
-  var nextDue = computeNextDueDate(recAddState.anchorDate, recAddState.frequency, recAddState.frequencyDays, null);
+  // The date the user entered is the next due date directly
+  var nextDue = recAddState.anchorDate;
 
   var row = {
     name: recAddState.name,
@@ -3133,7 +3177,7 @@ $('#rec-freq-save').addEventListener('click', async function() {
     is_income: recAddState.isIncome,
     frequency: recAddState.frequency,
     frequency_days: recAddState.frequency === 'custom' ? recAddState.frequencyDays : null,
-    anchor_date: recAddState.anchorDate,
+    anchor_date: nextDue,
     next_due_date: nextDue
   };
 
