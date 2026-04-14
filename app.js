@@ -2229,7 +2229,7 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 // ============================================
 var recBills = [];
 var recBillsLoaded = false;
-var recHorizonDays = 30;
+var recHorizonDays = 31;
 
 async function loadRecurringBills() {
   var recLoading = $('#rec-loading');
@@ -2381,7 +2381,7 @@ function renderRecurringBills() {
     else totalExpenses += totalForBill;
   });
 
-  var horizonLabel = recHorizonDays <= 30 ? '30 days' : recHorizonDays <= 60 ? '60 days' : recHorizonDays <= 90 ? '90 days' : recHorizonDays <= 180 ? '6 months' : 'year';
+  var horizonLabel = '31 days';
 
   if (summaryEl) {
     var summaryHtml = '<div class="tx-month-summary">' +
@@ -2467,7 +2467,7 @@ function renderRecurringBills() {
   }
 
   if (filtered.length === 0 && recBills.length > 0) {
-    html += '<div class="rec-search-empty">No bills due in the next ' + recHorizonDays + ' days</div>';
+    html += '<div class="rec-search-empty">No bills in the next 31 days</div>';
   }
 
   if (listEl) listEl.innerHTML = html;
@@ -2517,16 +2517,6 @@ function renderBillRow(bill) {
     '</div>' +
   '</div>';
 }
-
-// Horizon filter
-document.querySelectorAll('.rec-horizon-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.rec-horizon-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    recHorizonDays = parseInt(btn.dataset.days);
-    renderRecurringBills();
-  });
-});
 
 // Confirm modal
 var recConfirmModal = $('#rec-confirm-modal');

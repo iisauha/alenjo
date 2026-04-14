@@ -2270,37 +2270,13 @@ body {
   color: var(--text-muted);
 }
 
-/* Horizon filter bar */
-.rec-horizon-bar {
-  display: flex;
-  gap: 0.3rem;
-  margin-bottom: 1rem;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.rec-horizon-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.rec-horizon-btn {
-  flex-shrink: 0;
-  padding: 0.4rem 0.75rem;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+/* Horizon label */
+.rec-horizon-label {
+  font-size: var(--text-xs);
   color: var(--text-dim);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.rec-horizon-btn.active {
-  background: var(--accent-subtle);
-  border-color: rgba(60, 130, 246, 0.2);
-  color: var(--accent);
-  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
 }
 
 /* Confirm modal text */
