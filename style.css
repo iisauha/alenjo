@@ -1005,6 +1005,24 @@ body {
   margin-bottom: 0.5rem;
 }
 
+.settings-links {
+  display: flex;
+  gap: 1.25rem;
+  padding: 1rem 0 0.5rem;
+  justify-content: center;
+}
+
+.settings-link {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.settings-link:hover, .settings-link:active {
+  color: var(--accent);
+}
+
 .tab-order-list {
   display: flex;
   flex-direction: column;
