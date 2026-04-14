@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#060B14">
+  <title>FAQs - Alenjo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="apple-touch-icon" href="alenjo.png">
+  <style>
+    :root {
+      --bg: #060B14;
+      --bg-card: #0D1526;
+      --text: #E6EBF4;
+      --text-muted: #8E95A8;
+      --text-dim: #6E7790;
+      --accent: #3C82F6;
+      --border: rgba(140, 165, 220, 0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Figtree', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+    }
+
+    .page {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 3rem 1.25rem 4rem;
+    }
+
+    .page-nav {
+      margin-bottom: 2.5rem;
+    }
+
+    .page-nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .page-nav a:hover { text-decoration: underline; }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 2.5rem;
+    }
+
+    .faq-section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-top: 2.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .faq-section-title:first-of-type {
+      margin-top: 0;
+    }
+
+    .faq {
+      margin-bottom: 2rem;
+    }
+
+    .faq-q {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    .faq-a {
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+      margin-bottom: 0;
+    }
+
+    .faq-a + .faq-a {
+      margin-top: 0.75rem;
+    }
+
+    strong { color: var(--text); font-weight: 600; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    ul {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 0.75rem;
+    }
+
+    ul li {
+      position: relative;
+      padding-left: 1.25rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+    }
+
+    ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.6em;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+
+    .footer-links {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.8125rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="page-nav">
+      <a href="/">&larr; Back to Alenjo</a>
+    </nav>
+
+    <h1>Frequently Asked Questions</h1>
+
+    <!-- GENERAL -->
+    <p class="faq-section-title">General</p>
+
+    <div class="faq">
+      <p class="faq-q">What is Alenjo?</p>
+      <p class="faq-a">Alenjo is a personal finance app that connects to your bank accounts and shows you your balances, transactions, recurring bills, and investments in one place. It is designed to be simple and fast -- something you check on your phone to see where your money is, without digging through multiple banking apps.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">How much does Alenjo cost?</p>
+      <p class="faq-a">Right now, Alenjo is free to use. We pay for the underlying services -- Plaid charges us a monthly fee for each connected account -- and we show you exactly what that costs in the Billing section of Settings. We believe in transparency about the economics of running this app.</p>
+      <p class="faq-a">The current per-account costs we pay to Plaid are:</p>
+      <ul>
+        <li><strong>Checking and savings accounts</strong> -- $0.30/month for transaction syncing</li>
+        <li><strong>Credit cards</strong> -- $0.30/month for transactions, plus $0.20/month for card details (APR, due dates, minimums)</li>
+        <li><strong>Investment accounts</strong> -- $0.18/month for holdings data, plus $0.35/month for investment transaction history</li>
+      </ul>
+      <p class="faq-a">These costs are visible in your Settings under Billing. We are not hiding anything.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Can I sign up for an account?</p>
+      <p class="faq-a">Not yet. Alenjo is currently invite-only. There is no public sign-up -- existing users sign in with their email and password. If you are interested in getting access, reach out to us.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">What devices does Alenjo work on?</p>
+      <p class="faq-a">Alenjo is a web app that works in any modern browser -- Safari, Chrome, Firefox, Edge. It is designed primarily for phones, but it works on tablets and desktops too. You can also add it to your home screen on iOS or Android for an app-like experience.</p>
+    </div>
+
+    <!-- BANK CONNECTIONS -->
+    <p class="faq-section-title">Bank Connections</p>
+
+    <div class="faq">
+      <p class="faq-q">How do you connect to my bank?</p>
+      <p class="faq-a">We use a service called <a href="https://plaid.com" target="_blank" rel="noopener">Plaid</a>. When you tap "Connect Account," Plaid opens a secure window where you log in to your bank directly. Plaid is the same service used by Venmo, Robinhood, Coinbase, and thousands of other financial apps. Your bank credentials go to Plaid and your bank -- Alenjo never sees them.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Can Alenjo move money or make transactions?</p>
+      <p class="faq-a">No. Alenjo has read-only access to your accounts. We can see your balances and transactions, but we cannot transfer money, make payments, or modify your accounts in any way. The Plaid connection we use does not grant write access.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Which banks are supported?</p>
+      <p class="faq-a">Plaid supports over 12,000 financial institutions in the United States and Canada -- including major banks like Chase, Bank of America, Wells Fargo, Capital One, and most credit unions. When you tap "Connect Account," you can search for your bank by name.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">My bank is asking me to re-authenticate. Why?</p>
+      <p class="faq-a">Some banks require you to re-verify your connection periodically for security reasons. This is a requirement from your bank, not from Alenjo. When this happens, you will need to go through the Plaid login flow again to restore the connection.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">How do I disconnect a bank?</p>
+      <p class="faq-a">Go to Settings (tap your name in the top-left corner), open the Institutions section, and tap "Disconnect" next to the bank you want to remove. This deletes all accounts and transaction history from that connection and revokes the Plaid access token. The disconnection is immediate and permanent.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">How often does my data update?</p>
+      <p class="faq-a">Alenjo syncs with your bank every few minutes while you are using the app. Most banks update their data once or twice per day, so even if we check frequently, new transactions typically appear within a few hours of when they happen. The "Bank data from..." timestamp on the Transactions tab shows you exactly when the data was last refreshed from your bank.</p>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <p class="faq-section-title">Transactions</p>
+
+    <div class="faq">
+      <p class="faq-q">What does "Ignore" do?</p>
+      <p class="faq-a">Ignoring a transaction excludes it from your spending totals and category breakdown. It is useful for things like transfers between your own accounts, refunds, or transactions you do not want to count as spending. The transaction still appears in your list -- it is just grayed out and excluded from the math.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">What does "Reimbursed" do?</p>
+      <p class="faq-a">Marking a transaction as reimbursed works like ignoring it -- the amount is excluded from your spending totals. Use this for expenses someone paid you back for, like a dinner you split with friends where they Venmoed you afterward.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">How does splitting work?</p>
+      <p class="faq-a">When you split a transaction, you tell Alenjo how much of it was actually your expense. You can split evenly (2-way, 3-way, or a custom number of people) or enter your exact portion. The spending totals will only count your share -- the rest is treated as money you are getting back.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">What is "Always Ignore" and how do I undo it?</p>
+      <p class="faq-a">If you ignore several transactions from the same merchant, Alenjo will suggest creating a permanent ignore rule. Accepting means all future transactions from that merchant will be automatically ignored. This is handy for things like payroll deposits or recurring transfers you never want counted as spending. To undo it, contact us and we can remove the rule -- we are working on making this self-service.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Can I change a transaction's category?</p>
+      <p class="faq-a">Yes. Tap any transaction, then tap "Change Category" to pick a different one. Your override sticks -- it will not be reset the next time data syncs from your bank.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Can I export my transactions?</p>
+      <p class="faq-a">Yes. On the Transactions tab, tap the "CSV" button in the top-right corner. This downloads your transactions for the currently selected month as a CSV file you can open in Excel, Google Sheets, or any spreadsheet app.</p>
+    </div>
+
+    <!-- RECURRING BILLS -->
+    <p class="faq-section-title">Recurring Bills</p>
+
+    <div class="faq">
+      <p class="faq-q">How do recurring bills work?</p>
+      <p class="faq-a">The Plan tab lets you track your recurring charges -- rent, subscriptions, utilities, loan payments, anything that repeats on a schedule. You search your transactions to find the charge, set how often it repeats, and Alenjo tracks when each bill is due. The "Next 31 days" view shows you what is coming up.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">What does "Mark as Paid" do?</p>
+      <p class="faq-a">When you mark a bill as paid, Alenjo moves the due date forward to the next occurrence based on the frequency you set. The bill disappears from your upcoming view until it is due again. If you mark it by mistake, you can edit the bill and change the next date back.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Does Alenjo automatically detect recurring bills?</p>
+      <p class="faq-a">Not automatically -- you add them yourself. This is intentional. Automatic detection tends to be noisy and picks up things that are not really recurring. We prefer to let you decide what counts as a bill and set the exact frequency.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Can I track income, not just expenses?</p>
+      <p class="faq-a">Yes. When adding a recurring bill, you can toggle between "Expense" and "Income." Income items show as positive amounts and are tracked on the same schedule.</p>
+    </div>
+
+    <!-- INVESTMENTS & CREDIT CARDS -->
+    <p class="faq-section-title">Investments and Credit Cards</p>
+
+    <div class="faq">
+      <p class="faq-q">What investment data does Alenjo show?</p>
+      <p class="faq-a">If you connect a brokerage or investment account, Alenjo shows your holdings -- ticker symbols, number of shares, current value, and cost basis. This data comes from Plaid, which syncs it from your brokerage. We show your investment totals as part of your net worth on the Accounts tab.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Why are my credit card details missing?</p>
+      <p class="faq-a">Some banks do not share card details -- like APR, minimum payment, and due dates -- through Plaid. This is a limitation on the bank's side, not ours. When this happens, you can add those details manually by tapping on the credit card and entering them yourself in the edit screen.</p>
+    </div>
+
+    <!-- SECURITY & PRIVACY -->
+    <p class="faq-section-title">Security and Privacy</p>
+
+    <div class="faq">
+      <p class="faq-q">Is my data safe?</p>
+      <p class="faq-a">We take this seriously. Your data is encrypted in transit and at rest, stored in an isolated database with row-level security, and accessed only through authenticated sessions. We never see your bank credentials. For the full details, read our <a href="/security">Security page</a>.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Do you sell my data?</p>
+      <p class="faq-a">No. We do not sell, share, or monetize your data in any way. We do not run ads. We do not have analytics tracking. Your financial data exists in our database for one purpose -- to show it to you. That is it.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Do you use cookies or track me?</p>
+      <p class="faq-a">No cookies, no analytics, no tracking scripts. We store a few small preferences in your browser's local storage -- like which tab you last viewed -- but nothing sensitive and nothing that leaves your device.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Why do I have to sign in every time?</p>
+      <p class="faq-a">Alenjo clears your session each time you close or reload the app. This is a deliberate security choice -- since the app shows sensitive financial data, we do not want a session lingering on a device you might share or leave unlocked. We know it adds a step, and we are evaluating ways to make this more convenient without compromising security.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Can I delete my account and data?</p>
+      <p class="faq-a">Yes. Disconnecting a bank in Settings immediately deletes all accounts and transactions from that connection. If you want to delete your entire account and all data, email <strong>privacy@alenjo.com</strong> and we will remove everything.</p>
+    </div>
+
+    <!-- TECHNICAL -->
+    <p class="faq-section-title">Technical</p>
+
+    <div class="faq">
+      <p class="faq-q">What is Alenjo built with?</p>
+      <p class="faq-a">Alenjo is a lightweight web app -- plain HTML, CSS, and JavaScript. No heavy frameworks. The backend runs on <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a> (PostgreSQL database, authentication, and edge functions). Bank data comes from <a href="https://plaid.com" target="_blank" rel="noopener">Plaid</a>. The app is hosted on GitHub Pages.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">Why does the app sometimes show old data?</p>
+      <p class="faq-a">Most banks update their transaction data once or twice per day. If you made a purchase an hour ago, it might not show up until your bank processes it -- usually by the next morning. The "Bank data from..." timestamp shows when your bank last sent updated data to Plaid.</p>
+    </div>
+
+    <div class="faq">
+      <p class="faq-q">I am seeing an error. What should I do?</p>
+      <p class="faq-a">Try reloading the page first -- that fixes most transient issues. If the error persists, try clearing your browser data for alenjo.com and signing in again. If it still does not work, email us with a description of what you were doing when the error appeared.</p>
+    </div>
+
+    <h2 style="margin-top:3rem">Still have questions?</h2>
+    <p>Email <strong>support@alenjo.com</strong> and we will get back to you.</p>
+
+    <div class="footer-links">
+      <a href="/privacy">Privacy</a>
+      <a href="/security">Security</a>
+      <a href="/">Home</a>
+    </div>
+  </div>
+</body>
+</html>

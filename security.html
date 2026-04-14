@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#060B14">
+  <title>Security - Alenjo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="apple-touch-icon" href="alenjo.png">
+  <style>
+    :root {
+      --bg: #060B14;
+      --bg-card: #0D1526;
+      --text: #E6EBF4;
+      --text-muted: #8E95A8;
+      --text-dim: #6E7790;
+      --accent: #3C82F6;
+      --border: rgba(140, 165, 220, 0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Figtree', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+    }
+
+    .page {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 3rem 1.25rem 4rem;
+    }
+
+    .page-nav {
+      margin-bottom: 2.5rem;
+    }
+
+    .page-nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .page-nav a:hover { text-decoration: underline; }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.25rem;
+    }
+
+    .last-updated {
+      font-size: 0.8125rem;
+      color: var(--text-dim);
+      margin-bottom: 2.5rem;
+    }
+
+    h2 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-top: 2.25rem;
+      margin-bottom: 0.75rem;
+    }
+
+    p, li {
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    ul li {
+      position: relative;
+      padding-left: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.6em;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+
+    strong { color: var(--text); font-weight: 600; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .footer-links {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.8125rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="page-nav">
+      <a href="/">&larr; Back to Alenjo</a>
+    </nav>
+
+    <h1>Security</h1>
+    <p class="last-updated">Last updated April 14, 2026</p>
+
+    <p>Alenjo handles financial data, so security is not optional -- it is foundational. This page explains how we protect your information at every layer, what responsibilities fall on the services we use, and what you can do on your end.</p>
+
+    <h2>Your Bank Credentials</h2>
+
+    <p>The most important thing to know: <strong>Alenjo never sees your bank username or password.</strong></p>
+
+    <p>When you connect a bank account, you interact with <a href="https://plaid.com" target="_blank" rel="noopener">Plaid</a> -- a financial data platform used by thousands of apps. Plaid opens a secure, sandboxed widget where you log in directly with your bank. Your credentials are exchanged between your browser, Plaid, and your bank. They never pass through our servers.</p>
+
+    <p>What we receive from Plaid is a read-only access token. That token lets us request your balances and transactions, but it cannot be used to move money, make payments, or modify your accounts in any way.</p>
+
+    <h2>Data in Transit</h2>
+
+    <p>Every connection between your browser and our services uses HTTPS with TLS encryption. This applies to:</p>
+
+    <ul>
+      <li>Requests to our database (Supabase)</li>
+      <li>Requests to Plaid's API</li>
+      <li>Loading the app itself from GitHub Pages</li>
+      <li>Any third-party resources (fonts, logos)</li>
+    </ul>
+
+    <p>There are no unencrypted connections. All data in transit is encrypted -- full stop.</p>
+
+    <h2>Data at Rest</h2>
+
+    <p>Your data is stored in <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a>, which runs on PostgreSQL. Supabase encrypts all data at rest and runs in SOC 2 Type II compliant infrastructure.</p>
+
+    <p>We enforce <strong>row-level security</strong> on every table in our database. This means your data is isolated at the database level -- each query is automatically scoped to your user ID. Even if a vulnerability existed in our application code, the database itself would prevent cross-user data access.</p>
+
+    <h2>Authentication</h2>
+
+    <p>Alenjo uses email and password authentication through Supabase Auth. Here is how it works:</p>
+
+    <ul>
+      <li>Your password is hashed using bcrypt before storage -- we never store it in plain text.</li>
+      <li>When you sign in, you receive a short-lived JSON Web Token (JWT) that expires after one hour.</li>
+      <li>Your session is cleared every time you close or reload the app. There is no "remember me" -- you sign in fresh each time.</li>
+      <li>All server-side functions verify your JWT before processing any request.</li>
+    </ul>
+
+    <p>Alenjo does not currently support two-factor authentication. We plan to add it in the future.</p>
+
+    <h2>Server-Side Functions</h2>
+
+    <p>Alenjo runs a small number of server-side functions on Supabase Edge Functions. These handle the sensitive operations that should not happen in your browser:</p>
+
+    <ul>
+      <li><strong>Plaid token exchange</strong> -- converts the temporary public token from Plaid's widget into a permanent access token. This happens server-side so the access token is never exposed to the client.</li>
+      <li><strong>Transaction syncing</strong> -- periodically fetches your latest transactions from Plaid and stores them in the database.</li>
+      <li><strong>Account cleanup</strong> -- when you disconnect a bank, this function deletes all associated data and revokes the Plaid access token.</li>
+    </ul>
+
+    <p>Every edge function requires a valid, authenticated session token. Unauthenticated requests are rejected.</p>
+
+    <h2>What We Do Not Do</h2>
+
+    <ul>
+      <li>We do not store your bank login credentials -- ever.</li>
+      <li>We do not have write access to your bank accounts. We can only read balances and transactions.</li>
+      <li>We do not run analytics or tracking scripts. There are no third-party scripts monitoring your behavior.</li>
+      <li>We do not use cookies.</li>
+      <li>We do not transmit financial data to any service other than Plaid (to fetch it) and Supabase (to store it).</li>
+    </ul>
+
+    <h2>Client-Side Security</h2>
+
+    <p>On the frontend:</p>
+
+    <ul>
+      <li>All user-generated content is escaped before rendering to prevent cross-site scripting (XSS).</li>
+      <li>The app uses a self-destructing service worker that clears all browser caches on every load -- this prevents stale or compromised cached data from persisting.</li>
+      <li>We set strict cache-control headers to prevent browsers from storing sensitive pages.</li>
+      <li>No financial data is stored in local storage -- only UI preferences like your last-viewed tab.</li>
+    </ul>
+
+    <h2>Third-Party Security</h2>
+
+    <p>We rely on a small number of trusted services. Here is how each handles security:</p>
+
+    <ul>
+      <li><strong>Plaid</strong> -- SOC 2 Type II certified, regularly audited, handles bank credentials in an isolated environment. Plaid's infrastructure is built specifically for financial data and is used by major financial institutions. <a href="https://plaid.com/safety/" target="_blank" rel="noopener">Read more about Plaid's security.</a></li>
+      <li><strong>Supabase</strong> -- SOC 2 Type II compliant, runs on AWS with encryption at rest and in transit. Row-level security enforced at the database layer. <a href="https://supabase.com/security" target="_blank" rel="noopener">Read more about Supabase security.</a></li>
+      <li><strong>GitHub Pages</strong> -- serves the static app files over HTTPS. No user data is processed by GitHub.</li>
+    </ul>
+
+    <h2>What You Can Do</h2>
+
+    <ul>
+      <li><strong>Use a strong, unique password</strong> -- your Alenjo password should not be the same as your bank password or any other service.</li>
+      <li><strong>Do not share your login</strong> -- Alenjo accounts are single-user. Sharing access means sharing visibility into all connected financial data.</li>
+      <li><strong>Disconnect banks you no longer use</strong> -- if you close a bank account or stop using Alenjo with a particular institution, disconnect it in Settings. This deletes the data and revokes the Plaid access token.</li>
+      <li><strong>Keep your device secure</strong> -- Alenjo runs in your browser. If someone has access to your unlocked device, they could access your session.</li>
+    </ul>
+
+    <h2>Reporting a Vulnerability</h2>
+
+    <p>If you find a security issue, please email <strong>security@alenjo.com</strong>. We take every report seriously and will respond promptly. Please do not publicly disclose vulnerabilities before we have had a chance to address them.</p>
+
+    <div class="footer-links">
+      <a href="/privacy">Privacy</a>
+      <a href="/faq">FAQs</a>
+      <a href="/">Home</a>
+    </div>
+  </div>
+</body>
+</html>
