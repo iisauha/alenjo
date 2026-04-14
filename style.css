@@ -369,6 +369,14 @@ body {
   letter-spacing: 0;
 }
 
+.venmo-pending-line {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--warning);
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.1rem;
+}
+
 .connect-cta {
   text-align: center;
   padding: 3rem 1.5rem;

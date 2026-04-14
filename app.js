@@ -1038,6 +1038,20 @@ function accountCard(account, type) {
     liabHtml += '</div>';
   }
 
+  // Venmo pending requests for this account
+  var venmoPendingHtml = '';
+  if (account.institution && account.institution.toLowerCase().indexOf('venmo') !== -1 && account.plaid_account_id && txData.length > 0) {
+    var pendingAmt = 0;
+    txData.forEach(function(tx) {
+      if (tx.pending && tx.plaid_account_id === account.plaid_account_id && tx.amount < 0) {
+        pendingAmt += Math.abs(tx.amount);
+      }
+    });
+    if (pendingAmt > 0) {
+      venmoPendingHtml = '<div class="venmo-pending-line">+' + formatMoney(pendingAmt) + ' pending</div>';
+    }
+  }
+
   return '<div class="account-card" data-id="' + account.id + '">' +
     '<div class="account-top">' +
       '<div class="account-left">' +
@@ -1048,6 +1062,7 @@ function accountCard(account, type) {
       '</div>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + '">' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
+        venmoPendingHtml +
         '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
