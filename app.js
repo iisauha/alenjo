@@ -34,6 +34,7 @@ var currentUser = null;
 var userProfile = null;
 var showAvailable = localStorage.getItem('alenjo_show_available') !== 'false';
 var cachedAccounts = null;
+var cachedBalances = { available: 0, savings: 0, investments: 0 };
 
 // ============================================
 // AUTH (sign-in only, no new signups)
@@ -626,6 +627,7 @@ function renderAccounts(accounts) {
     investments.forEach(function(a) { investSum += getDisplayBalance(a, 'bank').amount; });
     var availableCash = bankSum - creditSum;
     var netWorth = bankSum - creditSum + savingsSum + investSum;
+    cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum };
     netCashEl.hidden = false;
 
     var availEl = $('#available-value');
@@ -2305,10 +2307,53 @@ function renderRecurringBills() {
   var totalExpenses = expenseItems.reduce(function(s, b) { return s + toMonthly(b); }, 0);
 
   if (summaryEl) {
-    summaryEl.innerHTML = '<div class="tx-month-summary">' +
+    var summaryHtml = '<div class="tx-month-summary">' +
       (totalIncome > 0 ? '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">+' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
       '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Expenses</span><span class="tx-summary-value balance-negative">-' + formatMoney(totalExpenses) + '/mo</span></div>' +
     '</div>';
+
+    // Budget projection: can the user cover this month's recurring?
+    var availCash = cachedBalances.available;
+    var netFlow = totalIncome - totalExpenses;
+    var coverageBalance = availCash + totalIncome;
+    var shortfall = totalExpenses - coverageBalance;
+
+    if (totalExpenses > 0) {
+      if (shortfall > 0) {
+        // Not enough -- suggest pulling from other accounts
+        summaryHtml += '<div class="rec-projection rec-projection-warn">';
+        summaryHtml += '<div class="rec-projection-title">May need additional funds</div>';
+        summaryHtml += '<div class="rec-projection-body">Your available balance (' + formatMoney(availCash) + ')';
+        if (totalIncome > 0) summaryHtml += ' plus expected income (' + formatMoney(totalIncome) + ')';
+        summaryHtml += ' may not cover this month\'s recurring expenses.</div>';
+        summaryHtml += '<div class="rec-projection-shortfall">~' + formatMoney(shortfall) + ' short</div>';
+
+        // Suggest accounts
+        var suggestions = [];
+        if (cachedBalances.savings > 0) suggestions.push({ name: 'Savings', amount: cachedBalances.savings });
+        if (cachedBalances.investments > 0) suggestions.push({ name: 'Investments', amount: cachedBalances.investments });
+
+        if (suggestions.length > 0) {
+          summaryHtml += '<div class="rec-projection-suggest">Consider pulling from:</div>';
+          summaryHtml += '<div class="rec-projection-accounts">';
+          suggestions.forEach(function(s) {
+            summaryHtml += '<div class="rec-projection-account"><span>' + s.name + '</span><span class="balance-positive">' + formatMoney(s.amount) + '</span></div>';
+          });
+          summaryHtml += '</div>';
+        }
+        summaryHtml += '</div>';
+      } else {
+        // Covered
+        summaryHtml += '<div class="rec-projection rec-projection-ok">';
+        summaryHtml += '<div class="rec-projection-title">On track this month</div>';
+        summaryHtml += '<div class="rec-projection-body">Available balance (' + formatMoney(availCash) + ')';
+        if (totalIncome > 0) summaryHtml += ' plus income (' + formatMoney(totalIncome) + ')';
+        summaryHtml += ' covers your expected recurring expenses.</div>';
+        summaryHtml += '</div>';
+      }
+    }
+
+    summaryEl.innerHTML = summaryHtml;
   }
 
   // Sort: overdue first, then by days until due
@@ -2346,12 +2391,61 @@ function renderRecurringBills() {
 
   if (listEl) listEl.innerHTML = html;
 
-  // Tap row to open detail sheet
-  listEl.querySelectorAll('.rec-row').forEach(function(row) {
+  // Attach swipe and tap handlers
+  listEl.querySelectorAll('.rec-row-wrap').forEach(function(wrap) {
+    var row = wrap.querySelector('.rec-row');
+    var confirmLayer = wrap.querySelector('.rec-swipe-confirm');
+    var billId = wrap.dataset.billId;
+    var startX = 0;
+    var currentX = 0;
+    var swiping = false;
+    var swipeThreshold = 80;
+
+    row.addEventListener('touchstart', function(e) {
+      startX = e.touches[0].clientX;
+      currentX = 0;
+      swiping = true;
+      row.style.transition = 'none';
+    }, { passive: true });
+
+    row.addEventListener('touchmove', function(e) {
+      if (!swiping) return;
+      var dx = e.touches[0].clientX - startX;
+      if (dx > 0) dx = 0; // only swipe left
+      if (dx < -140) dx = -140;
+      currentX = dx;
+      row.style.transform = 'translateX(' + dx + 'px)';
+    }, { passive: true });
+
+    row.addEventListener('touchend', function() {
+      swiping = false;
+      row.style.transition = 'transform 0.3s ease';
+      if (currentX < -swipeThreshold) {
+        row.style.transform = 'translateX(-120px)';
+        wrap.classList.add('rec-row-swiped');
+      } else {
+        row.style.transform = 'translateX(0)';
+        wrap.classList.remove('rec-row-swiped');
+      }
+    });
+
+    // Tap row (not during swipe) to open detail
     row.addEventListener('click', function() {
-      var billId = row.dataset.billId;
+      if (wrap.classList.contains('rec-row-swiped')) {
+        row.style.transition = 'transform 0.3s ease';
+        row.style.transform = 'translateX(0)';
+        wrap.classList.remove('rec-row-swiped');
+        return;
+      }
       openRecDetailSheet(billId);
     });
+
+    // Confirm button behind swipe
+    if (confirmLayer) {
+      confirmLayer.addEventListener('click', function() {
+        confirmBill(billId);
+      });
+    }
   });
 }
 
@@ -2377,16 +2471,19 @@ function renderBillRow(bill) {
 
   var freqLabel = getFrequencyLabel(bill.frequency, bill.frequency_days);
 
-  return '<div class="rec-row' + rowExtraClass + '" data-bill-id="' + bill.id + '">' +
-    '<div class="rec-info">' +
-      '<span class="rec-merchant">' + esc(bill.name) + '</span>' +
-      '<span class="rec-freq">' + esc(freqLabel) + '</span>' +
-    '</div>' +
-    '<div class="rec-right">' +
-      '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
-        (isIncome ? '+' : '-') + formatMoney(amt) +
-      '</span>' +
-      statusLabel +
+  return '<div class="rec-row-wrap" data-bill-id="' + bill.id + '">' +
+    '<div class="rec-swipe-confirm">Confirm</div>' +
+    '<div class="rec-row' + rowExtraClass + '">' +
+      '<div class="rec-info">' +
+        '<span class="rec-merchant">' + esc(bill.name) + '</span>' +
+        '<span class="rec-freq">' + esc(freqLabel) + '</span>' +
+      '</div>' +
+      '<div class="rec-right">' +
+        '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
+          (isIncome ? '+' : '-') + formatMoney(amt) +
+        '</span>' +
+        statusLabel +
+      '</div>' +
     '</div>' +
   '</div>';
 }

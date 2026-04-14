@@ -2264,20 +2264,46 @@ body {
   color: var(--text-muted);
 }
 
+/* Swipe-to-confirm wrapper */
+.rec-row-wrap {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+.rec-swipe-confirm {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--success);
+  color: #fff;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .rec-row {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding: 0.7rem 0;
-  border-bottom: 1px solid var(--border);
   cursor: pointer;
+  background: var(--bg);
+  z-index: 1;
+  will-change: transform;
 }
 
 .rec-row-overdue {
   border-left: 3px solid var(--danger);
   padding-left: 0.6rem;
-  margin-left: -0.6rem;
 }
 
 .rec-row-paused {
@@ -2729,6 +2755,72 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Budget projection card */
+.rec-projection {
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.rec-projection-ok {
+  background: rgba(46, 204, 113, 0.06);
+  border: 1px solid rgba(46, 204, 113, 0.15);
+}
+
+.rec-projection-warn {
+  background: rgba(244, 80, 48, 0.06);
+  border: 1px solid rgba(244, 80, 48, 0.15);
+}
+
+.rec-projection-title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  margin-bottom: 0.3rem;
+}
+
+.rec-projection-warn .rec-projection-title {
+  color: var(--danger);
+}
+
+.rec-projection-ok .rec-projection-title {
+  color: var(--success);
+}
+
+.rec-projection-body {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.rec-projection-shortfall {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--danger);
+  margin: 0.4rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-projection-suggest {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-top: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.rec-projection-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rec-projection-account {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  padding: 0.25rem 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .rec-edit-current {
