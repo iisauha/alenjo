@@ -2730,30 +2730,33 @@ recSearchInput.addEventListener('input', function() {
     var isNumQuery = /^\$?[\d,.]+$/.test(query);
     var numQuery = isNumQuery ? parseFloat(query.replace(/[$,]/g, '')) : 0;
 
-    // Group transactions by merchant name and collect amounts
+    // Group transactions by merchant name, using user-modified effective amounts
     var merchants = {};
     txData.forEach(function(tx) {
-      var name = tx.merchant_name || tx.enriched_merchant_name || tx.name || '';
-      var key = name.toLowerCase().trim();
+      var eff = getEffectiveTx(tx);
+      // Skip excluded (ignored/reimbursed) transactions
+      if (eff.excluded) return;
+      var displayName = eff.nickname || tx.merchant_name || tx.enriched_merchant_name || tx.name || '';
+      var key = (tx.merchant_name || tx.enriched_merchant_name || tx.name || '').toLowerCase().trim();
       if (!key) return;
 
-      var matchesName = key.indexOf(query) !== -1;
-      var matchesAmount = isNumQuery && Math.abs(Math.abs(tx.amount) - numQuery) < 1;
+      var effAmt = Math.abs(eff.amount);
+      var matchesName = key.indexOf(query) !== -1 || displayName.toLowerCase().indexOf(query) !== -1;
+      var matchesAmount = isNumQuery && Math.abs(effAmt - numQuery) < 1;
 
       if (!matchesName && !matchesAmount) return;
 
       if (!merchants[key]) {
-        merchants[key] = { name: name, txs: [], isIncome: tx.amount < 0 };
+        merchants[key] = { name: displayName, txs: [], isIncome: eff.amount < 0 };
       }
       merchants[key].txs.push(tx);
     });
 
-    // Build result list
+    // Build result list using effective amounts
     var results = Object.keys(merchants).map(function(key) {
       var m = merchants[key];
-      // Sort txs by date descending so most recent is first
       m.txs.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
-      var amounts = m.txs.map(function(t) { return Math.abs(t.amount); });
+      var amounts = m.txs.map(function(t) { return Math.abs(getEffectiveTx(t).amount); });
       return { key: key, name: m.name, count: m.txs.length, recentAmount: amounts[0], isIncome: m.isIncome, txs: m.txs, amounts: amounts };
     });
 
@@ -2820,8 +2823,8 @@ function proceedWithSelectedMerchants() {
   // Sort transactions by date desc
   allTxs.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
 
-  // Recompute amounts from sorted transactions
-  var allAmounts = allTxs.map(function(t) { return Math.abs(t.amount); });
+  // Recompute amounts from sorted transactions using effective (user-modified) values
+  var allAmounts = allTxs.map(function(t) { return Math.abs(getEffectiveTx(t).amount); });
 
   var primaryName = names[0];
 
@@ -2853,18 +2856,20 @@ function showMerchantTxDetail(match) {
   html += '<div class="rec-tx-detail-summary">' + match.txs.length + ' transaction' + (match.txs.length === 1 ? '' : 's') + ' found</div>';
   html += '<div class="rec-tx-detail-list">';
   txs.forEach(function(tx) {
-    var d = parseLocalDate(tx.date);
+    var eff = getEffectiveTx(tx);
+    var d = parseLocalDate(eff.date);
     var dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    var merchantName = tx.merchant_name || tx.enriched_merchant_name || tx.name || '';
-    var amt = Math.abs(tx.amount);
-    var isIncome = tx.amount < 0;
+    var merchantName = eff.nickname || tx.merchant_name || tx.enriched_merchant_name || tx.name || '';
+    var amt = Math.abs(eff.amount);
+    var isIncome = eff.amount < 0;
+    var splitTag = eff.isSplit ? ' <span class="rec-tx-detail-tag">split</span>' : '';
     html += '<div class="rec-tx-detail-item">';
     html += '<div class="rec-tx-detail-item-left"><span class="rec-tx-detail-date">' + dateStr + '</span>';
     if (match.names && match.names.length > 1) {
       html += '<span class="rec-tx-detail-merchant">' + esc(merchantName) + '</span>';
     }
     html += '</div>';
-    html += '<span class="rec-tx-detail-amt ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' + (isIncome ? '+' : '-') + formatMoney(amt) + '</span>';
+    html += '<span class="rec-tx-detail-amt ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' + (isIncome ? '+' : '-') + formatMoney(amt) + splitTag + '</span>';
     html += '</div>';
   });
   if (match.txs.length > 20) {

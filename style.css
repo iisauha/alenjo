@@ -2723,6 +2723,13 @@ body {
   color: var(--text-dim);
 }
 
+.rec-tx-detail-tag {
+  font-size: var(--text-xs);
+  color: var(--success);
+  font-weight: 500;
+  margin-left: 0.25rem;
+}
+
 .rec-tx-detail-more {
   padding: 0.4rem 0;
   font-size: var(--text-xs);
