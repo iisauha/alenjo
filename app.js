@@ -89,7 +89,6 @@ function showScreen(name) {
   if (name === 'app') {
     var savedTab = localStorage.getItem('alenjo_active_tab');
     if (savedTab === 'investments' || savedTab === 'settings') savedTab = 'snapshot';
-    if (savedTab === 'recurring') savedTab = 'transactions';
     if (savedTab) switchTab(savedTab);
   }
 }
@@ -2177,137 +2176,107 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
   if (btn && btn.dataset.tab === 'transactions' && txData.length === 0) {
     loadTransactions();
   }
+  if (btn && btn.dataset.tab === 'recurring') {
+    loadRecurringBills();
+  }
 });
 
 // ============================================
-// RECURRING (user-tagged)
+// RECURRING BILLS
 // ============================================
-var recLoaded = false;
+var recBills = [];
+var recBillsLoaded = false;
 
-async function loadRecurring() {
-  // Load transaction data if not already loaded
-  if (txData.length === 0) {
-    var result = await sb.from('synced_transactions').select('*').order('date', { ascending: false }).limit(5000);
-    if (result.data && result.data.length > 0) {
-      txData = result.data;
-    }
-    // Load actions if not loaded
-    if (Object.keys(txActions).length === 0) {
-      var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted');
-      if (actionsResult.data) {
-        actionsResult.data.forEach(function(row) { txActions[row.transaction_id] = row; });
-      }
-    }
-  }
+async function loadRecurringBills() {
+  var recLoading = $('#rec-loading');
+  var recEmpty = $('#rec-empty');
+  var recContent = $('#rec-content');
 
-  if (txData.length === 0) {
-    var recEmpty = $('#rec-empty');
-    var recContent = $('#rec-content');
-    if (recEmpty) recEmpty.hidden = false;
-    if (recContent) recContent.hidden = true;
+  if (recBillsLoaded) {
+    renderRecurringBills();
     return;
   }
 
-  renderRecurring();
+  if (recLoading) recLoading.classList.add('visible');
+  if (recEmpty) recEmpty.hidden = true;
+  if (recContent) recContent.hidden = true;
+
+  // Load transaction data if needed (for search later)
+  if (txData.length === 0) {
+    var result = await sb.from('synced_transactions').select('*').order('date', { ascending: false }).limit(5000);
+    if (result.data && result.data.length > 0) txData = result.data;
+    if (Object.keys(txActions).length === 0) {
+      var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted');
+      if (actionsResult.data) actionsResult.data.forEach(function(row) { txActions[row.transaction_id] = row; });
+    }
+  }
+
+  // Load recurring bills from database
+  var billsResult = await sb.from('recurring_bills').select('*').order('next_due_date', { ascending: true });
+  if (billsResult.data) recBills = billsResult.data;
+
+  recBillsLoaded = true;
+  if (recLoading) recLoading.classList.remove('visible');
+  renderRecurringBills();
 }
 
-function renderRecurring() {
+function computeNextDueDate(anchorDate, frequency, frequencyDays, afterDate) {
+  var anchor = parseLocalDate(anchorDate);
+  var after = afterDate ? parseLocalDate(afterDate) : new Date();
+  after.setHours(0, 0, 0, 0);
+
+  if (frequency === 'custom' && frequencyDays) {
+    var d = new Date(anchor);
+    while (d <= after) d.setDate(d.getDate() + frequencyDays);
+    return formatLocalDate(d);
+  }
+
+  var monthStep = { biweekly: 0, monthly: 1, quarterly: 3, semiannual: 6, annual: 12 }[frequency] || 1;
+
+  if (frequency === 'biweekly') {
+    var d = new Date(anchor);
+    while (d <= after) d.setDate(d.getDate() + 14);
+    return formatLocalDate(d);
+  }
+
+  // Month-based frequencies
+  var d = new Date(anchor);
+  while (d <= after) {
+    d.setMonth(d.getMonth() + monthStep);
+  }
+  return formatLocalDate(d);
+}
+
+function parseLocalDate(str) {
+  var p = str.split('-');
+  return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+}
+
+function formatLocalDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function getFrequencyLabel(freq, days) {
+  var labels = { biweekly: 'Every 2 weeks', monthly: 'Monthly', quarterly: 'Every 3 months', semiannual: 'Every 6 months', annual: 'Yearly' };
+  if (freq === 'custom' && days) return 'Every ' + days + ' days';
+  return labels[freq] || freq;
+}
+
+function getDaysUntilDue(bill) {
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var due = parseLocalDate(bill.next_due_date);
+  due.setHours(0, 0, 0, 0);
+  return Math.round((due - today) / 86400000);
+}
+
+function renderRecurringBills() {
   var recEmpty = $('#rec-empty');
   var recContent = $('#rec-content');
   var summaryEl = $('#rec-summary');
   var listEl = $('#rec-list');
 
-  // Group recurring-tagged transactions by recurring_group
-  var groups = {};
-  txData.forEach(function(tx) {
-    var action = txActions[tx.id];
-    if (!action || !action.is_recurring) return;
-    var groupKey = action.recurring_group || (tx.merchant_name || tx.name || 'Unknown').toLowerCase().trim();
-    if (!groups[groupKey]) {
-      groups[groupKey] = { name: null, txs: [] };
-    }
-    groups[groupKey].txs.push(tx);
-  });
-
-  var recurringItems = [];
-  Object.keys(groups).forEach(function(key) {
-    var group = groups[key];
-    group.txs.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
-    var mostRecent = group.txs[0];
-    var action = txActions[mostRecent.id] || {};
-    var eff = getEffectiveTx(mostRecent);
-    var displayName = eff.nickname || mostRecent.merchant_name || mostRecent.name || 'Unknown';
-    var isIncome = mostRecent.amount < 0;
-    var isPaused = action.recurring_paused || false;
-    var isDeleted = action.recurring_deleted || false;
-
-    // Skip deleted groups
-    if (isDeleted) return;
-
-    function getSplitAmount(t) {
-      var a = txActions[t.id];
-      var raw = Math.abs(t.amount);
-      if (a && a.split_portion > 0) return parseFloat(a.split_portion);
-      if (a && a.split_ways > 1) return raw / a.split_ways;
-      return raw;
-    }
-
-    // Always use most recent amount as primary
-    var amount = getSplitAmount(mostRecent);
-
-    // Check if amounts vary significantly
-    var varies = false;
-    if (group.txs.length >= 2) {
-      var amounts = group.txs.map(getSplitAmount);
-      var median = amounts.slice().sort(function(a, b) { return a - b; })[Math.floor(amounts.length / 2)];
-      var maxDev = Math.max.apply(null, amounts.map(function(a) { return Math.abs(a - median) / median; }));
-      varies = maxDev > 0.15;
-      // If most recent is an outlier, show median instead
-      if (Math.abs(amount - median) / median > 1) {
-        amount = median;
-      }
-    }
-
-    // Compute next expected date from purchase history
-    var computedNext = null;
-    var lastDateStr = mostRecent.date;
-    if (lastDateStr) {
-      var lp = lastDateStr.split('-');
-      var lastD = new Date(parseInt(lp[0]), parseInt(lp[1]) - 1, parseInt(lp[2]));
-      if (group.txs.length >= 2) {
-        var dates = group.txs.map(function(t) {
-          var dp = t.date.split('-');
-          return new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2])).getTime();
-        }).sort(function(a, b) { return a - b; });
-        var totalGap = 0;
-        for (var di = 1; di < dates.length; di++) {
-          totalGap += dates[di] - dates[di - 1];
-        }
-        var avgInterval = Math.round(totalGap / (dates.length - 1) / 86400000);
-        if (avgInterval < 7) avgInterval = 30;
-        computedNext = new Date(lastD.getTime() + avgInterval * 86400000);
-      } else {
-        computedNext = new Date(lastD.getFullYear(), lastD.getMonth() + 1, lastD.getDate());
-      }
-    }
-
-    recurringItems.push({
-      groupKey: key,
-      name: displayName,
-      category: normalizeCategory(eff.category),
-      amount: amount,
-      isIncome: isIncome,
-      varies: varies,
-      isPaused: isPaused,
-      lastDate: lastDateStr,
-      nextDate: computedNext,
-      count: group.txs.length,
-      isSplit: eff.isSplit,
-      splitWays: eff.splitWays
-    });
-  });
-
-  if (recurringItems.length === 0) {
+  if (recBills.length === 0) {
     if (recEmpty) recEmpty.hidden = false;
     if (recContent) recContent.hidden = true;
     return;
@@ -2316,140 +2285,453 @@ function renderRecurring() {
   if (recEmpty) recEmpty.hidden = true;
   if (recContent) recContent.hidden = false;
 
-  // Split into income vs expenses
-  var incomeItems = recurringItems.filter(function(r) { return r.isIncome; });
-  var expenseItems = recurringItems.filter(function(r) { return !r.isIncome; });
-  incomeItems.sort(function(a, b) { return b.amount - a.amount; });
-  expenseItems.sort(function(a, b) { return b.amount - a.amount; });
+  var incomeItems = recBills.filter(function(b) { return b.is_income; });
+  var expenseItems = recBills.filter(function(b) { return !b.is_income; });
 
-  var totalIncome = incomeItems.filter(function(i) { return !i.isPaused; }).reduce(function(s, i) { return s + i.amount; }, 0);
-  var totalExpenses = expenseItems.filter(function(i) { return !i.isPaused; }).reduce(function(s, i) { return s + i.amount; }, 0);
+  // Compute monthly-equivalent totals
+  function toMonthly(bill) {
+    var amt = parseFloat(bill.amount);
+    if (bill.frequency === 'biweekly') return amt * (365.25 / 14 / 12);
+    if (bill.frequency === 'quarterly') return amt / 3;
+    if (bill.frequency === 'semiannual') return amt / 6;
+    if (bill.frequency === 'annual') return amt / 12;
+    if (bill.frequency === 'custom' && bill.frequency_days) return amt * (30.44 / bill.frequency_days);
+    return amt; // monthly
+  }
+
+  var totalIncome = incomeItems.reduce(function(s, b) { return s + toMonthly(b); }, 0);
+  var totalExpenses = expenseItems.reduce(function(s, b) { return s + toMonthly(b); }, 0);
 
   if (summaryEl) {
     summaryEl.innerHTML = '<div class="tx-month-summary">' +
-      (totalIncome > 0 ? '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
-      '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Costs</span><span class="tx-summary-value balance-negative">' + formatMoney(totalExpenses) + '/mo</span></div>' +
+      (totalIncome > 0 ? '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Income</span><span class="tx-summary-value balance-positive">+' + formatMoney(totalIncome) + '/mo</span></div>' : '') +
+      '<div class="tx-summary-item"><span class="tx-summary-label">Recurring Expenses</span><span class="tx-summary-value balance-negative">-' + formatMoney(totalExpenses) + '/mo</span></div>' +
     '</div>';
   }
 
+  // Sort: overdue first, then by days until due
+  var sorted = recBills.slice().sort(function(a, b) {
+    return getDaysUntilDue(a) - getDaysUntilDue(b);
+  });
+
   var html = '';
+
+  // Overdue / due today section
+  var overdueItems = sorted.filter(function(b) { return getDaysUntilDue(b) <= 0; });
+  var upcomingItems = sorted.filter(function(b) { return getDaysUntilDue(b) > 0; });
+
+  if (overdueItems.length > 0) {
+    html += '<div class="rec-section"><h3 class="rec-section-title" style="color:var(--danger)">Needs Attention</h3>';
+    overdueItems.forEach(function(bill) { html += renderBillRow(bill); });
+    html += '</div>';
+  }
+
   if (incomeItems.length > 0) {
-    html += '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
-    incomeItems.forEach(function(item) { html += renderRecurringRow(item, true); });
+    var upIncome = upcomingItems.filter(function(b) { return b.is_income; });
+    if (upIncome.length > 0) {
+      html += '<div class="rec-section"><h3 class="rec-section-title balance-positive">Income</h3>';
+      upIncome.forEach(function(bill) { html += renderBillRow(bill); });
+      html += '</div>';
+    }
+  }
+
+  var upExpenses = upcomingItems.filter(function(b) { return !b.is_income; });
+  if (upExpenses.length > 0) {
+    html += '<div class="rec-section"><h3 class="rec-section-title balance-negative">Expenses</h3>';
+    upExpenses.forEach(function(bill) { html += renderBillRow(bill); });
     html += '</div>';
   }
-  if (expenseItems.length > 0) {
-    html += '<div class="rec-section"><h3 class="rec-section-title balance-negative">Costs</h3>';
-    expenseItems.forEach(function(item) { html += renderRecurringRow(item, false); });
-    html += '</div>';
-  }
+
   if (listEl) listEl.innerHTML = html;
-  recLoaded = true;
+
+  // Attach row event listeners
+  listEl.querySelectorAll('.rec-row').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+      if (e.target.closest('.rec-action-btn')) return;
+      var actions = row.querySelector('.rec-actions');
+      if (!actions) return;
+      var wasHidden = actions.hidden;
+      document.querySelectorAll('.rec-actions').forEach(function(a) { a.hidden = true; });
+      actions.hidden = !wasHidden;
+    });
+  });
+
+  listEl.querySelectorAll('.rec-action-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var billId = btn.closest('.rec-row').dataset.billId;
+      var action = btn.dataset.action;
+      if (action === 'confirm') confirmBill(billId);
+      else if (action === 'delete') deleteBill(billId);
+    });
+  });
 }
 
-function renderRecurringRow(item, isIncome) {
-  var splitLabel = item.isSplit ? ' (split)' : '';
-  var variesLabel = item.varies ? ' <span class="rec-varies">varies</span>' : '';
-  var pausedLabel = item.isPaused ? ' <span class="rec-paused-label">Paused</span>' : '';
-  var nextLabel = '';
-  if (item.nextDate && !item.isPaused) {
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    var next = new Date(item.nextDate.getTime());
-    next.setHours(0, 0, 0, 0);
-    var diffDays = Math.round((next - today) / 86400000);
-    if (diffDays < 0) nextLabel = '<span class="rec-overdue">Overdue ' + Math.abs(diffDays) + 'd</span>';
-    else if (diffDays === 0) nextLabel = '<span class="rec-due-soon">Due today</span>';
-    else if (diffDays <= 7) nextLabel = '<span class="rec-due-soon">' + diffDays + 'd</span>';
-    else nextLabel = '<span class="rec-expected">' + diffDays + 'd</span>';
+function renderBillRow(bill) {
+  var days = getDaysUntilDue(bill);
+  var isIncome = bill.is_income;
+  var amt = parseFloat(bill.amount);
+
+  var statusLabel = '';
+  var rowExtraClass = '';
+  if (days < 0) {
+    var absDays = Math.abs(days);
+    statusLabel = '<span class="rec-overdue">' + absDays + ' day' + (absDays === 1 ? '' : 's') + ' overdue</span>';
+    rowExtraClass = ' rec-row-overdue';
+  } else if (days === 0) {
+    statusLabel = '<span class="rec-overdue">Due today</span>';
+    rowExtraClass = ' rec-row-overdue';
+  } else if (days <= 7) {
+    statusLabel = '<span class="rec-due-soon">' + days + ' day' + (days === 1 ? '' : 's') + ' left</span>';
+  } else {
+    statusLabel = '<span class="rec-expected">' + days + ' days left</span>';
   }
-  var rowClass = 'rec-row' + (item.isPaused ? ' rec-row-paused' : '');
-  return '<div class="' + rowClass + '" data-group="' + esc(item.groupKey) + '">' +
+
+  var freqLabel = getFrequencyLabel(bill.frequency, bill.frequency_days);
+
+  return '<div class="rec-row' + rowExtraClass + '" data-bill-id="' + bill.id + '">' +
     '<div class="rec-info">' +
-      '<span class="rec-merchant">' + esc(item.name) + splitLabel + pausedLabel + '</span>' +
-      '<span class="rec-freq">' + esc(item.category) + variesLabel + '</span>' +
+      '<span class="rec-merchant">' + esc(bill.name) + '</span>' +
+      '<span class="rec-freq">' + esc(freqLabel) + '</span>' +
     '</div>' +
     '<div class="rec-right">' +
       '<span class="rec-amount ' + (isIncome ? 'balance-positive' : 'balance-negative') + '">' +
-        (item.varies ? '~' : '') + (isIncome ? '+' : '-') + formatMoney(item.amount) +
+        (isIncome ? '+' : '-') + formatMoney(amt) +
       '</span>' +
-      (nextLabel ? nextLabel : '<span class="rec-avg">/mo</span>') +
+      statusLabel +
     '</div>' +
     '<div class="rec-actions" hidden>' +
-      '<button class="rec-action-btn" data-action="' + (item.isPaused ? 'resume' : 'pause') + '">' + (item.isPaused ? 'Resume' : 'Pause') + '</button>' +
+      (days <= 0 ? '<button class="rec-action-btn rec-action-confirm" data-action="confirm">Confirm Paid</button>' : '') +
       '<button class="rec-action-btn rec-action-delete" data-action="delete">Delete</button>' +
     '</div>' +
   '</div>';
 }
+
+async function confirmBill(billId) {
+  var bill = recBills.find(function(b) { return b.id === billId; });
+  if (!bill) return;
+
+  var today = formatLocalDate(new Date());
+  var newNext = computeNextDueDate(bill.anchor_date, bill.frequency, bill.frequency_days, today);
+
+  await sb.from('recurring_bills').update({
+    last_confirmed_date: today,
+    next_due_date: newNext
+  }).eq('id', billId);
+
+  bill.last_confirmed_date = today;
+  bill.next_due_date = newNext;
+  showToast('Confirmed');
+  renderRecurringBills();
+}
+
+async function deleteBill(billId) {
+  await sb.from('recurring_bills').delete().eq('id', billId);
+  recBills = recBills.filter(function(b) { return b.id !== billId; });
+  showToast('Deleted');
+  renderRecurringBills();
+}
+
+// ============================================
+// RECURRING ADD FLOW
+// ============================================
+var recAddSheet = $('#rec-add-sheet');
+var recSearchInput = $('#rec-search-input');
+var recSearchResults = $('#rec-search-results');
+var recStepSearch = $('#rec-step-search');
+var recStepAmount = $('#rec-step-amount');
+var recStepFreq = $('#rec-step-freq');
+var recStepType = $('#rec-step-type');
+
+var recAddState = {
+  name: '',
+  matchingTxs: [],
+  amount: 0,
+  amountMode: 'recent',
+  isIncome: false,
+  frequency: 'monthly',
+  frequencyDays: null,
+  anchorDate: ''
+};
+
+function openRecAddSheet() {
+  recAddState = { name: '', matchingTxs: [], amount: 0, amountMode: 'recent', isIncome: false, frequency: 'monthly', frequencyDays: null, anchorDate: '' };
+  recSearchInput.value = '';
+  recSearchResults.innerHTML = '';
+  showRecStep('search');
+  recAddSheet.classList.add('visible');
+  setTimeout(function() { recSearchInput.focus(); }, 300);
+}
+
+function closeRecAddSheet() {
+  recAddSheet.classList.remove('visible');
+}
+
+function showRecStep(step) {
+  [recStepSearch, recStepAmount, recStepFreq].forEach(function(el) { el.hidden = true; });
+  recStepType.hidden = true;
+  if (step === 'search') { recStepSearch.hidden = false; recStepType.hidden = true; }
+  else if (step === 'amount') { recStepAmount.hidden = false; recStepType.hidden = false; }
+  else if (step === 'freq') recStepFreq.hidden = false;
+}
+
+// Add button handlers
+var btnAddRec = $('#btn-add-recurring');
+var btnAddRecEmpty = $('#btn-add-recurring-empty');
+if (btnAddRec) btnAddRec.addEventListener('click', openRecAddSheet);
+if (btnAddRecEmpty) btnAddRecEmpty.addEventListener('click', openRecAddSheet);
+
+// Cancel
+$('#rec-add-cancel').addEventListener('click', closeRecAddSheet);
+recAddSheet.addEventListener('click', function(e) {
+  if (e.target === recAddSheet) closeRecAddSheet();
+});
+
+// Search input with debounce
+var recSearchTimer = null;
+recSearchInput.addEventListener('input', function() {
+  clearTimeout(recSearchTimer);
+  recSearchTimer = setTimeout(function() {
+    var query = recSearchInput.value.trim().toLowerCase();
+    if (query.length < 1) { recSearchResults.innerHTML = ''; return; }
+
+    // Search transactions by name or amount
+    var isNumQuery = /^\$?[\d,.]+$/.test(query);
+    var numQuery = isNumQuery ? parseFloat(query.replace(/[$,]/g, '')) : 0;
+
+    // Group transactions by merchant name and collect amounts
+    var merchants = {};
+    txData.forEach(function(tx) {
+      var name = tx.merchant_name || tx.enriched_merchant_name || tx.name || '';
+      var key = name.toLowerCase().trim();
+      if (!key) return;
+
+      var matchesName = key.indexOf(query) !== -1;
+      var matchesAmount = isNumQuery && Math.abs(Math.abs(tx.amount) - numQuery) < 1;
+
+      if (!matchesName && !matchesAmount) return;
+
+      if (!merchants[key]) {
+        merchants[key] = { name: name, amounts: [], txs: [], isIncome: tx.amount < 0 };
+      }
+      merchants[key].amounts.push(Math.abs(tx.amount));
+      merchants[key].txs.push(tx);
+    });
+
+    // Build result list
+    var results = Object.keys(merchants).map(function(key) {
+      var m = merchants[key];
+      var recent = m.amounts[0];
+      return { key: key, name: m.name, count: m.txs.length, recentAmount: recent, isIncome: m.isIncome, txs: m.txs, amounts: m.amounts };
+    });
+
+    // Sort by transaction count (most frequent first)
+    results.sort(function(a, b) { return b.count - a.count; });
+
+    // Limit to 20
+    results = results.slice(0, 20);
+
+    recSearchResults.innerHTML = results.map(function(r) {
+      return '<button class="rec-search-item" data-key="' + esc(r.key) + '">' +
+        '<div class="rec-search-item-info">' +
+          '<span class="rec-search-item-name">' + esc(r.name) + '</span>' +
+          '<span class="rec-search-item-meta">' + r.count + ' transaction' + (r.count === 1 ? '' : 's') + '</span>' +
+        '</div>' +
+        '<span class="rec-search-item-amount">' + formatMoney(r.recentAmount) + '</span>' +
+      '</button>';
+    }).join('');
+
+    if (results.length === 0) {
+      recSearchResults.innerHTML = '<div class="rec-search-empty">No matching transactions</div>';
+    }
+
+    // Attach click handlers
+    recSearchResults.querySelectorAll('.rec-search-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        var key = item.dataset.key;
+        var match = results.find(function(r) { return r.key === key; });
+        if (match) selectRecTransaction(match);
+      });
+    });
+  }, 150);
+});
+
+function selectRecTransaction(match) {
+  recAddState.name = match.name;
+  recAddState.matchingTxs = match.txs;
+  recAddState.isIncome = match.isIncome;
+
+  // Compute amount options
+  var amounts = match.amounts;
+  var recentAmt = amounts[0];
+  var avgAmt = amounts.reduce(function(s, a) { return s + a; }, 0) / amounts.length;
+
+  // Most frequent: find the mode (round to nearest cent)
+  var freqMap = {};
+  amounts.forEach(function(a) {
+    var rounded = Math.round(a * 100) / 100;
+    freqMap[rounded] = (freqMap[rounded] || 0) + 1;
+  });
+  var modeAmt = recentAmt;
+  var modeCount = 0;
+  Object.keys(freqMap).forEach(function(k) {
+    if (freqMap[k] > modeCount) { modeCount = freqMap[k]; modeAmt = parseFloat(k); }
+  });
+
+  // Set default
+  recAddState.amount = recentAmt;
+  recAddState.amountMode = 'recent';
+
+  // Update income/expense toggle
+  var expBtn = $('#rec-type-expense');
+  var incBtn = $('#rec-type-income');
+  if (match.isIncome) {
+    incBtn.classList.add('active');
+    expBtn.classList.remove('active');
+  } else {
+    expBtn.classList.add('active');
+    incBtn.classList.remove('active');
+  }
+
+  // Render amount step
+  var infoEl = $('#rec-amount-info');
+  infoEl.innerHTML = '<span class="rec-amount-name">' + esc(match.name) + '</span>' +
+    '<span class="rec-amount-meta">' + amounts.length + ' transaction' + (amounts.length === 1 ? '' : 's') + ' found</span>';
+
+  var modesEl = $('#rec-amount-modes');
+  var modesHtml = '';
+  modesHtml += '<button class="recurring-mode-btn active" data-mode="recent">Most Recent<br><strong>' + formatMoney(recentAmt) + '</strong></button>';
+  if (amounts.length > 1) {
+    modesHtml += '<button class="recurring-mode-btn" data-mode="average">Average<br><strong>' + formatMoney(avgAmt) + '</strong></button>';
+    modesHtml += '<button class="recurring-mode-btn" data-mode="frequent">Most Frequent<br><strong>' + formatMoney(modeAmt) + '</strong></button>';
+  }
+  modesHtml += '<button class="recurring-mode-btn" data-mode="custom">Custom</button>';
+  modesEl.innerHTML = modesHtml;
+
+  var selectedAmtEl = $('#rec-selected-amount');
+  selectedAmtEl.textContent = 'Amount: ' + formatMoney(recentAmt);
+
+  // Mode button handlers
+  modesEl.querySelectorAll('.recurring-mode-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      modesEl.querySelectorAll('.recurring-mode-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var mode = btn.dataset.mode;
+      recAddState.amountMode = mode;
+      var customRow = $('#rec-custom-amount-row');
+
+      if (mode === 'recent') { recAddState.amount = recentAmt; customRow.hidden = true; }
+      else if (mode === 'average') { recAddState.amount = avgAmt; customRow.hidden = true; }
+      else if (mode === 'frequent') { recAddState.amount = modeAmt; customRow.hidden = true; }
+      else if (mode === 'custom') { customRow.hidden = false; var ci = $('#rec-custom-amount'); ci.focus(); }
+
+      if (mode !== 'custom') selectedAmtEl.textContent = 'Amount: ' + formatMoney(recAddState.amount);
+    });
+  });
+
+  // Custom amount input
+  $('#rec-custom-amount').addEventListener('input', function() {
+    var v = parseFloat(this.value);
+    if (!isNaN(v) && v > 0) {
+      recAddState.amount = v;
+      selectedAmtEl.textContent = 'Amount: ' + formatMoney(v);
+    }
+  });
+
+  $('#rec-custom-amount-row').hidden = true;
+  showRecStep('amount');
+}
+
+// Income/Expense toggle
+$('#rec-type-expense').addEventListener('click', function() {
+  recAddState.isIncome = false;
+  this.classList.add('active');
+  $('#rec-type-income').classList.remove('active');
+});
+$('#rec-type-income').addEventListener('click', function() {
+  recAddState.isIncome = true;
+  this.classList.add('active');
+  $('#rec-type-expense').classList.remove('active');
+});
+
+// Amount step navigation
+$('#rec-amount-back').addEventListener('click', function() { showRecStep('search'); });
+$('#rec-amount-next').addEventListener('click', function() {
+  // Set default anchor date to today
+  var today = formatLocalDate(new Date());
+  $('#rec-anchor-date').value = today;
+  recAddState.anchorDate = today;
+
+  // Reset frequency selection
+  document.querySelectorAll('#rec-freq-options .recurring-date-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelector('#rec-freq-options [data-freq="monthly"]').classList.add('active');
+  recAddState.frequency = 'monthly';
+  $('#rec-custom-freq-row').hidden = true;
+
+  showRecStep('freq');
+});
+
+// Frequency step
+document.querySelectorAll('#rec-freq-options .recurring-date-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#rec-freq-options .recurring-date-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    recAddState.frequency = btn.dataset.freq;
+    $('#rec-custom-freq-row').hidden = btn.dataset.freq !== 'custom';
+    if (btn.dataset.freq === 'custom') $('#rec-custom-freq-days').focus();
+  });
+});
+
+$('#rec-custom-freq-days').addEventListener('input', function() {
+  var v = parseInt(this.value);
+  if (!isNaN(v) && v > 0) recAddState.frequencyDays = v;
+});
+
+$('#rec-anchor-date').addEventListener('change', function() {
+  recAddState.anchorDate = this.value;
+});
+
+// Frequency back
+$('#rec-freq-back').addEventListener('click', function() { showRecStep('amount'); });
+
+// Save
+$('#rec-freq-save').addEventListener('click', async function() {
+  if (!recAddState.name || !recAddState.amount || !recAddState.anchorDate) {
+    showToast('Please fill in all fields');
+    return;
+  }
+  if (recAddState.frequency === 'custom' && (!recAddState.frequencyDays || recAddState.frequencyDays < 1)) {
+    showToast('Enter a valid number of days');
+    return;
+  }
+
+  var nextDue = computeNextDueDate(recAddState.anchorDate, recAddState.frequency, recAddState.frequencyDays, null);
+
+  var row = {
+    user_id: currentUser.id,
+    name: recAddState.name,
+    amount: Math.round(recAddState.amount * 100) / 100,
+    is_income: recAddState.isIncome,
+    frequency: recAddState.frequency,
+    frequency_days: recAddState.frequency === 'custom' ? recAddState.frequencyDays : null,
+    anchor_date: recAddState.anchorDate,
+    next_due_date: nextDue
+  };
+
+  var result = await sb.from('recurring_bills').insert(row).select();
+  if (result.data && result.data[0]) {
+    recBills.push(result.data[0]);
+  }
+
+  showToast('Recurring bill added');
+  closeRecAddSheet();
+  renderRecurringBills();
+});
 
 // Legend section toggle
 var legendToggle = $('#btn-toggle-legend');
 if (legendToggle) legendToggle.addEventListener('click', function() {
   this.closest('.tx-legend-section').classList.toggle('collapsed');
 });
-
-// Recurring row tap to expand actions
-document.addEventListener('click', function(e) {
-  var row = e.target.closest('.rec-row');
-  if (!row) return;
-
-  // Handle action button clicks
-  var actionBtn = e.target.closest('.rec-action-btn');
-  if (actionBtn) {
-    var action = actionBtn.dataset.action;
-    var groupKey = row.dataset.group;
-    handleRecurringAction(action, groupKey);
-    return;
-  }
-
-  // Toggle action visibility
-  var actions = row.querySelector('.rec-actions');
-  if (!actions) return;
-  var wasHidden = actions.hidden;
-  // Close all others first
-  document.querySelectorAll('.rec-actions').forEach(function(a) { a.hidden = true; });
-  actions.hidden = !wasHidden;
-});
-
-async function handleRecurringAction(action, groupKey) {
-  var txIds = [];
-  txData.forEach(function(tx) {
-    var a = txActions[tx.id];
-    if (a && a.is_recurring && a.recurring_group === groupKey) {
-      txIds.push(tx.id);
-    }
-  });
-  if (txIds.length === 0) return;
-
-  if (action === 'pause' || action === 'resume') {
-    var isPausing = action === 'pause';
-    var rows = txIds.map(function(id) {
-      var existing = txActions[id] || {};
-      return Object.assign({}, existing, {
-        user_id: currentUser.id,
-        transaction_id: id,
-        recurring_paused: isPausing
-      });
-    });
-    await sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' });
-    rows.forEach(function(r) { txActions[r.transaction_id] = r; });
-    showToast(isPausing ? 'Paused' : 'Resumed');
-    renderRecurring();
-  } else if (action === 'delete') {
-    // Mark as deleted on the most recent transaction (preserves past data)
-    var mostRecentId = txIds[0]; // txs are sorted desc by date
-    var existing = txActions[mostRecentId] || {};
-    var row = Object.assign({}, existing, {
-      user_id: currentUser.id,
-      transaction_id: mostRecentId,
-      recurring_deleted: true
-    });
-    await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
-    txActions[mostRecentId] = row;
-    showToast('Recurring deleted');
-    renderRecurring();
-  }
-}
 
 // ============================================
 // AI CHAT (inline on Snapshot)

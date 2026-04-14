@@ -2269,9 +2269,15 @@ body {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  padding: 0.6rem 0;
+  padding: 0.7rem 0;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+}
+
+.rec-row-overdue {
+  border-left: 3px solid var(--danger);
+  padding-left: 0.6rem;
+  margin-left: -0.6rem;
 }
 
 .rec-row-paused {
@@ -2308,6 +2314,12 @@ body {
   font-size: var(--text-sm);
   font-family: inherit;
   cursor: pointer;
+}
+
+.rec-action-confirm {
+  color: var(--success);
+  border-color: rgba(46, 204, 113, 0.25);
+  background: rgba(46, 204, 113, 0.06);
 }
 
 .rec-action-delete {
@@ -2373,6 +2385,123 @@ body {
   font-weight: 500;
 }
 
+/* Recurring add sheet */
+.rec-step {
+  padding: 0.5rem 0;
+}
+
+.rec-search-results {
+  max-height: 280px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.5rem;
+}
+
+.rec-search-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.65rem 0.5rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rec-search-item:active {
+  background: var(--accent-subtle);
+}
+
+.rec-search-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.rec-search-item-name {
+  font-weight: 500;
+  font-size: var(--text-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-search-item-meta {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+}
+
+.rec-search-item-amount {
+  font-weight: 600;
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.rec-search-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+}
+
+.rec-amount-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.75rem;
+}
+
+.rec-amount-name {
+  font-weight: 600;
+  font-size: var(--text-lg);
+}
+
+.rec-amount-meta {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+}
+
+.rec-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.rec-custom-row .app-input {
+  margin: 0;
+}
+
+.rec-selected-amount {
+  margin-top: 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-step-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  justify-content: flex-end;
+}
+
+.rec-type-toggle {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
 .recurring-date-options {
   display: flex;
   flex-wrap: wrap;
@@ -2402,15 +2531,21 @@ body {
 
 .recurring-mode-btn {
   flex: 1;
-  padding: 0.55rem;
+  min-width: calc(50% - 0.2rem);
+  padding: 0.55rem 0.4rem;
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-family: inherit;
   cursor: pointer;
   text-align: center;
+  line-height: 1.4;
+}
+
+.recurring-mode-btn strong {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Reduced motion */
