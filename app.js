@@ -626,14 +626,47 @@ function renderAccounts(accounts) {
     var investSum = 0;
     investments.forEach(function(a) { investSum += getDisplayBalance(a, 'bank').amount; });
     var availableCash = bankSum - creditSum;
-    var netWorth = bankSum - creditSum + savingsSum + investSum;
-    cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum };
+
+    // Add Venmo pending incoming (requests you've sent that haven't been paid yet)
+    var venmoPending = 0;
+    var venmoAccountIds = [];
+    banks.concat(savings).forEach(function(a) {
+      if (a.institution && a.institution.toLowerCase().indexOf('venmo') !== -1) {
+        if (a.plaid_account_id) venmoAccountIds.push(a.plaid_account_id);
+      }
+    });
+    if (venmoAccountIds.length > 0 && txData.length > 0) {
+      txData.forEach(function(tx) {
+        if (tx.pending && venmoAccountIds.indexOf(tx.plaid_account_id) !== -1 && tx.amount < 0) {
+          venmoPending += Math.abs(tx.amount);
+        }
+      });
+    }
+    if (venmoPending > 0) availableCash += venmoPending;
+
+    var netWorth = bankSum - creditSum + savingsSum + investSum + venmoPending;
+    cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum, venmoPending: venmoPending };
     netCashEl.hidden = false;
 
     var availEl = $('#available-value');
     if (availEl) {
-      availEl.textContent = (availableCash < 0 ? '-' : '') + formatMoney(availableCash);
+      var availText = (availableCash < 0 ? '-' : '') + formatMoney(availableCash);
+      availEl.textContent = availText;
       availEl.className = 'hero-stat-value ' + (availableCash >= 0 ? 'balance-positive' : 'balance-negative');
+      // Show Venmo pending tooltip if applicable
+      var pendingNote = document.getElementById('venmo-pending-note');
+      if (venmoPending > 0) {
+        if (!pendingNote) {
+          pendingNote = document.createElement('div');
+          pendingNote.id = 'venmo-pending-note';
+          pendingNote.className = 'venmo-pending-note';
+          availEl.parentNode.appendChild(pendingNote);
+        }
+        pendingNote.textContent = 'Includes ' + formatMoney(venmoPending) + ' in Venmo pending requests';
+        pendingNote.hidden = false;
+      } else if (pendingNote) {
+        pendingNote.hidden = true;
+      }
     }
     var nwEl = $('#networth-value');
     if (nwEl) {
@@ -2314,41 +2347,55 @@ function renderRecurringBills() {
 
     // Budget projection: can the user cover this month's recurring?
     var availCash = cachedBalances.available;
-    var netFlow = totalIncome - totalExpenses;
-    var coverageBalance = availCash + totalIncome;
+    var coverageBalance = (availCash > 0 ? availCash : 0) + totalIncome;
     var shortfall = totalExpenses - coverageBalance;
+    var balanceLabel = availCash >= 0
+      ? formatMoney(availCash) + ' available'
+      : '-' + formatMoney(Math.abs(availCash)) + ' overdrawn';
 
     if (totalExpenses > 0) {
-      if (shortfall > 0) {
-        // Not enough -- suggest pulling from other accounts
+      if (shortfall > 0 || availCash < 0) {
+        var actualShortfall = totalExpenses - (availCash + totalIncome);
+        if (actualShortfall < 0) actualShortfall = 0;
+        // If balance is negative, the shortfall includes the overdraft
+        if (availCash < 0) actualShortfall = totalExpenses + Math.abs(availCash) - totalIncome;
+        if (actualShortfall < 0) actualShortfall = 0;
+
         summaryHtml += '<div class="rec-projection rec-projection-warn">';
         summaryHtml += '<div class="rec-projection-title">May need additional funds</div>';
-        summaryHtml += '<div class="rec-projection-body">Your available balance (' + formatMoney(availCash) + ')';
-        if (totalIncome > 0) summaryHtml += ' plus expected income (' + formatMoney(totalIncome) + ')';
-        summaryHtml += ' may not cover this month\'s recurring expenses.</div>';
-        summaryHtml += '<div class="rec-projection-shortfall">~' + formatMoney(shortfall) + ' short</div>';
+        summaryHtml += '<div class="rec-projection-body">';
+        if (availCash < 0) {
+          summaryHtml += 'Your checking is currently ' + formatMoney(Math.abs(availCash)) + ' overdrawn.';
+        } else {
+          summaryHtml += 'You have ' + formatMoney(availCash) + ' available.';
+        }
+        if (totalIncome > 0) summaryHtml += ' With ' + formatMoney(totalIncome) + ' in expected income,';
+        else summaryHtml += ' Without expected income,';
+        summaryHtml += ' your recurring expenses of ' + formatMoney(totalExpenses) + ' may not be fully covered.</div>';
 
-        // Suggest accounts
-        var suggestions = [];
-        if (cachedBalances.savings > 0) suggestions.push({ name: 'Savings', amount: cachedBalances.savings });
-        if (cachedBalances.investments > 0) suggestions.push({ name: 'Investments', amount: cachedBalances.investments });
+        if (actualShortfall > 0) {
+          summaryHtml += '<div class="rec-projection-shortfall">~' + formatMoney(actualShortfall) + ' needed</div>';
 
-        if (suggestions.length > 0) {
-          summaryHtml += '<div class="rec-projection-suggest">Consider pulling from:</div>';
-          summaryHtml += '<div class="rec-projection-accounts">';
-          suggestions.forEach(function(s) {
-            summaryHtml += '<div class="rec-projection-account"><span>' + s.name + '</span><span class="balance-positive">' + formatMoney(s.amount) + '</span></div>';
-          });
-          summaryHtml += '</div>';
+          var suggestions = [];
+          if (cachedBalances.savings > 0) suggestions.push({ name: 'Savings', amount: cachedBalances.savings });
+          if (cachedBalances.investments > 0) suggestions.push({ name: 'Investments', amount: cachedBalances.investments });
+
+          if (suggestions.length > 0) {
+            summaryHtml += '<div class="rec-projection-suggest">Consider transferring from:</div>';
+            summaryHtml += '<div class="rec-projection-accounts">';
+            suggestions.forEach(function(s) {
+              summaryHtml += '<div class="rec-projection-account"><span>' + s.name + '</span><span class="balance-positive">' + formatMoney(s.amount) + '</span></div>';
+            });
+            summaryHtml += '</div>';
+          }
         }
         summaryHtml += '</div>';
       } else {
-        // Covered
         summaryHtml += '<div class="rec-projection rec-projection-ok">';
         summaryHtml += '<div class="rec-projection-title">On track this month</div>';
-        summaryHtml += '<div class="rec-projection-body">Available balance (' + formatMoney(availCash) + ')';
-        if (totalIncome > 0) summaryHtml += ' plus income (' + formatMoney(totalIncome) + ')';
-        summaryHtml += ' covers your expected recurring expenses.</div>';
+        summaryHtml += '<div class="rec-projection-body">You have ' + formatMoney(availCash) + ' available';
+        if (totalIncome > 0) summaryHtml += ' with ' + formatMoney(totalIncome) + ' in expected income';
+        summaryHtml += ' -- enough to cover your ' + formatMoney(totalExpenses) + ' in recurring expenses.</div>';
         summaryHtml += '</div>';
       }
     }
@@ -2509,6 +2556,13 @@ async function confirmBill(billId) {
 async function confirmBillAndClose(billId) {
   await confirmBill(billId);
   closeRecDetailSheet();
+}
+
+async function deleteBill(billId) {
+  await sb.from('recurring_bills').delete().eq('id', billId);
+  recBills = recBills.filter(function(b) { return b.id !== billId; });
+  showToast('Deleted');
+  renderRecurringBills();
 }
 
 async function deleteBillAndClose(billId) {

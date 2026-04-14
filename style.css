@@ -361,7 +361,13 @@ body {
   display: none;
 }
 
-
+.venmo-pending-note {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-top: 0.2rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
 
 .connect-cta {
   text-align: center;
@@ -2766,68 +2772,67 @@ body {
 
 /* Budget projection card */
 .rec-projection {
+  background: var(--bg-card);
   border-radius: var(--radius-sm);
-  padding: 0.75rem 0.85rem;
-  margin-bottom: 1rem;
+  padding: 0.85rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
 }
 
 .rec-projection-ok {
-  background: rgba(46, 204, 113, 0.06);
-  border: 1px solid rgba(46, 204, 113, 0.15);
+  border-left: 3px solid var(--success);
 }
 
 .rec-projection-warn {
-  background: rgba(244, 80, 48, 0.06);
-  border: 1px solid rgba(244, 80, 48, 0.15);
+  border-left: 3px solid var(--danger);
 }
 
 .rec-projection-title {
   font-weight: 600;
   font-size: var(--text-sm);
-  margin-bottom: 0.3rem;
-}
-
-.rec-projection-warn .rec-projection-title {
-  color: var(--danger);
-}
-
-.rec-projection-ok .rec-projection-title {
-  color: var(--success);
+  margin-bottom: 0.35rem;
+  color: var(--text);
 }
 
 .rec-projection-body {
   font-size: var(--text-xs);
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .rec-projection-shortfall {
   font-size: var(--text-lg);
   font-weight: 700;
   color: var(--danger);
-  margin: 0.4rem 0;
+  margin: 0.5rem 0 0.35rem;
   font-variant-numeric: tabular-nums;
 }
 
 .rec-projection-suggest {
   font-size: var(--text-xs);
   color: var(--text-dim);
-  margin-top: 0.4rem;
-  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 
 .rec-projection-accounts {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
 }
 
 .rec-projection-account {
   display: flex;
   justify-content: space-between;
   font-size: var(--text-sm);
-  padding: 0.25rem 0;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
+}
+
+.rec-projection-account:last-child {
+  border-bottom: none;
 }
 
 .rec-edit-current {
