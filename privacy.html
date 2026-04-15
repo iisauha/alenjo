@@ -131,26 +131,26 @@
 
     <p>Alenjo is a personal finance app that helps you see your money in one place. To do that, we connect to your bank accounts, pull in your transactions, and show you what matters. This policy explains exactly what data we collect, how we use it, and who else is involved.</p>
 
-    <p>We want to be straightforward here -- no legal fog, no buried clauses. If something is unclear, reach out and we will explain it.</p>
+    <p>We want to be straightforward here. No legal fog, no buried clauses. If something is unclear, reach out and we will explain it.</p>
 
     <h2>What We Collect</h2>
 
     <p>When you use Alenjo, we store the following:</p>
 
     <ul>
-      <li><strong>Your profile</strong> -- a display name and a photo, if you add one. That is it for personal info. We do not ask for your phone number, address, or date of birth.</li>
-      <li><strong>Bank account metadata</strong> -- account names, types (checking, savings, credit card, investment), current balances, and the institution they belong to. This comes from Plaid, not from you typing it in.</li>
-      <li><strong>Transactions</strong> -- merchant names, amounts, dates, and categories for your recent transactions. We store up to several months of history so you can review your spending.</li>
-      <li><strong>Investment holdings</strong> -- ticker symbols, quantities, values, and cost basis for your brokerage accounts.</li>
-      <li><strong>Credit card details</strong> -- APR, minimum payment, due dates, and statement balances, when your bank provides them through Plaid.</li>
-      <li><strong>Recurring bills</strong> -- the bills you set up manually in the Plan tab, including name, amount, frequency, and due dates.</li>
-      <li><strong>Your preferences</strong> -- things like which tab you last viewed, whether you are showing ignored transactions, and any nicknames or category changes you have made to transactions. These are small UI settings, not sensitive data.</li>
+      <li><strong>Your profile.</strong> A display name and a photo, if you add one. That is it for personal info. We do not ask for your phone number, address, or date of birth.</li>
+      <li><strong>Bank account metadata.</strong> Account names, types (checking, savings, credit card, investment), current balances, and the institution they belong to. This comes from Plaid, not from you typing it in.</li>
+      <li><strong>Transactions.</strong> Merchant names, amounts, dates, and categories for your recent transactions. We store up to several months of history so you can review your spending.</li>
+      <li><strong>Investment holdings.</strong> Ticker symbols, quantities, values, and cost basis for your brokerage accounts.</li>
+      <li><strong>Credit card details.</strong> APR, minimum payment, due dates, and statement balances, when your bank provides them through Plaid.</li>
+      <li><strong>Recurring bills.</strong> The bills you set up manually in the Plan tab, including name, amount, frequency, and due dates.</li>
+      <li><strong>Your preferences.</strong> Things like which tab you last viewed, whether you are showing ignored transactions, and any nicknames or category changes you have made to transactions. These are small UI settings, not sensitive data.</li>
     </ul>
 
     <h2>What We Do Not Collect</h2>
 
     <ul>
-      <li>We do not track your behavior -- no analytics, no page views, no click tracking, no session recordings.</li>
+      <li>We do not track your behavior. No analytics, no page views, no click tracking, no session recordings.</li>
       <li>We do not use cookies.</li>
       <li>We do not serve ads or share data with advertisers.</li>
       <li>We never see, handle, or store your bank login credentials. Those go directly to Plaid.</li>
@@ -160,17 +160,17 @@
 
     <p>We use <a href="https://plaid.com" target="_blank" rel="noopener">Plaid</a> to connect to your bank. When you tap "Connect Account," Plaid opens a secure widget where you log in to your bank directly. Plaid handles the authentication and sends us read-only access to your account data.</p>
 
-    <p>Your bank username and password never touch our servers -- they stay between you, your bank, and Plaid. We receive an access token from Plaid that lets us request your balances and transactions, but that token cannot be used to move money or make changes to your accounts.</p>
+    <p>Your bank username and password never touch our servers. They stay between you, your bank, and Plaid. We receive an access token from Plaid that lets us request your balances and transactions, but that token cannot be used to move money or make changes to your accounts.</p>
 
     <p>Plaid is used by thousands of financial apps and is regularly audited for security. You can read <a href="https://plaid.com/legal/#end-user-privacy-policy" target="_blank" rel="noopener">Plaid's privacy policy</a> for full details on how they handle your data.</p>
 
     <h2>Where Your Data Lives</h2>
 
-    <p>Your data is stored in <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a> -- an open-source database platform built on PostgreSQL. Supabase hosts your profile, accounts, transactions, and everything else Alenjo needs to work.</p>
+    <p>Your data is stored in <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a>, an open-source database platform built on PostgreSQL. Supabase hosts your profile, accounts, transactions, and everything else Alenjo needs to work.</p>
 
     <ul>
       <li>All data is encrypted in transit (HTTPS/TLS) and at rest.</li>
-      <li>Every database query is scoped to your user account through row-level security -- meaning even if someone had access to the database connection, they could not read another user's data.</li>
+      <li>Every database query is scoped to your user account through row-level security. Even if someone had access to the database connection, they could not read another user's data.</li>
       <li>Authentication is handled by Supabase Auth using email and password with short-lived session tokens.</li>
     </ul>
 
@@ -181,18 +181,18 @@
     <p>Here is every external service Alenjo talks to and why:</p>
 
     <ul>
-      <li><strong>Plaid</strong> -- connects to your bank and provides account data, transactions, investment holdings, and credit card details. This is the core of how Alenjo works.</li>
-      <li><strong>Supabase</strong> -- hosts our database, handles authentication, stores your data, and runs our server-side functions.</li>
-      <li><strong>Google Fonts</strong> -- delivers the Figtree typeface. Google may log basic request data (your IP address) when loading the font. No cookies are set.</li>
-      <li><strong>logo.dev</strong> -- provides bank and institution logos. We send the institution's domain name to get a logo image. No user data is shared.</li>
-      <li><strong>GitHub Pages</strong> -- hosts the Alenjo website itself. GitHub may log access requests. No user data is sent to GitHub beyond standard web traffic.</li>
+      <li><strong>Plaid.</strong> Connects to your bank and provides account data, transactions, investment holdings, and credit card details. This is the core of how Alenjo works.</li>
+      <li><strong>Supabase.</strong> Hosts our database, handles authentication, stores your data, and runs our server-side functions.</li>
+      <li><strong>Google Fonts.</strong> Delivers the Figtree typeface. Google may log basic request data (your IP address) when loading the font. No cookies are set.</li>
+      <li><strong>logo.dev.</strong> Provides bank and institution logos. We send the institution's domain name to get a logo image. No user data is shared.</li>
+      <li><strong>GitHub Pages.</strong> Hosts the Alenjo website itself. GitHub may log access requests. No user data is sent to GitHub beyond standard web traffic.</li>
     </ul>
 
     <p>That is the complete list. We do not use any analytics services, advertising networks, or data brokers.</p>
 
     <h2>Data Stored on Your Device</h2>
 
-    <p>Alenjo stores a few small preferences in your browser's local storage -- things like which tab you were last on and your display settings. This is not sensitive data, and none of it leaves your device. We do not use cookies at all.</p>
+    <p>Alenjo stores a few small preferences in your browser's local storage, like which tab you were last on and your display settings. This is not sensitive data, and none of it leaves your device. We do not use cookies at all.</p>
 
     <h2>How Long We Keep Your Data</h2>
 
@@ -214,7 +214,7 @@
 
     <h2>Contact</h2>
 
-    <p>Questions about your data or this policy? Email <strong>privacy@alenjo.com</strong>.</p>
+    <p>Questions about your data or this policy? Email <strong>isaiahaaguilar1@gmail.com</strong>.</p>
 
     <div class="footer-links">
       <a href="/security">Security</a>
