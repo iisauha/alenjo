@@ -125,6 +125,7 @@
         <div class="tx-utility-row">
           <button id="btn-toggle-ignored" class="btn-toggle-ignored">Show Ignored</button>
           <span id="tx-updated" class="tx-updated"></span>
+          <button id="btn-add-tx" class="btn-export">+ Add</button>
           <button id="btn-export-csv" class="btn-export">CSV</button>
         </div>
         <div class="tx-chart-wrap">
@@ -354,6 +355,64 @@
         <button id="account-edit-cancel" class="btn-secondary-sm">Cancel</button>
         <button id="account-edit-save" class="btn-primary-sm">Save</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Add Transaction Sheet -->
+  <div id="add-tx-sheet" class="action-sheet-overlay">
+    <div class="action-sheet">
+      <div class="action-sheet-header">
+        <span class="action-sheet-title">Add Transaction</span>
+      </div>
+      <div class="add-tx-form">
+        <div class="edit-field">
+          <label for="add-tx-name">Name</label>
+          <input type="text" id="add-tx-name" class="app-input" placeholder="Store, service, or description...">
+        </div>
+        <div class="edit-field">
+          <label for="add-tx-amount">Amount</label>
+          <div class="add-tx-amount-row">
+            <span class="add-tx-currency">$</span>
+            <input type="number" id="add-tx-amount" class="app-input" inputmode="decimal" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+        <div class="add-tx-type-row">
+          <button class="add-tx-type-btn active" data-txtype="expense" id="add-tx-type-expense">Expense</button>
+          <button class="add-tx-type-btn" data-txtype="income" id="add-tx-type-income">Income</button>
+        </div>
+        <div class="edit-field">
+          <label for="add-tx-date">Date</label>
+          <input type="date" id="add-tx-date" class="app-input">
+        </div>
+        <div class="edit-field">
+          <label for="add-tx-account">Account</label>
+          <select id="add-tx-account" class="app-select add-tx-select"></select>
+        </div>
+        <div class="edit-field">
+          <label for="add-tx-category">Category</label>
+          <select id="add-tx-category" class="app-select add-tx-select">
+            <option value="FOOD_AND_DRINK">Food and Drink</option>
+            <option value="GENERAL_MERCHANDISE">Shopping</option>
+            <option value="TRANSPORTATION">Transportation</option>
+            <option value="ENTERTAINMENT">Entertainment</option>
+            <option value="RENT_AND_UTILITIES">Rent and Utilities</option>
+            <option value="GENERAL_SERVICES">Services</option>
+            <option value="PERSONAL_CARE">Personal Care</option>
+            <option value="MEDICAL">Medical</option>
+            <option value="TRAVEL">Travel</option>
+            <option value="HOME_IMPROVEMENT">Home Improvement</option>
+            <option value="LOAN_PAYMENTS">Loan Payments</option>
+            <option value="BANK_FEES">Bank Fees</option>
+            <option value="INCOME">Income</option>
+            <option value="TRANSFER_OUT">Transfer Out</option>
+            <option value="TRANSFER_IN">Transfer In</option>
+            <option value="GOVERNMENT_AND_NON_PROFIT">Government</option>
+            <option value="OTHER" selected>Other</option>
+          </select>
+        </div>
+        <button id="add-tx-save" class="btn-primary" style="width:100%;margin-top:0.75rem">Add Transaction</button>
+      </div>
+      <button class="action-sheet-cancel" id="add-tx-cancel">Cancel</button>
     </div>
   </div>
 

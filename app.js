@@ -1730,6 +1730,119 @@ $('#btn-export-csv').addEventListener('click', function() {
   URL.revokeObjectURL(url);
 });
 
+// ============================================
+// ADD MANUAL TRANSACTION
+// ============================================
+var addTxSheet = $('#add-tx-sheet');
+var addTxIsIncome = false;
+
+$('#btn-add-tx').addEventListener('click', function() {
+  // Reset form
+  $('#add-tx-name').value = '';
+  $('#add-tx-amount').value = '';
+  $('#add-tx-date').value = new Date().toISOString().split('T')[0];
+  addTxIsIncome = false;
+  $('#add-tx-type-expense').classList.add('active');
+  $('#add-tx-type-income').classList.remove('active');
+  $('#add-tx-category').value = 'OTHER';
+
+  // Populate account dropdown
+  var acctSelect = $('#add-tx-account');
+  acctSelect.innerHTML = '';
+  if (cachedAccounts) {
+    cachedAccounts.forEach(function(a) {
+      if (a.plaid_account_id) {
+        var opt = document.createElement('option');
+        opt.value = a.plaid_account_id;
+        opt.textContent = a.nickname || a.name || 'Account';
+        opt.dataset.accountId = a.id;
+        opt.dataset.plaidItemId = a.plaid_item_id || '';
+        acctSelect.appendChild(opt);
+      }
+    });
+  }
+
+  addTxSheet.classList.add('visible');
+  setTimeout(function() { $('#add-tx-name').focus(); }, 100);
+});
+
+// Type toggle
+$('#add-tx-type-expense').addEventListener('click', function() {
+  addTxIsIncome = false;
+  this.classList.add('active');
+  $('#add-tx-type-income').classList.remove('active');
+});
+$('#add-tx-type-income').addEventListener('click', function() {
+  addTxIsIncome = true;
+  this.classList.add('active');
+  $('#add-tx-type-expense').classList.remove('active');
+});
+
+// Cancel
+$('#add-tx-cancel').addEventListener('click', function() {
+  addTxSheet.classList.remove('visible');
+});
+addTxSheet.addEventListener('click', function(e) {
+  if (e.target === addTxSheet) addTxSheet.classList.remove('visible');
+});
+
+// Save
+$('#add-tx-save').addEventListener('click', async function() {
+  var name = $('#add-tx-name').value.trim();
+  var amountVal = parseFloat($('#add-tx-amount').value);
+  var date = $('#add-tx-date').value;
+  var acctSelect = $('#add-tx-account');
+  var category = $('#add-tx-category').value;
+
+  if (!name) { showToast('Enter a name'); return; }
+  if (!amountVal || amountVal <= 0) { showToast('Enter an amount'); return; }
+  if (!date) { showToast('Pick a date'); return; }
+
+  // Plaid convention: positive = expense, negative = income
+  var amount = addTxIsIncome ? -amountVal : amountVal;
+
+  var selectedOpt = acctSelect.options[acctSelect.selectedIndex];
+  var plaidAccountId = acctSelect.value || null;
+  var accountId = selectedOpt ? selectedOpt.dataset.accountId || null : null;
+  var plaidItemId = selectedOpt ? selectedOpt.dataset.plaidItemId || null : null;
+
+  var txId = 'manual_' + crypto.randomUUID();
+
+  var row = {
+    id: txId,
+    user_id: currentUser.id,
+    account_id: accountId,
+    plaid_item_id: plaidItemId,
+    plaid_account_id: plaidAccountId,
+    amount: amount,
+    date: date,
+    name: name,
+    merchant_name: name,
+    category: category,
+    pending: false,
+    type: addTxIsIncome ? 'special' : 'place',
+    enriched_category_primary: category
+  };
+
+  try {
+    var result = await sb.from('synced_transactions').insert(row);
+    if (result.error) {
+      console.error('Insert manual tx error:', result.error);
+      showToast('Failed to add transaction');
+      return;
+    }
+
+    // Add to local data and re-render
+    txData.push(row);
+    renderTransactionMonth();
+    addTxSheet.classList.remove('visible');
+    showToast('Transaction added');
+  } catch (e) {
+    console.error('Add tx error:', e);
+    showToast('Failed to add transaction');
+  }
+});
+
 function formatTxDate(dateStr, datetimeStr) {
   if (!dateStr) return '';
   var parts = dateStr.split('-');

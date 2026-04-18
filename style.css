@@ -1672,17 +1672,21 @@ body {
 .cat-pct {
   color: var(--text-dim);
   font-size: var(--text-sm);
-  width: 2.5rem;
+  min-width: 2.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .cat-amt {
   font-weight: 600;
   font-size: var(--text-base);
-  width: 4.5rem;
+  min-width: 4.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tx-clear-filter {
@@ -2132,6 +2136,70 @@ body {
 
 .edit-field input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.8);
+}
+
+/* Add Transaction Form */
+.add-tx-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.add-tx-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.add-tx-currency {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.add-tx-amount-row .app-input {
+  flex: 1;
+}
+
+.add-tx-type-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.add-tx-type-btn {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-tx-type-btn.active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.add-tx-select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--text-base);
+  font-family: inherit;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .action-sub-title {
