@@ -1151,6 +1151,7 @@ var txData = [];
 var txMonths = [];
 var txActions = {};
 var ignoreRules = {};
+var txListenersReady = false;
 async function loadTransactions() {
   var txEmpty = $('#tx-empty');
   var txContent = $('#tx-content');
@@ -1304,28 +1305,32 @@ async function loadTransactions() {
 
   renderTransactionMonth();
 
-  filter.addEventListener('change', renderTransactionMonth);
-  cardFilter.addEventListener('change', renderTransactionMonth);
-
-  var searchInput = $('#tx-search');
-  var searchTimer = null;
-  searchInput.addEventListener('input', function() {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(renderTransactionMonth, 200);
-  });
-
+  // Set initial button state every load, but only bind listeners once
   var btnIgnored = $('#btn-toggle-ignored');
-  if (showIgnoredTx) {
-    btnIgnored.textContent = 'Hide Ignored';
-    btnIgnored.classList.add('active');
+  btnIgnored.textContent = showIgnoredTx ? 'Hide Ignored' : 'Show Ignored';
+  btnIgnored.classList.toggle('active', showIgnoredTx);
+
+  if (!txListenersReady) {
+    txListenersReady = true;
+
+    filter.addEventListener('change', renderTransactionMonth);
+    cardFilter.addEventListener('change', renderTransactionMonth);
+
+    var searchInput = $('#tx-search');
+    var searchTimer = null;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(renderTransactionMonth, 200);
+    });
+
+    btnIgnored.addEventListener('click', function() {
+      showIgnoredTx = !showIgnoredTx;
+      localStorage.setItem('alenjo_show_ignored', showIgnoredTx ? 'true' : 'false');
+      this.textContent = showIgnoredTx ? 'Hide Ignored' : 'Show Ignored';
+      this.classList.toggle('active', showIgnoredTx);
+      renderTransactionMonth();
+    });
   }
-  btnIgnored.addEventListener('click', function() {
-    showIgnoredTx = !showIgnoredTx;
-    localStorage.setItem('alenjo_show_ignored', showIgnoredTx ? 'true' : 'false');
-    this.textContent = showIgnoredTx ? 'Hide Ignored' : 'Show Ignored';
-    this.classList.toggle('active', showIgnoredTx);
-    renderTransactionMonth();
-  });
 
   // Background sync is handled by throttledSync() from loadAccounts
 }
@@ -2033,30 +2038,49 @@ async function saveMultiAction(txId, updates) {
     recurring_paused: updates.hasOwnProperty('recurring_paused') ? updates.recurring_paused : (existing.recurring_paused || false),
     recurring_deleted: updates.hasOwnProperty('recurring_deleted') ? updates.recurring_deleted : (existing.recurring_deleted || false)
   };
-  var saveResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
-  if (saveResult.error) {
-    console.error('Failed to save action:', saveResult.error);
-    var retryResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
-    if (retryResult.error) {
-      console.error('Retry also failed:', retryResult.error);
-      showToast('Failed to save');
-      return;
+  try {
+    var saveResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
+    if (saveResult.error) {
+      console.error('Failed to save action:', saveResult.error);
+      var retryResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
+      if (retryResult.error) {
+        console.error('Retry also failed:', retryResult.error);
+        showToast('Failed to save');
+        closeActionSheet();
+        return;
+      }
     }
-  }
-  txActions[txId] = row;
+    txActions[txId] = row;
 
-  if (row.action_type === 'ignored') {
-    checkIgnorePattern(txId);
-  }
+    if (row.action_type === 'ignored') {
+      checkIgnorePattern(txId);
+    }
 
-  showToast('Saved');
+    showToast('Saved');
+  } catch (e) {
+    console.error('Save action error:', e);
+    showToast('Failed to save');
+  }
   renderTransactionMonth();
   closeActionSheet();
+  // After re-render the list may be shorter — clamp scroll so content stays visible
+  var tabEl = document.getElementById('tab-transactions');
+  if (tabEl) {
+    // Force layout recalc (contain: layout style can delay it)
+    void tabEl.scrollHeight;
+    var maxScroll = tabEl.scrollHeight - tabEl.clientHeight;
+    if (tabEl.scrollTop > maxScroll) tabEl.scrollTop = maxScroll;
+  }
 }
 
 async function clearTxAction(txId) {
-  await sb.from('transaction_actions').delete().eq('user_id', currentUser.id).eq('transaction_id', txId);
-  delete txActions[txId];
+  try {
+    await sb.from('transaction_actions').delete().eq('user_id', currentUser.id).eq('transaction_id', txId);
+    delete txActions[txId];
+  } catch (e) {
+    console.error('Clear action error:', e);
+    showToast('Failed to clear');
+  }
   renderTransactionMonth();
   closeActionSheet();
 }
