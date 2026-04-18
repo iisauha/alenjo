@@ -707,10 +707,9 @@ async function renderAccountsSettings() {
   var html = '';
   Object.keys(byItem).forEach(function(itemId) {
     var group = byItem[itemId];
-    var acctCount = group.accounts.length;
     var typeCounts = {};
     group.accounts.forEach(function(a) {
-      var t = a.type === 'investment' ? 'Investment' : a.type === 'credit' ? 'Credit' : a.subtype === 'savings' ? 'Savings' : 'Checking';
+      var t = a.type === 'investment' ? 'investment' : a.type === 'credit' ? 'credit card' : a.subtype === 'savings' ? 'savings' : 'checking';
       typeCounts[t] = (typeCounts[t] || 0) + 1;
     });
     var typeList = Object.keys(typeCounts).map(function(t) {
@@ -720,7 +719,7 @@ async function renderAccountsSettings() {
     html += '<div class="settings-inst-header">';
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
-    html += '<span class="settings-inst-detail">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + ': ' + typeList + '</span>';
+    html += '<span class="settings-inst-detail">' + typeList + '</span>';
     html += '</div>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
@@ -2166,7 +2165,21 @@ function showRecatPicker() {
       saveMultiAction(actionTxId, updates);
     });
   });
+
+  $('#recat-custom-input').value = '';
 }
+
+$('#recat-custom-apply').addEventListener('click', function() {
+  var name = $('#recat-custom-input').value.trim();
+  if (!name || !actionTxId) return;
+  var cat = name.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  var existing = txActions[actionTxId] || {};
+  var updates = { category_override: cat };
+  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
+    updates.action_type = null;
+  }
+  saveMultiAction(actionTxId, updates);
+});
 
 // Edit picker
 function showEditPicker() {
