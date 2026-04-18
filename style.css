@@ -2319,40 +2319,6 @@ body {
 }
 
 /* Ignore suggestion banner */
-.ignore-suggestion {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.7rem 0.85rem;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  margin-bottom: 0.75rem;
-}
-
-.ignore-suggestion-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.ignore-suggestion-text strong {
-  font-size: var(--text-base);
-}
-
-.ignore-suggestion-text span {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.ignore-suggestion-actions {
-  display: flex;
-  gap: 0.35rem;
-  flex-shrink: 0;
-}
-
 /* ================================
    RECURRING TAB
    ================================ */

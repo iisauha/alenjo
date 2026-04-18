@@ -2218,10 +2218,6 @@ async function saveMultiAction(txId, updates) {
     }
     txActions[txId] = row;
 
-    if (row.action_type === 'ignored') {
-      checkIgnorePattern(txId);
-    }
-
     showToast('Saved');
   } catch (e) {
     console.error('Save action error:', e);
@@ -2291,83 +2287,9 @@ async function autoMatchRecurring(groupKey, merchantKey) {
   renderTransactionMonth();
 }
 
-// ============================================
-// AUTO-SUGGEST IGNORE
-// ============================================
 function normalizeMerchant(name) {
   if (!name) return '';
   return name.toLowerCase().trim();
-}
-
-function checkIgnorePattern(txId) {
-  var tx = txData.find(function(t) { return t.id === txId; });
-  if (!tx) return;
-  var merchantKey = normalizeMerchant(tx.merchant_name || tx.name);
-  if (!merchantKey || ignoreRules[merchantKey]) return;
-
-  var merchantTxIds = txData.filter(function(t) {
-    return normalizeMerchant(t.merchant_name || t.name) === merchantKey;
-  }).map(function(t) { return t.id; });
-
-  var ignoredCount = merchantTxIds.filter(function(id) {
-    var a = txActions[id];
-    return a && a.action_type === 'ignored';
-  }).length;
-
-  if (ignoredCount >= 3 || (ignoredCount >= 2 && ignoredCount === merchantTxIds.length)) {
-    showIgnoreSuggestion(merchantKey, tx.merchant_name || tx.name, ignoredCount);
-  }
-}
-
-function showIgnoreSuggestion(merchantKey, displayName, count) {
-  var existing = document.getElementById('ignore-suggestion');
-  if (existing) existing.remove();
-
-  var banner = document.createElement('div');
-  banner.id = 'ignore-suggestion';
-  banner.className = 'ignore-suggestion';
-  banner.innerHTML =
-    '<div class="ignore-suggestion-text">' +
-      '<strong>Always ignore ' + esc(displayName) + '?</strong>' +
-      '<span>You\'ve ignored ' + count + ' transactions from this merchant. Future ones will be ignored automatically.</span>' +
-    '</div>' +
-    '<div class="ignore-suggestion-actions">' +
-      '<button class="btn-primary-sm" id="ignore-suggestion-yes">Always Ignore</button>' +
-      '<button class="btn-secondary-sm" id="ignore-suggestion-no">Not Now</button>' +
-    '</div>';
-
-  var txContent = document.getElementById('tx-content');
-  txContent.insertBefore(banner, txContent.children[1]);
-
-  document.getElementById('ignore-suggestion-yes').addEventListener('click', async function() {
-    await createIgnoreRule(merchantKey);
-    banner.remove();
-  });
-  document.getElementById('ignore-suggestion-no').addEventListener('click', function() {
-    banner.remove();
-  });
-}
-
-async function createIgnoreRule(merchantKey) {
-  await sb.from('merchant_ignore_rules').upsert({
-    user_id: currentUser.id,
-    merchant_name: merchantKey,
-    is_active: true
-  }, { onConflict: 'user_id,merchant_name' });
-  ignoreRules[merchantKey] = true;
-
-  var toIgnore = txData.filter(function(tx) {
-    var key = normalizeMerchant(tx.merchant_name || tx.name);
-    return key === merchantKey && !txActions[tx.id];
-  });
-  if (toIgnore.length > 0) {
-    var rows = toIgnore.map(function(tx) {
-      return { user_id: currentUser.id, transaction_id: tx.id, action_type: 'ignored' };
-    });
-    await sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' });
-    toIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
-  }
-  renderTransactionMonth();
 }
 
 // Load transactions when switching to that tab
