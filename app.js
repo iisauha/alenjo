@@ -713,7 +713,12 @@ async function renderAccountsSettings() {
       typeCounts[t] = (typeCounts[t] || 0) + 1;
     });
     var typeList = Object.keys(typeCounts).map(function(t) {
-      return typeCounts[t] + ' ' + t;
+      var n = typeCounts[t];
+      if (t === 'credit card') return n + ' credit card' + (n !== 1 ? 's' : '');
+      if (t === 'checking') return n + ' checking account' + (n !== 1 ? 's' : '');
+      if (t === 'savings') return n + ' savings account' + (n !== 1 ? 's' : '');
+      if (t === 'investment') return n + ' investment account' + (n !== 1 ? 's' : '');
+      return n + ' ' + t;
     }).join(', ');
     html += '<div class="settings-institution">';
     html += '<div class="settings-inst-header">';
