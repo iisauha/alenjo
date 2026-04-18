@@ -62,21 +62,26 @@ authForm.addEventListener('submit', async function(e) {
 });
 
 // Auto-submit on FaceID/password autofill
-// Wait for both fields to be filled before blurring and submitting
-var autofillTimer = null;
-function checkAutofill() {
-  clearTimeout(autofillTimer);
-  autofillTimer = setTimeout(function() {
+// Poll rapidly once autofill starts -- blur and submit the instant both fields have values
+var autofillPoller = null;
+function startAutofillWatch() {
+  if (autofillPoller) return;
+  var checks = 0;
+  autofillPoller = setInterval(function() {
+    checks++;
     if (authEmail.value && authPassword.value && !authSubmit.disabled) {
+      clearInterval(autofillPoller);
+      autofillPoller = null;
       document.activeElement.blur();
       authSubmit.disabled = true;
       authSubmit.textContent = 'Signing in...';
       authForm.requestSubmit();
     }
-  }, 500);
+    if (checks > 50) { clearInterval(autofillPoller); autofillPoller = null; }
+  }, 30);
 }
-authEmail.addEventListener('change', checkAutofill);
-authPassword.addEventListener('change', checkAutofill);
+authEmail.addEventListener('change', startAutofillWatch);
+authPassword.addEventListener('change', startAutofillWatch);
 
 // Sign out any existing session on load so user must log in every time
 // Then listen for fresh sign-ins only
