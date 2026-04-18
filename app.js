@@ -1900,6 +1900,10 @@ function openActionSheet(tx) {
   statusEl.hidden = !hasActions;
   document.querySelector('.action-option-clear').hidden = !hasActions;
 
+  // Show delete button only for manual transactions
+  var deleteBtn = $('#btn-delete-tx');
+  deleteBtn.hidden = !(tx.id && tx.id.indexOf('manual_') === 0);
+
   // Highlight active toggles
   document.querySelectorAll('.action-toggle').forEach(function(btn) {
     var t = btn.dataset.toggle;
@@ -2012,6 +2016,27 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
 document.querySelector('.action-option-clear').addEventListener('click', function() {
   if (!actionTxId) return;
   clearTxAction(actionTxId);
+});
+
+// Delete manual transaction
+$('#btn-delete-tx').addEventListener('click', async function() {
+  if (!actionTxId || actionTxId.indexOf('manual_') !== 0) return;
+  try {
+    var result = await sb.from('synced_transactions').delete().eq('id', actionTxId).eq('user_id', currentUser.id);
+    if (result.error) {
+      console.error('Delete tx error:', result.error);
+      showToast('Failed to delete');
+      return;
+    }
+    txData = txData.filter(function(tx) { return tx.id !== actionTxId; });
+    delete txActions[actionTxId];
+    showToast('Transaction deleted');
+  } catch (e) {
+    console.error('Delete tx error:', e);
+    showToast('Failed to delete');
+  }
+  renderTransactionMonth();
+  closeActionSheet();
 });
 
 // Split picker - quick split buttons (2-way, 3-way)
