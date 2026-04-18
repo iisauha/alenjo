@@ -1142,17 +1142,14 @@ document.addEventListener('click', function(e) {
 $('#account-edit-save').addEventListener('click', function() {
   if (!editingAccountId) return;
 
-  // Save nickname
+  // Save nickname -- update local state and re-render immediately
   var newName = nicknameInput.value.trim();
-  if (newName) {
-    sb.from('accounts').update({ nickname: newName }).eq('id', editingAccountId).then(function() {
-      if (cachedAccounts) {
-        cachedAccounts.forEach(function(a) {
-          if (a.id === editingAccountId) a.nickname = newName;
-        });
-        renderAccounts(cachedAccounts);
-      }
+  if (newName && cachedAccounts) {
+    cachedAccounts.forEach(function(a) {
+      if (a.id === editingAccountId) a.nickname = newName;
     });
+    // Save to DB in background
+    sb.from('accounts').update({ nickname: newName }).eq('id', editingAccountId);
   }
 
   // Save card overrides if visible
@@ -1161,9 +1158,9 @@ $('#account-edit-save').addEventListener('click', function() {
     var apr = parseFloat($('#override-apr').value) || 0;
     var stmtDate = parseInt($('#override-stmt-date').value) || 0;
     setCardOverrides(editingAccountId, { limit: lim, apr: apr, stmtDate: stmtDate });
-    if (cachedAccounts) renderAccounts(cachedAccounts);
   }
 
+  if (cachedAccounts) renderAccounts(cachedAccounts);
   accountEditModal.classList.remove('visible');
   editingAccountId = null;
   showToast('Saved');
