@@ -62,21 +62,18 @@ authForm.addEventListener('submit', async function(e) {
 });
 
 // Auto-submit on FaceID/password autofill
-// Blur immediately to kill keyboard, then submit after a tick
+// Wait for both fields to be filled before blurring and submitting
 var autofillTimer = null;
 function checkAutofill() {
-  // Blur right away so keyboard starts dismissing immediately
-  if (document.activeElement && (document.activeElement === authEmail || document.activeElement === authPassword)) {
-    document.activeElement.blur();
-  }
   clearTimeout(autofillTimer);
   autofillTimer = setTimeout(function() {
     if (authEmail.value && authPassword.value && !authSubmit.disabled) {
+      document.activeElement.blur();
       authSubmit.disabled = true;
       authSubmit.textContent = 'Signing in...';
       authForm.requestSubmit();
     }
-  }, 80);
+  }, 500);
 }
 authEmail.addEventListener('change', checkAutofill);
 authPassword.addEventListener('change', checkAutofill);
