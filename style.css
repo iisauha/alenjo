@@ -1187,7 +1187,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  overflow: hidden;
 }
 
 .liab-util-wrap {
@@ -1273,6 +1272,7 @@ body {
   text-align: center;
   line-height: 1.4;
   overflow: visible;
+  flex-shrink: 1;
 }
 
 .liab-detail .manual-tag {
@@ -2946,6 +2946,11 @@ body {
 
 .rec-projection-account:last-child {
   border-bottom: none;
+}
+
+.rec-projection-account > span {
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .rec-projection-account-info {
