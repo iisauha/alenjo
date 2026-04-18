@@ -1148,8 +1148,11 @@ $('#account-edit-save').addEventListener('click', function() {
     cachedAccounts.forEach(function(a) {
       if (a.id === editingAccountId) a.nickname = newName;
     });
-    // Save to DB in background
-    sb.from('accounts').update({ nickname: newName }).eq('id', editingAccountId);
+    // Save to DB in background (must call .then() to execute the request)
+    var saveId = editingAccountId;
+    sb.from('accounts').update({ nickname: newName }).eq('id', saveId).then(function(result) {
+      if (result.error) console.error('Nickname save error:', result.error);
+    });
   }
 
   // Save card overrides if visible
@@ -1841,23 +1844,16 @@ $('#add-tx-save').addEventListener('click', async function() {
     enriched_category_primary: category
   };
 
-  try {
-    var result = await sb.from('synced_transactions').insert(row);
-    if (result.error) {
-      console.error('Insert manual tx error:', result.error);
-      showToast('Failed to add transaction');
-      return;
-    }
+  // Update local state and render immediately
+  txData.push(row);
+  renderTransactionMonth();
+  addTxSheet.classList.remove('visible');
+  showToast('Transaction added');
 
-    // Add to local data and re-render
-    txData.push(row);
-    renderTransactionMonth();
-    addTxSheet.classList.remove('visible');
-    showToast('Transaction added');
-  } catch (e) {
-    console.error('Add tx error:', e);
-    showToast('Failed to add transaction');
-  }
+  // Save to DB in background
+  sb.from('synced_transactions').insert(row).then(function(result) {
+    if (result.error) console.error('Insert manual tx error:', result.error);
+  });
 });
 
 function formatTxDate(dateStr, datetimeStr) {
@@ -2051,24 +2047,18 @@ document.querySelector('.action-option-clear').addEventListener('click', functio
 });
 
 // Delete manual transaction
-$('#btn-delete-tx').addEventListener('click', async function() {
+$('#btn-delete-tx').addEventListener('click', function() {
   if (!actionTxId || actionTxId.indexOf('manual_') !== 0) return;
-  try {
-    var result = await sb.from('synced_transactions').delete().eq('id', actionTxId).eq('user_id', currentUser.id);
-    if (result.error) {
-      console.error('Delete tx error:', result.error);
-      showToast('Failed to delete');
-      return;
-    }
-    txData = txData.filter(function(tx) { return tx.id !== actionTxId; });
-    delete txActions[actionTxId];
-    showToast('Transaction deleted');
-  } catch (e) {
-    console.error('Delete tx error:', e);
-    showToast('Failed to delete');
-  }
+  var deleteId = actionTxId;
+  txData = txData.filter(function(tx) { return tx.id !== deleteId; });
+  delete txActions[deleteId];
+  showToast('Transaction deleted');
   renderTransactionMonth();
   closeActionSheet();
+  // Delete from DB in background
+  sb.from('synced_transactions').delete().eq('id', deleteId).eq('user_id', currentUser.id).then(function(result) {
+    if (result.error) console.error('Delete tx error:', result.error);
+  });
 });
 
 // Split picker - quick split buttons (2-way, 3-way)
@@ -2235,27 +2225,16 @@ async function saveMultiAction(txId, updates) {
     recurring_paused: updates.hasOwnProperty('recurring_paused') ? updates.recurring_paused : (existing.recurring_paused || false),
     recurring_deleted: updates.hasOwnProperty('recurring_deleted') ? updates.recurring_deleted : (existing.recurring_deleted || false)
   };
-  try {
-    var saveResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
-    if (saveResult.error) {
-      console.error('Failed to save action:', saveResult.error);
-      var retryResult = await sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' });
-      if (retryResult.error) {
-        console.error('Retry also failed:', retryResult.error);
-        showToast('Failed to save');
-        closeActionSheet();
-        return;
-      }
-    }
-    txActions[txId] = row;
-
-    showToast('Saved');
-  } catch (e) {
-    console.error('Save action error:', e);
-    showToast('Failed to save');
-  }
+  // Update local state and render immediately
+  txActions[txId] = row;
+  showToast('Saved');
   renderTransactionMonth();
   closeActionSheet();
+
+  // Save to DB in background
+  sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' }).then(function(result) {
+    if (result.error) console.error('Failed to save action:', result.error);
+  });
   // After re-render the list may be shorter — clamp scroll so content stays visible
   var tabEl = document.getElementById('tab-transactions');
   if (tabEl) {
@@ -2266,16 +2245,14 @@ async function saveMultiAction(txId, updates) {
   }
 }
 
-async function clearTxAction(txId) {
-  try {
-    await sb.from('transaction_actions').delete().eq('user_id', currentUser.id).eq('transaction_id', txId);
-    delete txActions[txId];
-  } catch (e) {
-    console.error('Clear action error:', e);
-    showToast('Failed to clear');
-  }
+function clearTxAction(txId) {
+  delete txActions[txId];
   renderTransactionMonth();
   closeActionSheet();
+  // Delete from DB in background
+  sb.from('transaction_actions').delete().eq('user_id', currentUser.id).eq('transaction_id', txId).then(function(result) {
+    if (result.error) console.error('Clear action error:', result.error);
+  });
 }
 
 // ============================================
@@ -2312,10 +2289,14 @@ async function autoMatchRecurring(groupKey, merchantKey) {
       recurring_deleted: existing.recurring_deleted || false
     };
   });
-  await sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' });
+  // Update local state and render immediately
   rows.forEach(function(r) { txActions[r.transaction_id] = r; });
   showToast(toTag.length + ' past transaction' + (toTag.length > 1 ? 's' : '') + ' matched');
   renderTransactionMonth();
+  // Save to DB in background
+  sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' }).then(function(result) {
+    if (result.error) console.error('Auto-match recurring error:', result.error);
+  });
 }
 
 function normalizeMerchant(name) {
@@ -2638,38 +2619,43 @@ recConfirmModal.addEventListener('click', function(e) {
   }
 });
 
-async function confirmBill(billId) {
+function confirmBill(billId) {
   var bill = recBills.find(function(b) { return b.id === billId; });
   if (!bill) return;
 
   var today = formatLocalDate(new Date());
   var newNext = computeNextDueDate(bill.anchor_date, bill.frequency, bill.frequency_days, today);
 
-  await sb.from('recurring_bills').update({
-    last_confirmed_date: today,
-    next_due_date: newNext
-  }).eq('id', billId);
-
   bill.last_confirmed_date = today;
   bill.next_due_date = newNext;
   showToast('Bill marked as paid');
   renderRecurringBills();
+
+  sb.from('recurring_bills').update({
+    last_confirmed_date: today,
+    next_due_date: newNext
+  }).eq('id', billId).then(function(result) {
+    if (result.error) console.error('Confirm bill error:', result.error);
+  });
 }
 
-async function confirmBillAndClose(billId) {
-  await confirmBill(billId);
+function confirmBillAndClose(billId) {
+  confirmBill(billId);
   closeRecDetailSheet();
 }
 
-async function deleteBill(billId) {
-  await sb.from('recurring_bills').delete().eq('id', billId);
+function deleteBill(billId) {
   recBills = recBills.filter(function(b) { return b.id !== billId; });
   showToast('Bill deleted');
   renderRecurringBills();
+
+  sb.from('recurring_bills').delete().eq('id', billId).then(function(result) {
+    if (result.error) console.error('Delete bill error:', result.error);
+  });
 }
 
-async function deleteBillAndClose(billId) {
-  await deleteBill(billId);
+function deleteBillAndClose(billId) {
+  deleteBill(billId);
   closeRecDetailSheet();
 }
 
@@ -3264,26 +3250,28 @@ $('#rec-freq-save').addEventListener('click', async function() {
   };
 
   if (recEditingBillId) {
-    // Update existing bill
-    var updateResult = await sb.from('recurring_bills').update(row).eq('id', recEditingBillId).select();
-    if (updateResult.data && updateResult.data[0]) {
-      var idx = recBills.findIndex(function(b) { return b.id === recEditingBillId; });
-      if (idx !== -1) recBills[idx] = updateResult.data[0];
-    }
+    // Update existing bill -- render immediately
+    var idx = recBills.findIndex(function(b) { return b.id === recEditingBillId; });
+    if (idx !== -1) Object.assign(recBills[idx], row);
+    var editId = recEditingBillId;
     recEditingBillId = null;
     showToast('Bill updated');
+    closeRecAddSheet();
+    renderRecurringBills();
+    sb.from('recurring_bills').update(row).eq('id', editId).then(function(result) {
+      if (result.error) console.error('Update bill error:', result.error);
+    });
   } else {
-    // Insert new bill
+    // Insert new bill -- need DB for the generated id
     row.user_id = currentUser.id;
     var result = await sb.from('recurring_bills').insert(row).select();
     if (result.data && result.data[0]) {
       recBills.push(result.data[0]);
     }
     showToast('Recurring bill added');
+    closeRecAddSheet();
+    renderRecurringBills();
   }
-
-  closeRecAddSheet();
-  renderRecurringBills();
 });
 
 // Legend section toggle
