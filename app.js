@@ -632,7 +632,7 @@ function renderAccounts(accounts) {
       var bal = getDisplayBalance(a, 'bank').amount;
       if (bal > 0) suggestionAccounts.push({ name: a.nickname || a.name || 'Savings', institution: a.institution || '', amount: bal, type: 'savings' });
     });
-    cachedBalances = { available: availableCash, savings: savingsSum, investments: investSum, suggestionAccounts: suggestionAccounts };
+    cachedBalances = { available: availableCash, checking: bankSum, creditOwed: creditSum, savings: savingsSum, investments: investSum, suggestionAccounts: suggestionAccounts };
     netCashEl.hidden = false;
 
     var availEl = $('#available-value');
@@ -2510,18 +2510,25 @@ function renderRecurringBills() {
     var availLabel = (availCash < 0 ? '-' : '') + formatMoney(Math.abs(availCash));
 
     if (totalExpenses > 0 || totalIncome > 0) {
+      var checkingLabel = formatMoney(Math.abs(cachedBalances.checking));
+      var creditOwed = cachedBalances.creditOwed;
+
       if (surplus < 0) {
         var needed = Math.abs(surplus);
         summaryHtml += '<div class="rec-projection rec-projection-warn">';
-        summaryHtml += '<div class="rec-projection-header"><span class="rec-projection-title">May need additional funds</span><span class="rec-projection-shortfall">~' + formatMoney(needed) + '</span></div>';
+        summaryHtml += '<div class="rec-projection-header"><span class="rec-projection-title">Heads up</span><span class="rec-projection-shortfall">~' + formatMoney(needed) + ' short</span></div>';
         summaryHtml += '<div class="rec-projection-body">';
-        summaryHtml += 'Checking balance: ' + availLabel;
-        if (totalIncome > 0) summaryHtml += ' + ' + formatMoney(totalIncome) + ' expected income';
-        summaryHtml += '. Upcoming bills: ' + formatMoney(totalExpenses) + ' over ' + horizonLabel + '.</div>';
+        summaryHtml += 'You have ' + checkingLabel + ' across your checking accounts';
+        if (creditOwed > 0) summaryHtml += ' and currently owe ' + formatMoney(creditOwed) + ' on your credit cards';
+        summaryHtml += '.';
+        if (totalIncome > 0) summaryHtml += ' You\'re expecting ' + formatMoney(totalIncome) + ' in income.';
+        summaryHtml += ' You have about ' + formatMoney(totalExpenses) + ' in bills coming up over the next ' + horizonLabel + '.';
+        summaryHtml += ' Based on that, things may be a little tight -- you might want to set aside some extra funds to stay covered.';
+        summaryHtml += '</div>';
 
         var suggestions = cachedBalances.suggestionAccounts || [];
         if (suggestions.length > 0) {
-          summaryHtml += '<div class="rec-projection-suggest">Consider transferring from</div>';
+          summaryHtml += '<div class="rec-projection-suggest">You could transfer from</div>';
           summaryHtml += '<div class="rec-projection-accounts">';
           suggestions.forEach(function(s) {
             var instLabel = s.institution ? '<span class="rec-projection-inst">' + esc(s.institution) + '</span>' : '';
@@ -2532,13 +2539,15 @@ function renderRecurringBills() {
         summaryHtml += '</div>';
       } else {
         summaryHtml += '<div class="rec-projection rec-projection-ok">';
-        summaryHtml += '<div class="rec-projection-header"><span class="rec-projection-title">On track</span>';
-        if (surplus > 0) summaryHtml += '<span class="rec-projection-surplus">+' + formatMoney(surplus) + '</span>';
+        summaryHtml += '<div class="rec-projection-header"><span class="rec-projection-title">Looking good</span>';
+        if (surplus > 0) summaryHtml += '<span class="rec-projection-surplus">+' + formatMoney(surplus) + ' buffer</span>';
         summaryHtml += '</div>';
         summaryHtml += '<div class="rec-projection-body">';
-        summaryHtml += 'Checking balance: ' + availLabel;
-        if (totalIncome > 0) summaryHtml += ' + ' + formatMoney(totalIncome) + ' expected income';
-        summaryHtml += '. Covers ' + formatMoney(totalExpenses) + ' in bills over ' + horizonLabel + '.';
+        summaryHtml += 'You have ' + checkingLabel + ' in your checking accounts';
+        if (creditOwed > 0) summaryHtml += ' and owe ' + formatMoney(creditOwed) + ' on credit cards';
+        summaryHtml += '.';
+        if (totalIncome > 0) summaryHtml += ' With ' + formatMoney(totalIncome) + ' in expected income,';
+        summaryHtml += ' you\'re well covered for the ' + formatMoney(totalExpenses) + ' in bills over the next ' + horizonLabel + '.';
         summaryHtml += '</div>';
         summaryHtml += '</div>';
       }
