@@ -1734,21 +1734,17 @@ $('#btn-export-csv').addEventListener('click', function() {
 // ADD MANUAL TRANSACTION
 // ============================================
 var addTxSheet = $('#add-tx-sheet');
-var addTxIsIncome = false;
 
 $('#btn-add-tx').addEventListener('click', function() {
   // Reset form
   $('#add-tx-name').value = '';
   $('#add-tx-amount').value = '';
   $('#add-tx-date').value = new Date().toISOString().split('T')[0];
-  addTxIsIncome = false;
-  $('#add-tx-type-expense').classList.add('active');
-  $('#add-tx-type-income').classList.remove('active');
   $('#add-tx-category').value = 'OTHER';
 
-  // Populate account dropdown
+  // Populate account dropdown with Cash first, then linked accounts
   var acctSelect = $('#add-tx-account');
-  acctSelect.innerHTML = '';
+  acctSelect.innerHTML = '<option value="cash" data-account-id="" data-plaid-item-id="">Cash</option>';
   if (cachedAccounts) {
     cachedAccounts.forEach(function(a) {
       if (a.plaid_account_id) {
@@ -1764,18 +1760,6 @@ $('#btn-add-tx').addEventListener('click', function() {
 
   addTxSheet.classList.add('visible');
   setTimeout(function() { $('#add-tx-name').focus(); }, 100);
-});
-
-// Type toggle
-$('#add-tx-type-expense').addEventListener('click', function() {
-  addTxIsIncome = false;
-  this.classList.add('active');
-  $('#add-tx-type-income').classList.remove('active');
-});
-$('#add-tx-type-income').addEventListener('click', function() {
-  addTxIsIncome = true;
-  this.classList.add('active');
-  $('#add-tx-type-expense').classList.remove('active');
 });
 
 // Cancel
@@ -1798,13 +1782,14 @@ $('#add-tx-save').addEventListener('click', async function() {
   if (!amountVal || amountVal <= 0) { showToast('Enter an amount'); return; }
   if (!date) { showToast('Pick a date'); return; }
 
-  // Plaid convention: positive = expense, negative = income
-  var amount = addTxIsIncome ? -amountVal : amountVal;
+  // Plaid convention: positive = expense
+  var amount = amountVal;
 
   var selectedOpt = acctSelect.options[acctSelect.selectedIndex];
-  var plaidAccountId = acctSelect.value || null;
-  var accountId = selectedOpt ? selectedOpt.dataset.accountId || null : null;
-  var plaidItemId = selectedOpt ? selectedOpt.dataset.plaidItemId || null : null;
+  var isCash = acctSelect.value === 'cash';
+  var plaidAccountId = isCash ? null : (acctSelect.value || null);
+  var accountId = isCash ? null : (selectedOpt ? selectedOpt.dataset.accountId || null : null);
+  var plaidItemId = isCash ? null : (selectedOpt ? selectedOpt.dataset.plaidItemId || null : null);
 
   var txId = 'manual_' + crypto.randomUUID();
 
@@ -1820,7 +1805,7 @@ $('#add-tx-save').addEventListener('click', async function() {
     merchant_name: name,
     category: category,
     pending: false,
-    type: addTxIsIncome ? 'special' : 'place',
+    type: 'place',
     enriched_category_primary: category
   };
 
@@ -1945,6 +1930,17 @@ $('#action-sheet-cancel').addEventListener('click', closeActionSheet);
 actionSheet.addEventListener('click', function(e) {
   if (e.target === actionSheet) closeActionSheet();
 });
+
+// Back to main options from any sub-picker
+function showMainOptions() {
+  $('#tx-action-options').hidden = false;
+  $('#split-picker').hidden = true;
+  $('#edit-picker').hidden = true;
+  $('#recat-picker').hidden = true;
+}
+$('#split-back').addEventListener('click', showMainOptions);
+$('#edit-back').addEventListener('click', showMainOptions);
+$('#recat-back').addEventListener('click', showMainOptions);
 
 // Toggle click handlers
 document.querySelectorAll('.action-toggle').forEach(function(btn) {

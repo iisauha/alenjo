@@ -1268,6 +1268,9 @@ body {
   color: var(--text-muted);
   font-size: var(--text-sm);
   font-style: italic;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .liab-detail .manual-tag {
@@ -2111,6 +2114,31 @@ body {
   margin-bottom: 0.75rem;
 }
 
+.sub-picker-back {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  font-weight: 500;
+  padding: 0.25rem 0;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+.sub-picker-back::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-left: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: rotate(45deg);
+}
+
 .edit-field {
   margin-bottom: 0.5rem;
 }
@@ -2122,7 +2150,8 @@ body {
   margin-bottom: 0.25rem;
 }
 
-.edit-field .app-input {
+.edit-field .app-input,
+.edit-field .app-select {
   width: 100%;
   padding: 0.55rem 0.7rem;
   background: var(--bg-card);
@@ -2132,6 +2161,7 @@ body {
   font-size: var(--text-base);
   font-family: inherit;
   box-sizing: border-box;
+  max-width: 100%;
 }
 
 .edit-field input[type="date"]::-webkit-calendar-picker-indicator {
@@ -2160,32 +2190,6 @@ body {
 
 .add-tx-amount-row .app-input {
   flex: 1;
-}
-
-.add-tx-type-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.add-tx-type-btn {
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  color: var(--text-dim);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.add-tx-type-btn.active {
-  background: var(--accent-subtle);
-  color: var(--accent);
-  border-color: var(--accent);
 }
 
 .add-tx-select {

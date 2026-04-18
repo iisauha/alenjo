@@ -376,10 +376,6 @@
             <input type="number" id="add-tx-amount" class="app-input" inputmode="decimal" step="0.01" min="0" placeholder="0.00">
           </div>
         </div>
-        <div class="add-tx-type-row">
-          <button class="add-tx-type-btn active" data-txtype="expense" id="add-tx-type-expense">Expense</button>
-          <button class="add-tx-type-btn" data-txtype="income" id="add-tx-type-income">Income</button>
-        </div>
         <div class="edit-field">
           <label for="add-tx-date">Date</label>
           <input type="date" id="add-tx-date" class="app-input">
@@ -445,6 +441,7 @@
         </button>
       </div>
       <div id="split-picker" class="action-sheet-sub" hidden>
+        <button class="sub-picker-back" id="split-back">Back</button>
         <p class="action-sub-title">How do you want to split?</p>
         <div class="split-buttons">
           <button data-ways="2">2-way</button>
@@ -457,13 +454,13 @@
           <button class="btn-primary" id="split-custom-apply">Apply</button>
         </div>
         <div id="split-portion-row" class="split-custom-input" hidden>
-          <span style="color:var(--text-muted);font-size:1rem;font-weight:500;">$</span>
-          <input id="split-portion-amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Amount you owe">
+          <input id="split-portion-amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="$ Amount you owe">
           <button class="btn-primary" id="split-portion-apply">Apply</button>
         </div>
         <p id="split-preview" class="split-preview"></p>
       </div>
       <div id="edit-picker" class="action-sheet-sub" hidden>
+        <button class="sub-picker-back" id="edit-back">Back</button>
         <p class="action-sub-title">Edit Transaction</p>
         <div class="edit-field">
           <label for="edit-nickname">Name</label>
@@ -476,6 +473,7 @@
         <button id="edit-save" class="btn-primary" style="width:100%;margin-top:0.5rem">Save</button>
       </div>
       <div id="recat-picker" class="action-sheet-sub" hidden>
+        <button class="sub-picker-back" id="recat-back">Back</button>
         <p class="action-sub-title">Choose category</p>
         <div id="recat-list" class="recat-list"></div>
       </div>
