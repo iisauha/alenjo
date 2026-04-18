@@ -59,6 +59,21 @@ authForm.addEventListener('submit', async function(e) {
   authSubmit.disabled = false;
 });
 
+// Auto-submit on FaceID/password autofill
+// iOS fills both fields then fires change/input events — detect and submit
+var autofillTimer = null;
+function checkAutofill() {
+  clearTimeout(autofillTimer);
+  autofillTimer = setTimeout(function() {
+    if (authEmail.value && authPassword.value && !authSubmit.disabled) {
+      document.activeElement.blur(); // dismiss keyboard
+      authForm.requestSubmit();
+    }
+  }, 300);
+}
+authEmail.addEventListener('change', checkAutofill);
+authPassword.addEventListener('change', checkAutofill);
+
 // Sign out any existing session on load so user must log in every time
 // Then listen for fresh sign-ins only
 sb.auth.signOut().then(function() {
