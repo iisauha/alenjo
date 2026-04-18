@@ -56,11 +56,11 @@ html, body {
   height: 100dvh;
   overflow: hidden;
   touch-action: manipulation;
+  background: var(--bg);
 }
 
 body {
   font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
