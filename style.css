@@ -2083,6 +2083,10 @@ body {
   margin-top: 0.35rem;
 }
 
+.action-option[hidden] {
+  display: none;
+}
+
 .action-option.active {
   background: rgba(255,255,255,0.08);
 }

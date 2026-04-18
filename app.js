@@ -998,7 +998,7 @@ function accountCard(account, type) {
 
     if (details) liabHtml += details;
     if (!liab && !details) {
-      liabHtml += '<div class="liab-detail liab-unavailable"><span>Your bank doesn\'t share card details. Tap to add them manually.</span></div>';
+      liabHtml += '<div class="liab-detail liab-unavailable"><span>This card\'s issuer doesn\'t currently share specific card details. You can add some manually by tapping the card name above.</span></div>';
     }
 
     liabHtml += '</div>';
