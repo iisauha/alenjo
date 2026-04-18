@@ -2523,7 +2523,7 @@ function renderRecurringBills() {
         summaryHtml += '.';
         if (totalIncome > 0) summaryHtml += ' You\'re expecting ' + formatMoney(totalIncome) + ' in income.';
         summaryHtml += ' You have about ' + formatMoney(totalExpenses) + ' in bills coming up over the next ' + horizonLabel + '.';
-        summaryHtml += ' Based on that, things may be a little tight -- you might want to set aside some extra funds to stay covered.';
+        summaryHtml += ' Based on that, things may be a little tight. You might want to set aside some extra funds to stay covered.';
         summaryHtml += '</div>';
 
         var suggestions = cachedBalances.suggestionAccounts || [];
