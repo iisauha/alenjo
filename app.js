@@ -2515,9 +2515,9 @@ function renderRecurringBills() {
         summaryHtml += '<div class="rec-projection rec-projection-warn">';
         summaryHtml += '<div class="rec-projection-header"><span class="rec-projection-title">May need additional funds</span><span class="rec-projection-shortfall">~' + formatMoney(needed) + '</span></div>';
         summaryHtml += '<div class="rec-projection-body">';
-        summaryHtml += 'You currently have ' + availLabel + ' available.';
-        if (totalIncome > 0) summaryHtml += ' With ' + formatMoney(totalIncome) + ' in expected income,';
-        summaryHtml += ' your ' + formatMoney(totalExpenses) + ' in expenses over the next ' + horizonLabel + ' may not be fully covered.</div>';
+        summaryHtml += 'Checking balance: ' + availLabel;
+        if (totalIncome > 0) summaryHtml += ' + ' + formatMoney(totalIncome) + ' expected income';
+        summaryHtml += '. Upcoming bills: ' + formatMoney(totalExpenses) + ' over ' + horizonLabel + '.</div>';
 
         var suggestions = cachedBalances.suggestionAccounts || [];
         if (suggestions.length > 0) {
@@ -2536,9 +2536,9 @@ function renderRecurringBills() {
         if (surplus > 0) summaryHtml += '<span class="rec-projection-surplus">+' + formatMoney(surplus) + '</span>';
         summaryHtml += '</div>';
         summaryHtml += '<div class="rec-projection-body">';
-        summaryHtml += 'You currently have ' + availLabel + ' available';
-        if (totalIncome > 0) summaryHtml += ' with ' + formatMoney(totalIncome) + ' in expected income';
-        summaryHtml += ' -- enough to cover ' + formatMoney(totalExpenses) + ' in expenses over the next ' + horizonLabel + '.';
+        summaryHtml += 'Checking balance: ' + availLabel;
+        if (totalIncome > 0) summaryHtml += ' + ' + formatMoney(totalIncome) + ' expected income';
+        summaryHtml += '. Covers ' + formatMoney(totalExpenses) + ' in bills over ' + horizonLabel + '.';
         summaryHtml += '</div>';
         summaryHtml += '</div>';
       }
