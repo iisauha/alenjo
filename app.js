@@ -53,23 +53,30 @@ authForm.addEventListener('submit', async function(e) {
     authError.textContent = result.error.message;
     authError.hidden = false;
     authSubmit.disabled = false;
+    authSubmit.textContent = 'Sign In';
     return;
   }
 
+  authSubmit.textContent = 'Sign In';
   authSubmit.disabled = false;
 });
 
 // Auto-submit on FaceID/password autofill
-// iOS fills both fields then fires change/input events — detect and submit
+// Blur immediately to kill keyboard, then submit after a tick
 var autofillTimer = null;
 function checkAutofill() {
+  // Blur right away so keyboard starts dismissing immediately
+  if (document.activeElement && (document.activeElement === authEmail || document.activeElement === authPassword)) {
+    document.activeElement.blur();
+  }
   clearTimeout(autofillTimer);
   autofillTimer = setTimeout(function() {
     if (authEmail.value && authPassword.value && !authSubmit.disabled) {
-      document.activeElement.blur(); // dismiss keyboard
+      authSubmit.disabled = true;
+      authSubmit.textContent = 'Signing in...';
       authForm.requestSubmit();
     }
-  }, 300);
+  }, 80);
 }
 authEmail.addEventListener('change', checkAutofill);
 authPassword.addEventListener('change', checkAutofill);
