@@ -1937,6 +1937,26 @@ function showMainOptions() {
   $('#split-picker').hidden = true;
   $('#edit-picker').hidden = true;
   $('#recat-picker').hidden = true;
+  // Restore detail/status rows
+  var detail = $('#tx-action-detail');
+  var status = $('#tx-action-status');
+  if (detail.dataset.wasVisible === '1') detail.hidden = false;
+  if (status.dataset.wasVisible === '1') status.hidden = false;
+}
+
+function showSubPicker(pickerId) {
+  // Hide main options and detail/status
+  $('#tx-action-options').hidden = true;
+  $('#split-picker').hidden = true;
+  $('#edit-picker').hidden = true;
+  $('#recat-picker').hidden = true;
+  var detail = $('#tx-action-detail');
+  var status = $('#tx-action-status');
+  detail.dataset.wasVisible = detail.hidden ? '0' : '1';
+  status.dataset.wasVisible = status.hidden ? '0' : '1';
+  detail.hidden = true;
+  status.hidden = true;
+  $(pickerId).hidden = false;
 }
 $('#split-back').addEventListener('click', showMainOptions);
 $('#edit-back').addEventListener('click', showMainOptions);
@@ -1964,8 +1984,7 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
         return;
       }
       // Show split picker
-      $('#tx-action-options').hidden = true;
-      $('#split-picker').hidden = false;
+      showSubPicker('#split-picker');
       $('#split-preview').textContent = '';
       $('#split-custom-row').hidden = true;
       $('#split-portion-row').hidden = true;
@@ -2082,9 +2101,8 @@ if (splitPortionAmount) splitPortionAmount.addEventListener('keydown', function(
 
 // Re-categorize picker
 function showRecatPicker() {
-  $('#tx-action-options').hidden = true;
+  showSubPicker('#recat-picker');
   var picker = $('#recat-picker');
-  picker.hidden = false;
   var list = $('#recat-list');
 
   var allCats = {};
@@ -2112,9 +2130,8 @@ function showRecatPicker() {
 
 // Edit picker
 function showEditPicker() {
-  $('#tx-action-options').hidden = true;
+  showSubPicker('#edit-picker');
   var picker = $('#edit-picker');
-  picker.hidden = false;
   var action = txActions[actionTxId];
   $('#edit-nickname').value = (action && action.nickname) || '';
   $('#edit-date').value = (action && action.date_override) || actionTx.date;

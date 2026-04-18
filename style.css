@@ -2019,6 +2019,10 @@ body {
   margin-bottom: 0.75rem;
 }
 
+.action-sheet-options[hidden] {
+  display: none;
+}
+
 .action-group-label {
   font-size: var(--text-xs);
   color: var(--text-dim);
