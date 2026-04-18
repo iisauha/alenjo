@@ -62,20 +62,27 @@ authForm.addEventListener('submit', async function(e) {
 });
 
 // Auto-submit on FaceID/password autofill
-// Poll rapidly once autofill starts -- blur and submit the instant both fields have values
+// Wait for both fields, then give iOS a moment to commit the values before submitting
 var autofillPoller = null;
+var autofillReady = false;
 function startAutofillWatch() {
   if (autofillPoller) return;
   var checks = 0;
   autofillPoller = setInterval(function() {
     checks++;
-    if (authEmail.value && authPassword.value && !authSubmit.disabled) {
+    if (authEmail.value && authPassword.value && !autofillReady) {
+      autofillReady = true;
       clearInterval(autofillPoller);
       autofillPoller = null;
       document.activeElement.blur();
-      authSubmit.disabled = true;
-      authSubmit.textContent = 'Signing in...';
-      authForm.requestSubmit();
+      // Let iOS fully commit autofill values before reading them
+      setTimeout(function() {
+        if (!authSubmit.disabled) {
+          authSubmit.disabled = true;
+          authSubmit.textContent = 'Signing in...';
+          authForm.requestSubmit();
+        }
+      }, 250);
     }
     if (checks > 50) { clearInterval(autofillPoller); autofillPoller = null; }
   }, 30);
