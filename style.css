@@ -245,6 +245,27 @@ body {
 }
 
 /* ================================
+   APP SHELL BG (grid behind content)
+   ================================ */
+#screen-app {
+  position: relative;
+  isolation: isolate;
+}
+
+#screen-app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("grid-bg.svg?v=3");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.045;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ================================
    APP HEADER
    ================================ */
 .app-header {
@@ -253,6 +274,12 @@ body {
   justify-content: space-between;
   padding: 0.65rem var(--pad);
   padding-top: max(0.65rem, env(safe-area-inset-top));
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(6, 11, 20, 0.62);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
 .header-user {
@@ -615,12 +642,15 @@ body {
 .bottom-nav {
   display: flex;
   justify-content: center;
-  border-top: 1px solid var(--border);
   padding: 0.6rem 1rem;
-  background: var(--bg);
+  padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+  background: rgba(6, 11, 20, 0.62);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
   gap: 2rem;
-  position: relative;
-  z-index: 10;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
 }
 
 .nav-item {
