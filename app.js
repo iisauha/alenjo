@@ -1028,10 +1028,10 @@ function attachScrubHandlers(canvas) {
     if (!meta || !meta.data || meta.data.length === 0) return -1;
     var firstX = meta.data[0].x;
     var lastX = meta.data[meta.data.length - 1].x;
-    if (xPx < firstX) xPx = firstX;
-    if (xPx > lastX) xPx = lastX;
-    // Stepped-line scrub: last data point whose x <= scrub x. This is the
-    // last known real value at the scrubbed time — never interpolates.
+    // Out of the line's actual pixel range: return -1 so the caller can
+    // decline to show any scrub value (no fake/clamped readings).
+    if (xPx < firstX || xPx > lastX) return -1;
+    // Stepped-line scrub: last data point whose x <= scrub x.
     var best = 0;
     for (var i = 0; i < meta.data.length; i++) {
       if (meta.data[i].x <= xPx) best = i;
@@ -1041,12 +1041,26 @@ function attachScrubHandlers(canvas) {
   }
 
   var lastIndex = -1;
+  function showLiveInsteadOfScrub() {
+    if (!balanceChartLiveValues) return;
+    if (availEl) { availEl.textContent = balanceChartLiveValues.avail; availEl.className = balanceChartLiveValues.availClass; }
+    if (nwEl) { nwEl.textContent = balanceChartLiveValues.nw; nwEl.className = balanceChartLiveValues.nwClass; }
+    deltaEl.hidden = true;
+    balanceChart._scrubIndex = null;
+    balanceChart.update('none');
+  }
+
   function updateScrubFromX(clientX) {
     if (!balanceChart || balanceChartRows.length === 0) return;
     var rect = canvas.getBoundingClientRect();
     var xPx = clientX - rect.left;
     var idx = xToIndex(xPx);
-    if (idx < 0) return;
+    if (idx < 0) {
+      // Finger outside the line's actual range — show live values, no scrub value.
+      lastIndex = -1;
+      showLiveInsteadOfScrub();
+      return;
+    }
     if (idx !== lastIndex) {
       lastIndex = idx;
       if (navigator.vibrate) navigator.vibrate(3);
