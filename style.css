@@ -1822,7 +1822,6 @@ body {
   align-items: center;
   padding-bottom: 0.4rem;
   margin-bottom: 0.3rem;
-  border-bottom: 1px solid var(--border);
 }
 
 .tx-account-name {
@@ -1843,7 +1842,6 @@ body {
   align-items: center;
   gap: 0.6rem;
   padding: 0.55rem 0;
-  border-bottom: 1px solid var(--border);
   animation: txFadeIn 0.2s ease-out both;
 }
 
@@ -2411,7 +2409,6 @@ body {
   letter-spacing: 0.05em;
   margin-bottom: 0.6rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--border);
   color: var(--text-muted);
 }
 
@@ -2446,7 +2443,6 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0.7rem 0;
-  border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
 
