@@ -253,22 +253,6 @@ body {
   justify-content: space-between;
   padding: 0.65rem var(--pad);
   padding-top: max(0.65rem, env(safe-area-inset-top));
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-}
-
-.app-header::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("grid-bg.svg");
-  background-size: cover;
-  background-position: top center;
-  background-repeat: no-repeat;
-  opacity: 0.08;
-  pointer-events: none;
-  z-index: -1;
 }
 
 .header-user {
