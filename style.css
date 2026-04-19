@@ -361,6 +361,99 @@ body {
   display: none;
 }
 
+/* Balance chart */
+.balance-chart-wrap {
+  width: 100%;
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.balance-chart-delta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 1.1rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.balance-chart-delta[hidden] {
+  display: none;
+}
+
+.balance-chart-delta .delta-arrow {
+  font-size: 0.7em;
+  line-height: 1;
+}
+
+.balance-chart-delta.up { color: var(--success); }
+.balance-chart-delta.down { color: var(--danger); }
+
+.balance-chart-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  touch-action: pan-y;
+}
+
+#balance-chart {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.balance-chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.balance-chart-empty[hidden] {
+  display: none;
+}
+
+.balance-chart-ranges {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding: 0 0.25rem;
+}
+
+.range-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 0.4rem 0;
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border-radius: 6px;
+  min-height: 32px;
+}
+
+.range-btn.active {
+  color: var(--text);
+  background: var(--accent-subtle);
+}
+
+.range-btn:active {
+  transform: scale(0.96);
+}
+
 
 .connect-cta {
   text-align: center;

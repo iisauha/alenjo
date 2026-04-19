@@ -606,6 +606,78 @@ function getDisplayBalance(account, type) {
   }
 }
 
+function computeBalanceTotals(accounts, holdings) {
+  var banks = accounts.filter(function(a) { return a.type === 'depository' && a.subtype !== 'savings'; });
+  var savings = accounts.filter(function(a) { return a.type === 'depository' && a.subtype === 'savings'; });
+  var credits = accounts.filter(function(a) { return a.type === 'credit'; });
+  var investments = accounts.filter(function(a) { return a.type === 'investment'; });
+
+  function bankAmount(a, mode) {
+    var current = parseFloat(a.balance_current || 0);
+    var avail = a.balance_available != null ? parseFloat(a.balance_available) : null;
+    if (mode === 'posted') return current;
+    return avail != null ? avail : current;
+  }
+  function creditAmount(a, mode) {
+    var current = parseFloat(a.balance_current || 0);
+    var avail = a.balance_available != null ? parseFloat(a.balance_available) : null;
+    var limit = a.balance_limit != null ? parseFloat(a.balance_limit) : null;
+    if (mode === 'posted') return current;
+    if (limit != null && avail != null) return limit - avail;
+    return current;
+  }
+  function investAmount(a) {
+    if (holdings) {
+      var val = 0;
+      holdings.forEach(function(h) {
+        if (h.account_id === a.id) val += h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
+      });
+      if (val > 0) return val;
+    }
+    return parseFloat(a.balance_current || 0);
+  }
+
+  var out = {};
+  ['posted', 'after_pending'].forEach(function(mode) {
+    var bankSum = banks.reduce(function(s, a) { return s + bankAmount(a, mode); }, 0);
+    var creditSum = credits.reduce(function(s, a) { return s + creditAmount(a, mode); }, 0);
+    var savingsSum = savings.reduce(function(s, a) { return s + bankAmount(a, mode); }, 0);
+    var investSum = investments.reduce(function(s, a) { return s + investAmount(a); }, 0);
+    out[mode] = {
+      available: bankSum - creditSum,
+      networth: bankSum - creditSum + savingsSum + investSum
+    };
+  });
+  return out;
+}
+
+var writingSnapshot = false;
+async function maybeWriteBalanceSnapshot() {
+  if (writingSnapshot || !currentUser || !cachedAccounts || cachedAccounts.length === 0) return;
+  var lastAt = parseInt(localStorage.getItem('alenjo_last_snapshot_at') || '0');
+  if (Date.now() - lastAt < 5 * 60 * 1000) return;
+
+  var totals = computeBalanceTotals(cachedAccounts, cachedHoldings);
+  writingSnapshot = true;
+  try {
+    var res = await sb.from('balance_snapshots').insert({
+      user_id: currentUser.id,
+      available_amount: totals.posted.available,
+      net_worth_amount: totals.posted.networth,
+      available_after_pending: totals.after_pending.available,
+      net_worth_after_pending: totals.after_pending.networth
+    });
+    if (!res.error) {
+      localStorage.setItem('alenjo_last_snapshot_at', String(Date.now()));
+      if (typeof window.onBalanceSnapshotWritten === 'function') window.onBalanceSnapshotWritten();
+    }
+  } catch (e) {
+    console.error('Snapshot write failed:', e);
+  } finally {
+    writingSnapshot = false;
+  }
+}
+
 // ============================================
 // RENDER ACCOUNTS
 // ============================================
@@ -682,6 +754,8 @@ function renderAccounts(accounts) {
 
   updateSyncInfo();
   renderAccountsSettings();
+  maybeWriteBalanceSnapshot();
+  if (hasAnyAccounts) requestAnimationFrame(function() { initBalanceChart(); });
 }
 
 function updateInvestmentTotals(savings, investments) {
@@ -703,6 +777,353 @@ function updateInvestmentTotals(savings, investments) {
   });
   $('#inv-investments-total').textContent = formatMoney(investSum);
   $('#inv-investments-total').className = 'section-total balance-positive';
+}
+
+// ============================================
+// BALANCE CHART
+// ============================================
+var balanceChart = null;
+var balanceChartRange = localStorage.getItem('alenjo_chart_range') || '1W';
+var balanceChartRows = [];
+var balanceChartLoading = false;
+var balanceChartScrubbing = false;
+var balanceChartLiveValues = null;
+
+function getChartMetricFields() {
+  // showAvailable=true means "posted/current" mode; false means "after pending"
+  if (showAvailable) {
+    return { available: 'available_amount', networth: 'net_worth_amount' };
+  }
+  return { available: 'available_after_pending', networth: 'net_worth_after_pending' };
+}
+
+function ensureChartReady() {
+  return new Promise(function(resolve) {
+    if (typeof Chart !== 'undefined') return resolve();
+    var tries = 0;
+    var t = setInterval(function() {
+      if (typeof Chart !== 'undefined' || tries++ > 40) {
+        clearInterval(t);
+        resolve();
+      }
+    }, 100);
+  });
+}
+
+async function initBalanceChart() {
+  await ensureChartReady();
+  if (typeof Chart === 'undefined') return;
+  var canvas = document.getElementById('balance-chart');
+  if (!canvas || balanceChart) return;
+
+  var ctx = canvas.getContext('2d');
+  balanceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Available',
+          data: [],
+          borderColor: '#3C82F6',
+          backgroundColor: 'rgba(60,130,246,0.05)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHitRadius: 18,
+          tension: 0.25,
+          fill: false,
+          spanGaps: true,
+          cubicInterpolationMode: 'monotone'
+        },
+        {
+          label: 'Net Worth',
+          data: [],
+          borderColor: '#2ECC71',
+          backgroundColor: 'rgba(46,204,113,0.05)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHitRadius: 18,
+          tension: 0.25,
+          fill: false,
+          spanGaps: true,
+          cubicInterpolationMode: 'monotone'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 500, easing: 'easeOutCubic' },
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 6, bottom: 6 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false }
+      },
+      scales: {
+        x: {
+          display: true,
+          grid: { color: 'rgba(140,165,220,0.045)', drawTicks: false },
+          ticks: { display: false },
+          border: { display: false }
+        },
+        y: { display: false, grace: '5%' }
+      }
+    },
+    plugins: [endpointGlowPlugin, scrubIndicatorPlugin]
+  });
+
+  attachScrubHandlers(canvas);
+  wireRangeButtons();
+  wireChartMetricToggle();
+  window.onBalanceSnapshotWritten = function() { loadBalanceHistory(balanceChartRange); };
+
+  loadBalanceHistory(balanceChartRange);
+}
+
+var endpointGlowPlugin = {
+  id: 'endpointGlow',
+  afterDatasetsDraw: function(chart) {
+    if (balanceChartScrubbing) return;
+    var ctx = chart.ctx;
+    chart.data.datasets.forEach(function(ds, i) {
+      var meta = chart.getDatasetMeta(i);
+      if (!meta || !meta.data || meta.data.length === 0) return;
+      var last = meta.data[meta.data.length - 1];
+      if (!last) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = ds.borderColor;
+      ctx.shadowColor = ds.borderColor;
+      ctx.shadowBlur = 12;
+      ctx.arc(last.x, last.y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+};
+
+var scrubIndicatorPlugin = {
+  id: 'scrubIndicator',
+  afterDatasetsDraw: function(chart) {
+    if (!balanceChartScrubbing || chart._scrubIndex == null) return;
+    var idx = chart._scrubIndex;
+    var ctx = chart.ctx;
+    var area = chart.chartArea;
+    var x = null;
+    chart.data.datasets.forEach(function(ds, i) {
+      var meta = chart.getDatasetMeta(i);
+      if (!meta || !meta.data || !meta.data[idx]) return;
+      var pt = meta.data[idx];
+      x = pt.x;
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = ds.borderColor;
+      ctx.shadowColor = ds.borderColor;
+      ctx.shadowBlur = 10;
+      ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+    if (x != null) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(230,235,244,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, area.top);
+      ctx.lineTo(x, area.bottom);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
+
+async function loadBalanceHistory(range) {
+  if (balanceChartLoading) return;
+  balanceChartLoading = true;
+  try {
+    var res = await sb.rpc('get_balance_history', { p_range: range });
+    if (res.error) { console.error('history rpc error', res.error); return; }
+    balanceChartRows = res.data || [];
+    renderChartFromRows();
+  } finally {
+    balanceChartLoading = false;
+  }
+}
+
+function renderChartFromRows() {
+  if (!balanceChart) return;
+  var fields = getChartMetricFields();
+  var labels = balanceChartRows.map(function(r) { return r.bucket; });
+  var avail = balanceChartRows.map(function(r) { var v = r[fields.available]; return v != null ? parseFloat(v) : null; });
+  var nw = balanceChartRows.map(function(r) { var v = r[fields.networth]; return v != null ? parseFloat(v) : null; });
+
+  balanceChart.data.labels = labels;
+  balanceChart.data.datasets[0].data = avail;
+  balanceChart.data.datasets[1].data = nw;
+  balanceChart.update();
+
+  var emptyEl = document.getElementById('balance-chart-empty');
+  if (emptyEl) emptyEl.hidden = balanceChartRows.length >= 2;
+}
+
+function wireRangeButtons() {
+  var btns = document.querySelectorAll('.balance-chart-ranges .range-btn');
+  btns.forEach(function(b) {
+    if (b.dataset.range === balanceChartRange) b.classList.add('active');
+    else b.classList.remove('active');
+    b.addEventListener('click', function() {
+      if (balanceChartScrubbing) return;
+      btns.forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      balanceChartRange = b.dataset.range;
+      localStorage.setItem('alenjo_chart_range', balanceChartRange);
+      loadBalanceHistory(balanceChartRange);
+    });
+  });
+}
+
+function wireChartMetricToggle() {
+  // When user taps Available or Net Worth, showAvailable flips (existing behavior).
+  // We re-render chart lines with the new mode's values.
+  var hookFired = false;
+  var origHandler = null;
+  document.querySelectorAll('.hero-stat').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      // After the existing handler flips showAvailable + re-renders accounts,
+      // we also re-render chart lines. Use microtask to run after the existing handler.
+      setTimeout(function() { renderChartFromRows(); }, 0);
+    });
+  });
+}
+
+// ---------- Scrub interaction ----------
+function attachScrubHandlers(canvas) {
+  var card = document.getElementById('net-cash');
+  var deltaEl = document.getElementById('balance-chart-delta');
+  var availEl = document.getElementById('available-value');
+  var nwEl = document.getElementById('networth-value');
+
+  function captureLiveValues() {
+    balanceChartLiveValues = {
+      avail: availEl ? availEl.textContent : '',
+      nw: nwEl ? nwEl.textContent : '',
+      availClass: availEl ? availEl.className : '',
+      nwClass: nwEl ? nwEl.className : ''
+    };
+  }
+
+  function restoreLiveValues() {
+    if (!balanceChartLiveValues) return;
+    if (availEl) { availEl.textContent = balanceChartLiveValues.avail; availEl.className = balanceChartLiveValues.availClass; }
+    if (nwEl) { nwEl.textContent = balanceChartLiveValues.nw; nwEl.className = balanceChartLiveValues.nwClass; }
+    deltaEl.hidden = true;
+    card.classList.remove('scrubbing');
+    balanceChartScrubbing = false;
+    balanceChart._scrubIndex = null;
+    balanceChart.update('none');
+  }
+
+  function xToIndex(xPx) {
+    if (!balanceChart) return -1;
+    var area = balanceChart.chartArea;
+    var meta = balanceChart.getDatasetMeta(0);
+    if (!meta || !meta.data || meta.data.length === 0) return -1;
+    if (xPx < area.left) xPx = area.left;
+    if (xPx > area.right) xPx = area.right;
+    // Find nearest data point by x pixel
+    var best = 0, bestDist = Infinity;
+    for (var i = 0; i < meta.data.length; i++) {
+      var px = meta.data[i].x;
+      var d = Math.abs(px - xPx);
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+  }
+
+  var lastIndex = -1;
+  function updateScrubFromX(clientX) {
+    if (!balanceChart || balanceChartRows.length === 0) return;
+    var rect = canvas.getBoundingClientRect();
+    var xPx = clientX - rect.left;
+    // Scale canvas pixel coords — Chart.js uses CSS pixels, so this should line up.
+    var idx = xToIndex(xPx);
+    if (idx < 0) return;
+    if (idx !== lastIndex) {
+      lastIndex = idx;
+      if (navigator.vibrate) navigator.vibrate(3);
+    }
+    balanceChart._scrubIndex = idx;
+    balanceChart.update('none');
+
+    var fields = getChartMetricFields();
+    var row = balanceChartRows[idx];
+    var startRow = balanceChartRows[0];
+    var availNow = row[fields.available] != null ? parseFloat(row[fields.available]) : null;
+    var nwNow = row[fields.networth] != null ? parseFloat(row[fields.networth]) : null;
+
+    if (availEl && availNow != null) {
+      availEl.textContent = (availNow < 0 ? '-' : '') + formatMoney(availNow);
+      availEl.className = 'hero-stat-value ' + (availNow >= 0 ? 'balance-positive' : 'balance-negative');
+    }
+    if (nwEl && nwNow != null) {
+      nwEl.textContent = (nwNow < 0 ? '-' : '') + formatMoney(nwNow);
+      nwEl.className = 'hero-stat-value ' + (nwNow >= 0 ? 'balance-positive' : 'balance-negative');
+    }
+
+    // Delta from window start → scrubbed point. Use networth as primary reference.
+    var startNW = startRow[fields.networth] != null ? parseFloat(startRow[fields.networth]) : null;
+    if (startNW != null && nwNow != null) {
+      var delta = nwNow - startNW;
+      var pct = startNW !== 0 ? (delta / Math.abs(startNW)) * 100 : 0;
+      var up = delta >= 0;
+      var dateStr = new Date(row.bucket).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      deltaEl.className = 'balance-chart-delta ' + (up ? 'up' : 'down');
+      deltaEl.innerHTML = '<span class="delta-arrow">' + (up ? '▲' : '▼') + '</span>' +
+        (delta < 0 ? '-' : '') + '$' + Math.abs(delta).toFixed(2) +
+        ' (' + Math.abs(pct).toFixed(2) + '%) · ' + dateStr;
+      deltaEl.hidden = false;
+    }
+  }
+
+  function onStart(clientX) {
+    if (balanceChartRows.length < 2) return;
+    captureLiveValues();
+    balanceChartScrubbing = true;
+    card.classList.add('scrubbing');
+    lastIndex = -1;
+    if (navigator.vibrate) navigator.vibrate(8);
+    updateScrubFromX(clientX);
+  }
+
+  function onMove(clientX) {
+    if (!balanceChartScrubbing) return;
+    updateScrubFromX(clientX);
+  }
+
+  function onEnd() {
+    if (!balanceChartScrubbing) return;
+    restoreLiveValues();
+  }
+
+  canvas.addEventListener('touchstart', function(e) {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    onStart(e.touches[0].clientX);
+  }, { passive: false });
+  canvas.addEventListener('touchmove', function(e) {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    onMove(e.touches[0].clientX);
+  }, { passive: false });
+  canvas.addEventListener('touchend', onEnd);
+  canvas.addEventListener('touchcancel', onEnd);
+
+  var mouseDown = false;
+  canvas.addEventListener('mousedown', function(e) { mouseDown = true; onStart(e.clientX); });
+  canvas.addEventListener('mousemove', function(e) { if (mouseDown) onMove(e.clientX); });
+  window.addEventListener('mouseup', function() { if (mouseDown) { mouseDown = false; onEnd(); } });
+  canvas.addEventListener('mouseleave', function() { if (mouseDown) { mouseDown = false; onEnd(); } });
 }
 
 async function renderAccountsSettings() {
