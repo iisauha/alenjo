@@ -341,27 +341,6 @@ body {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.legend-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  display: inline-block;
-  box-shadow: 0 0 6px currentColor;
-}
-
-.legend-dot-avail {
-  background: #3C82F6;
-  color: #3C82F6;
-}
-
-.legend-dot-nw {
-  background: #2ECC71;
-  color: #2ECC71;
 }
 
 .hero-stat-value {
@@ -379,68 +358,6 @@ body {
 }
 
 .net-cash-card[hidden] {
-  display: none;
-}
-
-/* Balance chart */
-.balance-chart-wrap {
-  width: 100%;
-  margin-top: 0.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.balance-chart-delta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  min-height: 1.1rem;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-}
-
-.balance-chart-delta[hidden] {
-  display: none;
-}
-
-.balance-chart-delta .delta-arrow {
-  font-size: 0.7em;
-  line-height: 1;
-}
-
-.balance-chart-delta.up { color: var(--success); }
-.balance-chart-delta.down { color: var(--danger); }
-
-.balance-chart-canvas-wrap {
-  position: relative;
-  width: 100%;
-  height: 160px;
-  touch-action: pan-y;
-}
-
-#balance-chart {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-.balance-chart-empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  color: var(--text-dim);
-  pointer-events: none;
-}
-
-.balance-chart-empty[hidden] {
   display: none;
 }
 
