@@ -84,6 +84,25 @@ body {
 /* ================================
    LOGIN
    ================================ */
+#screen-login {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+#screen-login::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("grid-bg.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: -1;
+}
+
 .login-container {
   flex: 1;
   display: flex;
@@ -94,6 +113,8 @@ body {
   max-width: 400px;
   margin: 0 auto;
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 
@@ -369,6 +390,22 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-bottom: 1.5rem;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.connect-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("grid-bg.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .connect-cta p {
