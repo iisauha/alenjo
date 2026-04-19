@@ -759,7 +759,7 @@ function updateInvestmentTotals(savings, investments) {
 // BALANCE CHART
 // ============================================
 var balanceChart = null;
-var balanceChartRange = localStorage.getItem('alenjo_chart_range') || '1W';
+var balanceChartRange = 'MTD';
 var balanceChartRows = [];
 var balanceChartLoading = false;
 var balanceChartScrubbing = false;
@@ -856,7 +856,6 @@ async function initBalanceChart() {
   });
 
   attachScrubHandlers(canvas);
-  wireRangeButtons();
   wireChartMetricToggle();
   window.onBalanceSnapshotWritten = function() { loadBalanceHistory(balanceChartRange); };
 
@@ -934,19 +933,9 @@ async function loadBalanceHistory(range) {
 }
 
 function getRangeStartMs(range) {
-  var now = Date.now();
   var d = new Date();
-  switch (range) {
-    case '1W': return now - 7 * 86400000;
-    case '1M': return now - 30 * 86400000;
-    case '3M': return now - 90 * 86400000;
-    case 'YTD': return new Date(d.getFullYear(), 0, 1).getTime();
-    case '1Y': return now - 365 * 86400000;
-    case 'ALL':
-      if (balanceChartRows.length > 0) return new Date(balanceChartRows[0].bucket).getTime();
-      return now - 86400000;
-    default: return now - 7 * 86400000;
-  }
+  if (range === 'MTD') return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
 }
 
 function renderChartFromRows() {
@@ -976,22 +965,6 @@ function renderChartFromRows() {
 
   var emptyEl = document.getElementById('balance-chart-empty');
   if (emptyEl) emptyEl.hidden = balanceChartRows.length >= 2;
-}
-
-function wireRangeButtons() {
-  var btns = document.querySelectorAll('.balance-chart-ranges .range-btn');
-  btns.forEach(function(b) {
-    if (b.dataset.range === balanceChartRange) b.classList.add('active');
-    else b.classList.remove('active');
-    b.addEventListener('click', function() {
-      if (balanceChartScrubbing) return;
-      btns.forEach(function(x) { x.classList.remove('active'); });
-      b.classList.add('active');
-      balanceChartRange = b.dataset.range;
-      localStorage.setItem('alenjo_chart_range', balanceChartRange);
-      loadBalanceHistory(balanceChartRange);
-    });
-  });
 }
 
 function wireChartMetricToggle() {
@@ -1086,9 +1059,8 @@ function attachScrubHandlers(canvas) {
       var delta = nwNow - startNW;
       var pct = startNW !== 0 ? (delta / Math.abs(startNW)) * 100 : 0;
       var up = delta >= 0;
-      var includeTime = balanceChartRange === '1W' || balanceChartRange === '1M';
       var dateStr = new Date(row.bucket).toLocaleDateString(undefined,
-        includeTime ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric' });
+        { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
       deltaEl.className = 'balance-chart-delta ' + (up ? 'up' : 'down');
       deltaEl.innerHTML = '<span class="delta-arrow">' + (up ? '▲' : '▼') + '</span>' +
         (delta < 0 ? '-' : '') + '$' + Math.abs(delta).toFixed(2) +

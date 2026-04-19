@@ -444,36 +444,6 @@ body {
   display: none;
 }
 
-.balance-chart-ranges {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.25rem;
-  padding: 0 0.25rem;
-}
-
-.range-btn {
-  flex: 1;
-  background: none;
-  border: none;
-  padding: 0.4rem 0;
-  font-family: inherit;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  border-radius: 6px;
-  min-height: 32px;
-}
-
-.range-btn.active {
-  color: var(--text);
-  background: var(--accent-subtle);
-}
-
-.range-btn:active {
-  transform: scale(0.96);
-}
 
 
 .connect-cta {
