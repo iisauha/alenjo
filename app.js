@@ -804,6 +804,8 @@ async function initBalanceChart() {
           backgroundColor: 'rgba(60,130,246,0.05)',
           borderWidth: 2,
           pointRadius: 0,
+          pointHoverRadius: 0,
+          pointBorderWidth: 0,
           pointHitRadius: 18,
           tension: 0,
           stepped: false,
@@ -818,6 +820,8 @@ async function initBalanceChart() {
           backgroundColor: 'rgba(46,204,113,0.05)',
           borderWidth: 2,
           pointRadius: 0,
+          pointHoverRadius: 0,
+          pointBorderWidth: 0,
           pointHitRadius: 18,
           tension: 0,
           stepped: false,
@@ -961,28 +965,17 @@ function renderChartFromRows() {
     nwData.push({ x: ts, y: nw != null ? parseFloat(nw) : null });
   });
 
-  // Extend the line to "now" with the latest value so a constant balance
-  // renders as a full horizontal line across the window.
-  function appendNow(arr) {
-    if (arr.length === 0) return;
-    var last = arr[arr.length - 1];
-    if (last.y != null && last.x < nowMs) arr.push({ x: nowMs, y: last.y });
-  }
-  appendNow(availData);
-  appendNow(nwData);
-
   balanceChart.data.datasets[0].data = availData;
   balanceChart.data.datasets[1].data = nwData;
-  // Axis min = later of (range start, first data point). So for ranges larger
-  // than the tracked time the line fills the full canvas, and over time the
-  // axis stretches back until the range cap kicks in.
+  // Axis min = later of (range start, first data point). Axis max = now so there's
+  // a visible trailing gap on the right — signaling the chart is still growing.
   var firstDataMs = balanceChartRows.length > 0 ? new Date(balanceChartRows[0].bucket).getTime() : nowMs;
   balanceChart.options.scales.x.min = Math.max(rangeStartMs, firstDataMs);
   balanceChart.options.scales.x.max = nowMs;
   balanceChart.update();
 
   var emptyEl = document.getElementById('balance-chart-empty');
-  if (emptyEl) emptyEl.hidden = balanceChartRows.length >= 1;
+  if (emptyEl) emptyEl.hidden = balanceChartRows.length >= 2;
 }
 
 function wireRangeButtons() {
@@ -1044,16 +1037,15 @@ function attachScrubHandlers(canvas) {
 
   function xToIndex(xPx) {
     if (!balanceChart) return -1;
-    var area = balanceChart.chartArea;
     var meta = balanceChart.getDatasetMeta(0);
     if (!meta || !meta.data || meta.data.length === 0) return -1;
-    if (xPx < area.left) xPx = area.left;
-    if (xPx > area.right) xPx = area.right;
-    // Find nearest data point by x pixel
+    var firstX = meta.data[0].x;
+    var lastX = meta.data[meta.data.length - 1].x;
+    if (xPx < firstX) xPx = firstX;
+    if (xPx > lastX) xPx = lastX;
     var best = 0, bestDist = Infinity;
     for (var i = 0; i < meta.data.length; i++) {
-      var px = meta.data[i].x;
-      var d = Math.abs(px - xPx);
+      var d = Math.abs(meta.data[i].x - xPx);
       if (d < bestDist) { bestDist = d; best = i; }
     }
     return best;
@@ -1074,11 +1066,8 @@ function attachScrubHandlers(canvas) {
     balanceChart.update('none');
 
     var fields = getChartMetricFields();
-    // idx may point at the synthetic "now" point appended after the last real row.
-    var rowIdx = Math.min(idx, balanceChartRows.length - 1);
-    var row = balanceChartRows[rowIdx];
+    var row = balanceChartRows[idx];
     var startRow = balanceChartRows[0];
-    var isSynthetic = idx >= balanceChartRows.length;
     var availNow = row[fields.available] != null ? parseFloat(row[fields.available]) : null;
     var nwNow = row[fields.networth] != null ? parseFloat(row[fields.networth]) : null;
 
@@ -1097,9 +1086,8 @@ function attachScrubHandlers(canvas) {
       var delta = nwNow - startNW;
       var pct = startNW !== 0 ? (delta / Math.abs(startNW)) * 100 : 0;
       var up = delta >= 0;
-      var labelDate = isSynthetic ? new Date() : new Date(row.bucket);
       var includeTime = balanceChartRange === '1W' || balanceChartRange === '1M';
-      var dateStr = isSynthetic ? 'Now' : labelDate.toLocaleDateString(undefined,
+      var dateStr = new Date(row.bucket).toLocaleDateString(undefined,
         includeTime ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric' });
       deltaEl.className = 'balance-chart-delta ' + (up ? 'up' : 'down');
       deltaEl.innerHTML = '<span class="delta-arrow">' + (up ? '▲' : '▼') + '</span>' +

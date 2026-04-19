@@ -341,6 +341,27 @@ body {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.legend-dot-avail {
+  background: #3C82F6;
+  color: #3C82F6;
+}
+
+.legend-dot-nw {
+  background: #2ECC71;
+  color: #2ECC71;
 }
 
 .hero-stat-value {
