@@ -796,7 +796,6 @@ async function initBalanceChart() {
   balanceChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: [],
       datasets: [
         {
           label: 'Available',
@@ -806,10 +805,11 @@ async function initBalanceChart() {
           borderWidth: 2,
           pointRadius: 0,
           pointHitRadius: 18,
-          tension: 0.25,
+          tension: 0,
+          stepped: false,
           fill: false,
           spanGaps: true,
-          cubicInterpolationMode: 'monotone'
+          parsing: false
         },
         {
           label: 'Net Worth',
@@ -819,10 +819,11 @@ async function initBalanceChart() {
           borderWidth: 2,
           pointRadius: 0,
           pointHitRadius: 18,
-          tension: 0.25,
+          tension: 0,
+          stepped: false,
           fill: false,
           spanGaps: true,
-          cubicInterpolationMode: 'monotone'
+          parsing: false
         }
       ]
     },
@@ -838,6 +839,7 @@ async function initBalanceChart() {
       },
       scales: {
         x: {
+          type: 'linear',
           display: true,
           grid: { color: 'rgba(140,165,220,0.045)', drawTicks: false },
           ticks: { display: false },
@@ -927,20 +929,56 @@ async function loadBalanceHistory(range) {
   }
 }
 
+function getRangeStartMs(range) {
+  var now = Date.now();
+  var d = new Date();
+  switch (range) {
+    case '1W': return now - 7 * 86400000;
+    case '1M': return now - 30 * 86400000;
+    case '3M': return now - 90 * 86400000;
+    case 'YTD': return new Date(d.getFullYear(), 0, 1).getTime();
+    case '1Y': return now - 365 * 86400000;
+    case 'ALL':
+      if (balanceChartRows.length > 0) return new Date(balanceChartRows[0].bucket).getTime();
+      return now - 86400000;
+    default: return now - 7 * 86400000;
+  }
+}
+
 function renderChartFromRows() {
   if (!balanceChart) return;
   var fields = getChartMetricFields();
-  var labels = balanceChartRows.map(function(r) { return r.bucket; });
-  var avail = balanceChartRows.map(function(r) { var v = r[fields.available]; return v != null ? parseFloat(v) : null; });
-  var nw = balanceChartRows.map(function(r) { var v = r[fields.networth]; return v != null ? parseFloat(v) : null; });
+  var nowMs = Date.now();
+  var rangeStartMs = getRangeStartMs(balanceChartRange);
 
-  balanceChart.data.labels = labels;
-  balanceChart.data.datasets[0].data = avail;
-  balanceChart.data.datasets[1].data = nw;
+  var availData = [];
+  var nwData = [];
+  balanceChartRows.forEach(function(r) {
+    var ts = new Date(r.bucket).getTime();
+    var av = r[fields.available];
+    var nw = r[fields.networth];
+    availData.push({ x: ts, y: av != null ? parseFloat(av) : null });
+    nwData.push({ x: ts, y: nw != null ? parseFloat(nw) : null });
+  });
+
+  // Extend the line to "now" with the latest value so a constant balance
+  // renders as a full horizontal line across the window.
+  function appendNow(arr) {
+    if (arr.length === 0) return;
+    var last = arr[arr.length - 1];
+    if (last.y != null && last.x < nowMs) arr.push({ x: nowMs, y: last.y });
+  }
+  appendNow(availData);
+  appendNow(nwData);
+
+  balanceChart.data.datasets[0].data = availData;
+  balanceChart.data.datasets[1].data = nwData;
+  balanceChart.options.scales.x.min = rangeStartMs;
+  balanceChart.options.scales.x.max = nowMs;
   balanceChart.update();
 
   var emptyEl = document.getElementById('balance-chart-empty');
-  if (emptyEl) emptyEl.hidden = balanceChartRows.length >= 2;
+  if (emptyEl) emptyEl.hidden = balanceChartRows.length >= 1;
 }
 
 function wireRangeButtons() {
@@ -1022,7 +1060,6 @@ function attachScrubHandlers(canvas) {
     if (!balanceChart || balanceChartRows.length === 0) return;
     var rect = canvas.getBoundingClientRect();
     var xPx = clientX - rect.left;
-    // Scale canvas pixel coords — Chart.js uses CSS pixels, so this should line up.
     var idx = xToIndex(xPx);
     if (idx < 0) return;
     if (idx !== lastIndex) {
@@ -1033,8 +1070,11 @@ function attachScrubHandlers(canvas) {
     balanceChart.update('none');
 
     var fields = getChartMetricFields();
-    var row = balanceChartRows[idx];
+    // idx may point at the synthetic "now" point appended after the last real row.
+    var rowIdx = Math.min(idx, balanceChartRows.length - 1);
+    var row = balanceChartRows[rowIdx];
     var startRow = balanceChartRows[0];
+    var isSynthetic = idx >= balanceChartRows.length;
     var availNow = row[fields.available] != null ? parseFloat(row[fields.available]) : null;
     var nwNow = row[fields.networth] != null ? parseFloat(row[fields.networth]) : null;
 
@@ -1053,7 +1093,10 @@ function attachScrubHandlers(canvas) {
       var delta = nwNow - startNW;
       var pct = startNW !== 0 ? (delta / Math.abs(startNW)) * 100 : 0;
       var up = delta >= 0;
-      var dateStr = new Date(row.bucket).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      var labelDate = isSynthetic ? new Date() : new Date(row.bucket);
+      var includeTime = balanceChartRange === '1W' || balanceChartRange === '1M';
+      var dateStr = isSynthetic ? 'Now' : labelDate.toLocaleDateString(undefined,
+        includeTime ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric' });
       deltaEl.className = 'balance-chart-delta ' + (up ? 'up' : 'down');
       deltaEl.innerHTML = '<span class="delta-arrow">' + (up ? '▲' : '▼') + '</span>' +
         (delta < 0 ? '-' : '') + '$' + Math.abs(delta).toFixed(2) +
