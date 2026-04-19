@@ -574,7 +574,8 @@ async function resolveLogos() {
 
 function getLogoUrl(account) {
   if (!account.institution_logo_domain) return null;
-  return 'https://img.logo.dev/' + account.institution_logo_domain + '?token=' + LOGO_KEY + '&size=80&format=png';
+  return 'https://img.logo.dev/' + account.institution_logo_domain +
+    '?token=' + LOGO_KEY + '&size=200&format=png&retina=true';
 }
 
 // ============================================
