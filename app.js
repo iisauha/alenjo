@@ -973,7 +973,11 @@ function renderChartFromRows() {
 
   balanceChart.data.datasets[0].data = availData;
   balanceChart.data.datasets[1].data = nwData;
-  balanceChart.options.scales.x.min = rangeStartMs;
+  // Axis min = later of (range start, first data point). So for ranges larger
+  // than the tracked time the line fills the full canvas, and over time the
+  // axis stretches back until the range cap kicks in.
+  var firstDataMs = balanceChartRows.length > 0 ? new Date(balanceChartRows[0].bucket).getTime() : nowMs;
+  balanceChart.options.scales.x.min = Math.max(rangeStartMs, firstDataMs);
   balanceChart.options.scales.x.max = nowMs;
   balanceChart.update();
 
