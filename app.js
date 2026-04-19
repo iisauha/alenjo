@@ -457,6 +457,7 @@ async function loadAccounts() {
 
   // Background sync (includes balance update via free /accounts/get)
   if (cachedAccounts.length > 0) {
+    writeMyBalanceSnapshot();
     throttledSync();
     startSyncInterval();
   }
@@ -530,6 +531,7 @@ async function backgroundSync() {
     if (!result.error) {
       cachedAccounts = result.data || [];
       renderAccounts(cachedAccounts);
+      writeMyBalanceSnapshot();
     }
   } catch (e) {
     console.error('Background sync error:', e);
@@ -651,9 +653,20 @@ function computeBalanceTotals(accounts, holdings) {
   return out;
 }
 
-// Balance snapshots are now written server-side every 5 min via pg_cron
-// (public.write_all_balance_snapshots). computeBalanceTotals is retained
-// for future features that may need client-side totals.
+// Balance snapshots are written server-side every 5 min via pg_cron, plus
+// on-demand from the client (app load, post-sync) via write_my_balance_snapshot.
+var snapshotInFlight = false;
+async function writeMyBalanceSnapshot() {
+  if (snapshotInFlight || !currentUser) return;
+  snapshotInFlight = true;
+  try {
+    var res = await sb.rpc('write_my_balance_snapshot');
+    if (res.error) { console.error('snapshot rpc error', res.error); return; }
+    if (typeof window.onBalanceSnapshotWritten === 'function') window.onBalanceSnapshotWritten();
+  } finally {
+    snapshotInFlight = false;
+  }
+}
 
 // ============================================
 // RENDER ACCOUNTS
