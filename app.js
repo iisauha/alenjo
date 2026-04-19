@@ -808,7 +808,7 @@ async function initBalanceChart() {
           pointBorderWidth: 0,
           pointHitRadius: 18,
           tension: 0,
-          stepped: false,
+          stepped: 'before',
           fill: false,
           spanGaps: true,
           parsing: false
@@ -824,7 +824,7 @@ async function initBalanceChart() {
           pointBorderWidth: 0,
           pointHitRadius: 18,
           tension: 0,
-          stepped: false,
+          stepped: 'before',
           fill: false,
           spanGaps: true,
           parsing: false
@@ -932,17 +932,16 @@ async function loadBalanceHistory(range) {
   }
 }
 
-function getRangeStartMs(range) {
+function getRangeEndMs() {
+  // End of the current calendar month (start of next month).
   var d = new Date();
-  if (range === 'MTD') return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
 }
 
 function renderChartFromRows() {
   if (!balanceChart) return;
   var fields = getChartMetricFields();
-  var nowMs = Date.now();
-  var rangeStartMs = getRangeStartMs(balanceChartRange);
+  var rangeEndMs = getRangeEndMs();
 
   var availData = [];
   var nwData = [];
@@ -956,10 +955,13 @@ function renderChartFromRows() {
 
   balanceChart.data.datasets[0].data = availData;
   balanceChart.data.datasets[1].data = nwData;
-  // Axis is fixed to the full month so the line visibly "builds" into the
-  // canvas over time. Left of the first snapshot is empty (no fake backfill).
-  balanceChart.options.scales.x.min = rangeStartMs;
-  balanceChart.options.scales.x.max = nowMs;
+  // Axis starts at the first real snapshot (left edge) and ends at the close
+  // of the current month. The line grows left-to-right as new snapshots land.
+  var firstDataMs = balanceChartRows.length > 0
+    ? new Date(balanceChartRows[0].bucket).getTime()
+    : Date.now();
+  balanceChart.options.scales.x.min = firstDataMs;
+  balanceChart.options.scales.x.max = rangeEndMs;
   balanceChart.update();
 
   var emptyEl = document.getElementById('balance-chart-empty');
@@ -1015,10 +1017,12 @@ function attachScrubHandlers(canvas) {
     var lastX = meta.data[meta.data.length - 1].x;
     if (xPx < firstX) xPx = firstX;
     if (xPx > lastX) xPx = lastX;
-    var best = 0, bestDist = Infinity;
+    // Stepped-line scrub: last data point whose x <= scrub x. This is the
+    // last known real value at the scrubbed time — never interpolates.
+    var best = 0;
     for (var i = 0; i < meta.data.length; i++) {
-      var d = Math.abs(meta.data[i].x - xPx);
-      if (d < bestDist) { bestDist = d; best = i; }
+      if (meta.data[i].x <= xPx) best = i;
+      else break;
     }
     return best;
   }
