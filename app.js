@@ -956,10 +956,9 @@ function renderChartFromRows() {
 
   balanceChart.data.datasets[0].data = availData;
   balanceChart.data.datasets[1].data = nwData;
-  // Axis min = later of (range start, first data point). Axis max = now so there's
-  // a visible trailing gap on the right — signaling the chart is still growing.
-  var firstDataMs = balanceChartRows.length > 0 ? new Date(balanceChartRows[0].bucket).getTime() : nowMs;
-  balanceChart.options.scales.x.min = Math.max(rangeStartMs, firstDataMs);
+  // Axis is fixed to the full month so the line visibly "builds" into the
+  // canvas over time. Left of the first snapshot is empty (no fake backfill).
+  balanceChart.options.scales.x.min = rangeStartMs;
   balanceChart.options.scales.x.max = nowMs;
   balanceChart.update();
 
