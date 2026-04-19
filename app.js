@@ -651,32 +651,9 @@ function computeBalanceTotals(accounts, holdings) {
   return out;
 }
 
-var writingSnapshot = false;
-async function maybeWriteBalanceSnapshot() {
-  if (writingSnapshot || !currentUser || !cachedAccounts || cachedAccounts.length === 0) return;
-  var lastAt = parseInt(localStorage.getItem('alenjo_last_snapshot_at') || '0');
-  if (Date.now() - lastAt < 5 * 60 * 1000) return;
-
-  var totals = computeBalanceTotals(cachedAccounts, cachedHoldings);
-  writingSnapshot = true;
-  try {
-    var res = await sb.from('balance_snapshots').insert({
-      user_id: currentUser.id,
-      available_amount: totals.posted.available,
-      net_worth_amount: totals.posted.networth,
-      available_after_pending: totals.after_pending.available,
-      net_worth_after_pending: totals.after_pending.networth
-    });
-    if (!res.error) {
-      localStorage.setItem('alenjo_last_snapshot_at', String(Date.now()));
-      if (typeof window.onBalanceSnapshotWritten === 'function') window.onBalanceSnapshotWritten();
-    }
-  } catch (e) {
-    console.error('Snapshot write failed:', e);
-  } finally {
-    writingSnapshot = false;
-  }
-}
+// Balance snapshots are now written server-side every 5 min via pg_cron
+// (public.write_all_balance_snapshots). computeBalanceTotals is retained
+// for future features that may need client-side totals.
 
 // ============================================
 // RENDER ACCOUNTS
@@ -754,7 +731,6 @@ function renderAccounts(accounts) {
 
   updateSyncInfo();
   renderAccountsSettings();
-  maybeWriteBalanceSnapshot();
   if (hasAnyAccounts) requestAnimationFrame(function() { initBalanceChart(); });
 }
 
