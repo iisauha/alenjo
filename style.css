@@ -282,6 +282,21 @@ body {
   -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
+.app-header::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, rgba(6, 11, 20, 0.62), rgba(6, 11, 20, 0));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent);
+  mask-image: linear-gradient(to bottom, black, transparent);
+  pointer-events: none;
+}
+
 .header-user {
   display: flex;
   align-items: center;
@@ -651,6 +666,21 @@ body {
   position: sticky;
   bottom: 0;
   z-index: 20;
+}
+
+.bottom-nav::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(to top, rgba(6, 11, 20, 0.62), rgba(6, 11, 20, 0));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(to top, black, transparent);
+  mask-image: linear-gradient(to top, black, transparent);
+  pointer-events: none;
 }
 
 .nav-item {
