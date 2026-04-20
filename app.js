@@ -1318,7 +1318,7 @@ function accountCard(account, type) {
         logoRowHtml +
       '</div>' +
       '<div class="account-balance">' +
-        '<div class="amount ' + (type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + '">' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
+        '<div class="amount ' + (type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + (type === 'credit' ? ' amount-bonus-trigger' : '') + '"' + (type === 'credit' ? ' data-bonus-id="' + account.id + '"' : '') + '>' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
         '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
@@ -1388,24 +1388,7 @@ document.addEventListener('click', function(e) {
 
   var acct = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === editingAccountId; }) : null;
   renderCardDesignPicker(acct && acct.card_design_id ? acct.card_design_id : null);
-
-  var bonusSection = $('#card-bonus-section');
-  if (acct && acct.type === 'credit') {
-    bonusSection.style.display = '';
-    $('#bonus-target').value = acct.bonus_target_amount || '';
-    $('#bonus-start').value = acct.bonus_start_date || '';
-    $('#bonus-months').value = acct.bonus_months || '';
-  } else {
-    bonusSection.style.display = 'none';
-  }
-
   accountEditModal.classList.add('visible');
-});
-
-$('#btn-clear-bonus').addEventListener('click', function() {
-  $('#bonus-target').value = '';
-  $('#bonus-start').value = '';
-  $('#bonus-months').value = '';
 });
 
 $('#account-edit-save').addEventListener('click', function() {
@@ -1446,30 +1429,6 @@ $('#account-edit-save').addEventListener('click', function() {
     }
   }
 
-  // Save sign-up bonus tracker
-  if ($('#card-bonus-section').style.display !== 'none') {
-    var bTarget = parseFloat($('#bonus-target').value);
-    var bStart = $('#bonus-start').value || null;
-    var bMonths = parseInt($('#bonus-months').value);
-    var hasAll = bTarget > 0 && bStart && bMonths > 0;
-    var bonusData = hasAll
-      ? { bonus_target_amount: bTarget, bonus_start_date: bStart, bonus_months: bMonths }
-      : { bonus_target_amount: null, bonus_start_date: null, bonus_months: null };
-    if (cachedAccounts) {
-      cachedAccounts.forEach(function(a) {
-        if (a.id === editingAccountId) {
-          a.bonus_target_amount = bonusData.bonus_target_amount;
-          a.bonus_start_date = bonusData.bonus_start_date;
-          a.bonus_months = bonusData.bonus_months;
-        }
-      });
-    }
-    var saveBonusId = editingAccountId;
-    sb.from('accounts').update(bonusData).eq('id', saveBonusId).then(function(result) {
-      if (result.error) console.error('Bonus save error:', result.error);
-    });
-  }
-
   if (cachedAccounts) renderAccounts(cachedAccounts);
   accountEditModal.classList.remove('visible');
   editingAccountId = null;
@@ -1484,6 +1443,60 @@ $('#account-edit-cancel').addEventListener('click', function() {
 nicknameInput.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { e.preventDefault(); $('#account-edit-save').click(); }
   if (e.key === 'Escape') { $('#account-edit-cancel').click(); }
+});
+
+// Sign-up bonus modal (opens from tapping the balance amount on a credit card)
+var bonusEditModal = $('#bonus-edit-modal');
+var editingBonusId = null;
+
+document.addEventListener('click', function(e) {
+  var amt = e.target.closest('.amount-bonus-trigger');
+  if (!amt || !amt.dataset.bonusId) return;
+  editingBonusId = amt.dataset.bonusId;
+  var acct = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === editingBonusId; }) : null;
+  $('#bonus-target').value = acct && acct.bonus_target_amount ? acct.bonus_target_amount : '';
+  $('#bonus-start').value = acct && acct.bonus_start_date ? acct.bonus_start_date : '';
+  $('#bonus-months').value = acct && acct.bonus_months ? acct.bonus_months : '';
+  bonusEditModal.classList.add('visible');
+});
+
+$('#bonus-edit-clear').addEventListener('click', function() {
+  $('#bonus-target').value = '';
+  $('#bonus-start').value = '';
+  $('#bonus-months').value = '';
+});
+
+$('#bonus-edit-cancel').addEventListener('click', function() {
+  bonusEditModal.classList.remove('visible');
+  editingBonusId = null;
+});
+
+$('#bonus-edit-save').addEventListener('click', function() {
+  if (!editingBonusId) return;
+  var bTarget = parseFloat($('#bonus-target').value);
+  var bStart = $('#bonus-start').value || null;
+  var bMonths = parseInt($('#bonus-months').value);
+  var hasAll = bTarget > 0 && bStart && bMonths > 0;
+  var bonusData = hasAll
+    ? { bonus_target_amount: bTarget, bonus_start_date: bStart, bonus_months: bMonths }
+    : { bonus_target_amount: null, bonus_start_date: null, bonus_months: null };
+  if (cachedAccounts) {
+    cachedAccounts.forEach(function(a) {
+      if (a.id === editingBonusId) {
+        a.bonus_target_amount = bonusData.bonus_target_amount;
+        a.bonus_start_date = bonusData.bonus_start_date;
+        a.bonus_months = bonusData.bonus_months;
+      }
+    });
+  }
+  var saveId = editingBonusId;
+  sb.from('accounts').update(bonusData).eq('id', saveId).then(function(result) {
+    if (result.error) console.error('Bonus save error:', result.error);
+  });
+  if (cachedAccounts) renderAccounts(cachedAccounts);
+  bonusEditModal.classList.remove('visible');
+  editingBonusId = null;
+  showToast(hasAll ? 'Bonus saved' : 'Bonus cleared');
 });
 
 // ============================================
