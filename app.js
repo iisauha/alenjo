@@ -1357,6 +1357,7 @@ function computeBonusProgress(account) {
   var earned = 0;
   if (txData && account.plaid_account_id) {
     txData.forEach(function(tx) {
+      if (tx.pending) return;
       if (tx.plaid_account_id !== account.plaid_account_id) return;
       if (tx.date < startStr || tx.date > endStr) return;
       var cat = tx.enriched_category_primary || tx.category;
