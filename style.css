@@ -1388,6 +1388,167 @@ body {
   margin-bottom: 0.6rem;
 }
 
+/* Card designs — settings list */
+.card-designs-help {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0 0 0.75rem;
+}
+
+.card-designs-help strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.card-designs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.5rem;
+}
+
+.card-design-tile {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.04) 75%) 0 0 / 12px 12px,
+    linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.04) 75%) 6px 6px / 12px 12px,
+    var(--bg-card);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.card-design-tile-img {
+  position: absolute;
+  inset: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.card-design-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-designs-empty {
+  grid-column: 1 / -1;
+  padding: 1rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.card-designs-status {
+  margin-top: 0.5rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.card-designs-status.error {
+  color: var(--danger, #ef4444);
+}
+
+/* Card design picker in account edit modal */
+#card-design-picker-section {
+  margin-bottom: 0.6rem;
+}
+
+.card-design-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 0.4rem;
+}
+
+.card-design-option {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.04) 75%) 0 0 / 10px 10px,
+    linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.04) 75%) 5px 5px / 10px 10px,
+    var(--bg-card);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+
+.card-design-option.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(60, 130, 246, 0.25);
+}
+
+.card-design-option-img {
+  position: absolute;
+  inset: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.card-design-option.none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.card-design-picker-empty {
+  grid-column: 1 / -1;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  padding: 0.5rem 0;
+}
+
+/* Card design shown next to logo in account card */
+.account-card-art {
+  height: 32px;
+  max-width: 56px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: left center;
+  margin-top: 0.25rem;
+  margin-left: 0.4rem;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.account-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.account-logo-row .account-logo {
+  margin-top: 0;
+}
+
+.account-logo-row .account-card-art {
+  margin-top: 0;
+  margin-left: 0;
+}
+
 /* Account management in settings */
 .accounts-manage-list {
   display: flex;

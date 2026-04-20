@@ -98,7 +98,7 @@ sb.auth.signOut().then(function() {
   sb.auth.onAuthStateChange(function(event, session) {
     if (event === 'SIGNED_IN' && session && session.user) {
       currentUser = session.user;
-      Promise.all([loadProfile(), loadAccounts()]).then(function() {
+      Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
         return loadTransactions();
       }).then(function() {
         return loadRecurringBills();
@@ -248,6 +248,247 @@ $('#avatar-upload').addEventListener('change', async function(e) {
   updateHeaderProfile();
   updateSettingsProfile();
   showLoading(false);
+});
+
+// ============================================
+// CARD DESIGNS
+// ============================================
+var cachedCardDesigns = [];
+var nsfwModelPromise = null;
+
+async function loadCardDesigns() {
+  if (!currentUser) return;
+  var result = await sb.from('card_designs').select('id, storage_path, url, name, created_at').order('created_at', { ascending: false });
+  if (result.error) { console.error('card designs load error', result.error); return; }
+  cachedCardDesigns = result.data || [];
+  renderCardDesignsSettings();
+  // Re-render accounts in case they loaded first and a design was referenced
+  if (cachedAccounts && cachedAccounts.some(function(a) { return a.card_design_id; })) {
+    renderAccounts(cachedAccounts);
+  }
+}
+
+function getCardDesignById(id) {
+  if (!id) return null;
+  for (var i = 0; i < cachedCardDesigns.length; i++) {
+    if (cachedCardDesigns[i].id === id) return cachedCardDesigns[i];
+  }
+  return null;
+}
+
+function renderCardDesignsSettings() {
+  var list = $('#card-designs-list');
+  if (!list) return;
+  if (!cachedCardDesigns.length) {
+    list.innerHTML = '<div class="card-designs-empty">No designs yet. Tap Upload Design to add one.</div>';
+    return;
+  }
+  list.innerHTML = cachedCardDesigns.map(function(d) {
+    return '<div class="card-design-tile">' +
+      '<div class="card-design-tile-img" style="background-image:url(' + esc(d.url) + ')"></div>' +
+      '<button class="card-design-delete" data-delete-design="' + d.id + '" aria-label="Delete">&times;</button>' +
+    '</div>';
+  }).join('');
+}
+
+function loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.crossOrigin = 'anonymous';
+    s.onload = function() { resolve(); };
+    s.onerror = function() { reject(new Error('Failed to load ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+
+function loadNsfwModel() {
+  if (nsfwModelPromise) return nsfwModelPromise;
+  nsfwModelPromise = (async function() {
+    if (!window.tf) {
+      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+    }
+    if (!window.nsfwjs) {
+      await loadScript('https://cdn.jsdelivr.net/npm/nsfwjs@4.2.1/dist/nsfwjs.min.js');
+    }
+    return await window.nsfwjs.load();
+  })();
+  return nsfwModelPromise;
+}
+
+function setDesignStatus(msg, err) {
+  var el = $('#card-designs-status');
+  if (!el) return;
+  if (!msg) { el.hidden = true; el.textContent = ''; el.classList.remove('error'); return; }
+  el.hidden = false;
+  el.textContent = msg;
+  el.classList.toggle('error', !!err);
+}
+
+function hasTransparentBackground(img) {
+  var w = img.naturalWidth, h = img.naturalHeight;
+  if (!w || !h) return false;
+  var canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  var data;
+  try { data = ctx.getImageData(0, 0, w, h).data; }
+  catch (e) { return false; }
+  var transparent = 0;
+  var total = w * h;
+  for (var i = 3; i < data.length; i += 4) {
+    if (data[i] < 250) transparent++;
+  }
+  return transparent / total > 0.03;
+}
+
+$('#btn-add-card-design').addEventListener('click', function() {
+  $('#card-design-upload').click();
+});
+
+$('#card-design-upload').addEventListener('change', async function(e) {
+  var file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  setDesignStatus('');
+
+  if (!/^image\/(png|webp)$/.test(file.type)) {
+    setDesignStatus('PNG or WebP only.', true);
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    setDesignStatus('Image must be under 5MB.', true);
+    return;
+  }
+
+  setDesignStatus('Checking image...');
+
+  var objUrl = URL.createObjectURL(file);
+  var img = new Image();
+  try {
+    await new Promise(function(resolve, reject) {
+      img.onload = resolve;
+      img.onerror = function() { reject(new Error('Could not read image')); };
+      img.src = objUrl;
+    });
+  } catch (err) {
+    URL.revokeObjectURL(objUrl);
+    setDesignStatus('Could not read image file.', true);
+    return;
+  }
+
+  if (!hasTransparentBackground(img)) {
+    URL.revokeObjectURL(objUrl);
+    setDesignStatus('Image must be a PNG with a transparent background.', true);
+    return;
+  }
+
+  try {
+    setDesignStatus('Scanning for inappropriate content...');
+    var model = await loadNsfwModel();
+    var preds = await model.classify(img);
+    var byClass = {};
+    preds.forEach(function(p) { byClass[p.className] = p.probability; });
+    var pornish = Math.max(byClass.Porn || 0, byClass.Hentai || 0);
+    var sexy = byClass.Sexy || 0;
+    if (pornish > 0.35 || sexy > 0.7) {
+      URL.revokeObjectURL(objUrl);
+      setDesignStatus('This image appears to contain inappropriate content and cannot be uploaded.', true);
+      return;
+    }
+  } catch (err) {
+    console.warn('NSFW scan failed, continuing:', err);
+  }
+
+  URL.revokeObjectURL(objUrl);
+
+  setDesignStatus('Uploading...');
+  var ext = file.type === 'image/webp' ? 'webp' : 'png';
+  var fname = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+  var path = currentUser.id + '/' + fname;
+
+  var up = await sb.storage.from('card-designs').upload(path, file, { contentType: file.type });
+  if (up.error) {
+    console.error('card design upload error', up.error);
+    setDesignStatus('Upload failed.', true);
+    return;
+  }
+
+  var pub = sb.storage.from('card-designs').getPublicUrl(path);
+  var publicUrl = pub.data.publicUrl;
+
+  var ins = await sb.from('card_designs').insert({
+    user_id: currentUser.id,
+    storage_path: path,
+    url: publicUrl,
+    name: (file.name || '').slice(0, 80) || null
+  }).select('id, storage_path, url, name, created_at').single();
+
+  if (ins.error) {
+    console.error('card design insert error', ins.error);
+    await sb.storage.from('card-designs').remove([path]);
+    setDesignStatus('Save failed.', true);
+    return;
+  }
+
+  cachedCardDesigns.unshift(ins.data);
+  renderCardDesignsSettings();
+  setDesignStatus('');
+  showToast('Design added');
+});
+
+document.addEventListener('click', async function(e) {
+  var btn = e.target.closest('[data-delete-design]');
+  if (!btn) return;
+  var id = btn.dataset.deleteDesign;
+  if (!confirm('Delete this card design?')) return;
+  var design = getCardDesignById(id);
+  if (!design) return;
+
+  var del = await sb.from('card_designs').delete().eq('id', id);
+  if (del.error) {
+    console.error('card design delete error', del.error);
+    showToast('Delete failed');
+    return;
+  }
+  sb.storage.from('card-designs').remove([design.storage_path]).then(function(res) {
+    if (res && res.error) console.warn('Storage cleanup failed:', res.error);
+  });
+
+  cachedCardDesigns = cachedCardDesigns.filter(function(d) { return d.id !== id; });
+  if (cachedAccounts) {
+    cachedAccounts.forEach(function(a) { if (a.card_design_id === id) a.card_design_id = null; });
+  }
+  renderCardDesignsSettings();
+  if (cachedAccounts) renderAccounts(cachedAccounts);
+  showToast('Design deleted');
+});
+
+function renderCardDesignPicker(selectedId) {
+  var el = $('#card-design-picker');
+  if (!el) return;
+  var html = '<button type="button" class="card-design-option none' + (!selectedId ? ' selected' : '') + '" data-design-id="">None</button>';
+  if (cachedCardDesigns.length === 0) {
+    html += '<div class="card-design-picker-empty">Upload designs in Settings &rarr; Card Designs.</div>';
+  } else {
+    cachedCardDesigns.forEach(function(d) {
+      html += '<button type="button" class="card-design-option' + (selectedId === d.id ? ' selected' : '') + '" data-design-id="' + d.id + '">' +
+        '<div class="card-design-option-img" style="background-image:url(' + esc(d.url) + ')"></div>' +
+      '</button>';
+    });
+  }
+  el.innerHTML = html;
+}
+
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('#card-design-picker .card-design-option');
+  if (!btn) return;
+  var picker = document.getElementById('card-design-picker');
+  picker.querySelectorAll('.card-design-option').forEach(function(b) { b.classList.remove('selected'); });
+  btn.classList.add('selected');
 });
 
 // Tab reorder
@@ -1042,13 +1283,18 @@ function accountCard(account, type) {
   }
 
 
+  var cardDesign = account.card_design_id ? getCardDesignById(account.card_design_id) : null;
+  var designHtml = cardDesign ? '<div class="account-card-art" style="background-image:url(' + esc(cardDesign.url) + ')"></div>' : '';
+  var logoHtml = logoUrl ? '<div class="account-logo" style="background-image:url(' + logoUrl + ')"></div>' : '';
+  var logoRowHtml = (logoHtml || designHtml) ? '<div class="account-logo-row">' + logoHtml + designHtml + '</div>' : '';
+
   return '<div class="account-card" data-id="' + account.id + '">' +
     '<div class="account-top">' +
       '<div class="account-left">' +
         '<span class="account-name" data-id="' + account.id + '">' + esc(displayName) + '</span>' +
         '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
         (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
-        (logoUrl ? '<div class="account-logo" style="background-image:url(' + logoUrl + ')"></div>' : '') +
+        logoRowHtml +
       '</div>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + '">' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
@@ -1136,6 +1382,7 @@ document.addEventListener('click', function(e) {
   }
 
   overridesSection.style.display = showOverrides ? '' : 'none';
+  renderCardDesignPicker(acct && acct.card_design_id ? acct.card_design_id : null);
   accountEditModal.classList.add('visible');
   nicknameInput.focus();
   nicknameInput.select();
@@ -1163,6 +1410,28 @@ $('#account-edit-save').addEventListener('click', function() {
     var apr = parseFloat($('#override-apr').value) || 0;
     var stmtDate = parseInt($('#override-stmt-date').value) || 0;
     setCardOverrides(editingAccountId, { limit: lim, apr: apr, stmtDate: stmtDate });
+  }
+
+  // Save card design selection
+  var pickerEl = $('#card-design-picker');
+  if (pickerEl) {
+    var selectedBtn = pickerEl.querySelector('.card-design-option.selected');
+    var newDesignId = (selectedBtn && selectedBtn.dataset.designId) ? selectedBtn.dataset.designId : null;
+    var prevDesignId = null;
+    if (cachedAccounts) {
+      cachedAccounts.forEach(function(a) {
+        if (a.id === editingAccountId) {
+          prevDesignId = a.card_design_id || null;
+          a.card_design_id = newDesignId;
+        }
+      });
+    }
+    if (newDesignId !== prevDesignId) {
+      var saveDesignId = editingAccountId;
+      sb.from('accounts').update({ card_design_id: newDesignId }).eq('id', saveDesignId).then(function(result) {
+        if (result.error) console.error('Card design save error:', result.error);
+      });
+    }
   }
 
   if (cachedAccounts) renderAccounts(cachedAccounts);
