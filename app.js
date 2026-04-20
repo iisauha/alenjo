@@ -1384,8 +1384,6 @@ document.addEventListener('click', function(e) {
   overridesSection.style.display = showOverrides ? '' : 'none';
   renderCardDesignPicker(acct && acct.card_design_id ? acct.card_design_id : null);
   accountEditModal.classList.add('visible');
-  nicknameInput.focus();
-  nicknameInput.select();
 });
 
 $('#account-edit-save').addEventListener('click', function() {
