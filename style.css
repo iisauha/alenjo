@@ -1556,6 +1556,7 @@ body {
   max-width: none;
   margin-top: 0;
   background-position: center center;
+  border-radius: 10px;
 }
 
 .account-card-art {
