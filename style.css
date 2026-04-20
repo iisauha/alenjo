@@ -1664,26 +1664,43 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   background-position: left center;
 }
 
-/* Account management in settings */
+/* Account management in settings (horizontal carousel) */
+.accounts-manage-wrap {
+  overflow: hidden;
+}
+
 .accounts-manage-list {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  gap: 0.5rem;
+  padding-bottom: 0.25rem;
+}
+
+.accounts-manage-list::-webkit-scrollbar {
+  display: none;
 }
 
 .settings-institution {
+  flex: 0 0 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
   background: var(--bg-card);
   border-radius: var(--radius-sm);
   padding: 0.85rem 1rem;
-  margin-bottom: 0.5rem;
   border: 1px solid var(--border);
 }
 
-.settings-inst-header {
+.settings-inst-top {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .settings-inst-logo {
@@ -1708,11 +1725,38 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--text);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-inst-detail {
   font-size: var(--text-sm);
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accounts-manage-wrap .scroll-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.accounts-manage-wrap .scroll-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  transition: background 0.3s, transform 0.3s;
+}
+
+.accounts-manage-wrap .scroll-dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
 }
 
 .settings-tokens-section {
@@ -1795,9 +1839,15 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 
 .settings-inst-actions {
   display: flex;
-  gap: 0.4rem;
-  flex-shrink: 0;
+  gap: 0.5rem;
   align-items: center;
+  justify-content: flex-end;
+}
+
+.settings-inst-actions .btn-add-card-inst,
+.settings-inst-actions .btn-disconnect-inst {
+  flex: 1;
+  text-align: center;
 }
 
 .settings-inst-help {

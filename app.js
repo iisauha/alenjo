@@ -999,22 +999,51 @@ async function renderAccountsSettings() {
     }).join(', ');
     var instLogoUrl = getLogoUrl(group.accounts[0]);
     html += '<div class="settings-institution">';
-    html += '<div class="settings-inst-header">';
+    html += '<div class="settings-inst-top">';
     html += (instLogoUrl ? '<div class="settings-inst-logo" style="background-image:url(' + instLogoUrl + ')"></div>' : '');
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
     html += '<span class="settings-inst-detail">' + typeList + '</span>';
+    html += '</div>';
     html += '</div>';
     html += '<div class="settings-inst-actions">';
     html += '<button class="btn-add-card-inst" data-item="' + esc(itemId) + '">+ Add card</button>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
     html += '</div>';
-    html += '</div>';
   });
 
 
   list.innerHTML = html;
+
+  // Horizontal scroll dots for institution carousel
+  var wrap = list.parentElement;
+  var existingDots = wrap.querySelector('.scroll-dots');
+  if (existingDots) existingDots.remove();
+  var cardCount = Object.keys(byItem).length;
+  if (cardCount > 1) {
+    var dots = document.createElement('div');
+    dots.className = 'scroll-dots';
+    for (var i = 0; i < cardCount; i++) {
+      var dot = document.createElement('div');
+      dot.className = 'scroll-dot' + (i === 0 ? ' active' : '');
+      dots.appendChild(dot);
+    }
+    wrap.appendChild(dots);
+    var ticking = false;
+    list.addEventListener('scroll', function() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function() {
+        var cardWidth = list.firstElementChild ? list.firstElementChild.offsetWidth : 1;
+        var idx = Math.round(list.scrollLeft / cardWidth);
+        dots.querySelectorAll('.scroll-dot').forEach(function(d, j) {
+          d.classList.toggle('active', j === idx);
+        });
+        ticking = false;
+      });
+    }, { passive: true });
+  }
 }
 
 document.addEventListener('click', async function(e) {
