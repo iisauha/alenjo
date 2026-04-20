@@ -1221,18 +1221,11 @@ function accountCard(account, type) {
   // Liabilities detail for credit cards
   var liabHtml = '';
   if (type === 'credit') {
-    var overrides = getCardOverrides(account.id);
     var limit = account.balance_limit ? parseFloat(account.balance_limit) : 0;
-    var limitManual = false;
-    if (!limit && overrides.limit) {
-      limit = overrides.limit;
-      limitManual = true;
-    }
     var used = bal.amount;
 
     liabHtml = '<div class="card-liabilities">';
 
-    // Show utilization bar if credit limit is available (from Plaid or manual)
     if (limit > 0) {
       var utilPct = used <= 0 ? 0 : Math.min((used / limit) * 100, 100);
       var utilClass = used <= 0 ? 'util-low' : utilPct > 75 ? 'util-high' : utilPct > 30 ? 'util-mid' : 'util-low';
@@ -1241,16 +1234,13 @@ function accountCard(account, type) {
       liabHtml +=
         '<div class="liab-util-wrap">' +
           '<div class="liab-util-bar"><div class="liab-util-fill ' + utilClass + '" style="width:' + utilPct.toFixed(1) + '%"></div></div>' +
-          '<div class="liab-util-labels"><span>' + usedDisplay + ' / ' + formatMoney(limit) + (limitManual ? ' <span class="manual-tag">(manual)</span>' : '') + '</span><span>' + utilLabel + '</span></div>' +
+          '<div class="liab-util-labels"><span>' + usedDisplay + ' / ' + formatMoney(limit) + '</span><span>' + utilLabel + '</span></div>' +
         '</div>';
     }
 
-    // Show detailed liabilities data if available from Plaid Liabilities product
     var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
     var details = '';
-    var apr = (liab && liab.apr_purchase) ? parseFloat(liab.apr_purchase) : overrides.apr || null;
-    var aprManual = !(liab && liab.apr_purchase) && overrides.apr;
-    if (apr) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + apr.toFixed(2) + '%' + (aprManual ? ' <span class="manual-tag">(manual)</span>' : '') + '</span></div>';
+    if (liab && liab.apr_purchase) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + parseFloat(liab.apr_purchase).toFixed(2) + '%</span></div>';
 
     var minPay = liab && liab.minimum_payment_amount != null ? parseFloat(liab.minimum_payment_amount) : null;
     if (minPay != null) details += '<div class="liab-detail"><span>Min Payment</span><span>' + formatMoney(minPay) + '</span></div>';
@@ -1269,16 +1259,12 @@ function accountCard(account, type) {
     }
     if (liab && liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>' + formatMoney(parseFloat(liab.last_payment_amount)) + '</span></div>';
     if (liab && liab.last_payment_date) details += '<div class="liab-detail"><span>Last Payment Date</span><span>' + formatLiabDate(liab.last_payment_date) + '</span></div>';
-
     if (liab && liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>' + formatMoney(parseFloat(liab.last_statement_balance)) + '</span></div>';
-
-    if (overrides.stmtDate) details += '<div class="liab-detail"><span>Statement Date</span><span>' + ordinalDay(overrides.stmtDate) + ' of month <span class="manual-tag">(manual)</span></span></div>';
-
     if (liab && liab.is_overdue && hasMinPayment) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
 
     if (details) liabHtml += details;
     if (!liab && !details) {
-      liabHtml += '<div class="liab-detail liab-unavailable"><span>This card\'s issuer doesn\'t currently share specific card details. You can add some manually by tapping the card name above.</span></div>';
+      liabHtml += '<div class="liab-detail liab-unavailable"><span>This card\'s issuer doesn\'t share card details with Plaid.</span></div>';
     }
 
     liabHtml += '</div>';
@@ -1315,34 +1301,7 @@ function formatLiabDate(dateStr) {
   return monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
 }
 
-function ordinalDay(d) {
-  d = parseInt(d);
-  var s = ['th','st','nd','rd'];
-  var v = d % 100;
-  return d + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-// Card detail overrides (localStorage)
-function getCardOverrides(accountId) {
-  try {
-    var all = JSON.parse(localStorage.getItem('alenjo_card_overrides') || '{}');
-    return all[accountId] || {};
-  } catch (e) { return {}; }
-}
-
-function setCardOverrides(accountId, data) {
-  try {
-    var all = JSON.parse(localStorage.getItem('alenjo_card_overrides') || '{}');
-    if (!data || (!data.limit && !data.apr && !data.stmtDate)) {
-      delete all[accountId];
-    } else {
-      all[accountId] = data;
-    }
-    localStorage.setItem('alenjo_card_overrides', JSON.stringify(all));
-  } catch (e) { console.error('Override save error:', e); }
-}
-
-// Account edit modal (nickname + card overrides)
+// Account edit modal (nickname + card design)
 var accountEditModal = $('#account-edit-modal');
 var nicknameInput = $('#nickname-input');
 var editingAccountId = null;
@@ -1353,37 +1312,7 @@ document.addEventListener('click', function(e) {
   editingAccountId = nameEl.dataset.id;
   nicknameInput.value = nameEl.textContent;
 
-  // Check if this is a credit card with missing data
   var acct = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === editingAccountId; }) : null;
-  var overridesSection = $('#card-overrides-section');
-  var showOverrides = false;
-
-  if (acct && acct.type === 'credit') {
-    var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === editingAccountId; }) : null;
-    var hasLimit = !!(acct.balance_limit && parseFloat(acct.balance_limit) > 0);
-    var hasApr = !!(liab && liab.apr_purchase);
-    var hasStmtDate = !!(liab && liab.next_payment_due_date);
-
-    var ov = getCardOverrides(editingAccountId);
-
-    // Only show fields that are missing from Plaid
-    var limitRow = $('#override-limit-row');
-    var aprRow = $('#override-apr-row');
-    var dateRow = $('#override-date-row');
-
-    limitRow.style.display = hasLimit ? 'none' : '';
-    aprRow.style.display = hasApr ? 'none' : '';
-    dateRow.style.display = hasStmtDate ? 'none' : '';
-
-    if (!hasLimit || !hasApr || !hasStmtDate) {
-      showOverrides = true;
-      if (!hasLimit) $('#override-limit').value = ov.limit || '';
-      if (!hasApr) $('#override-apr').value = ov.apr || '';
-      if (!hasStmtDate) $('#override-stmt-date').value = ov.stmtDate || '';
-    }
-  }
-
-  overridesSection.style.display = showOverrides ? '' : 'none';
   renderCardDesignPicker(acct && acct.card_design_id ? acct.card_design_id : null);
   accountEditModal.classList.add('visible');
 });
@@ -1402,14 +1331,6 @@ $('#account-edit-save').addEventListener('click', function() {
     sb.from('accounts').update({ nickname: newName }).eq('id', saveId).then(function(result) {
       if (result.error) console.error('Nickname save error:', result.error);
     });
-  }
-
-  // Save card overrides if visible
-  if ($('#card-overrides-section').style.display !== 'none') {
-    var lim = parseFloat($('#override-limit').value) || 0;
-    var apr = parseFloat($('#override-apr').value) || 0;
-    var stmtDate = parseInt($('#override-stmt-date').value) || 0;
-    setCardOverrides(editingAccountId, { limit: lim, apr: apr, stmtDate: stmtDate });
   }
 
   // Save card design selection
