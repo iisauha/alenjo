@@ -979,8 +979,10 @@ async function renderAccountsSettings() {
       if (t === 'investment') return n + ' investment account' + (n !== 1 ? 's' : '');
       return n + ' ' + t;
     }).join(', ');
+    var instLogoUrl = getLogoUrl(group.accounts[0]);
     html += '<div class="settings-institution">';
     html += '<div class="settings-inst-header">';
+    html += (instLogoUrl ? '<div class="settings-inst-logo" style="background-image:url(' + instLogoUrl + ')"></div>' : '');
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
     html += '<span class="settings-inst-detail">' + typeList + '</span>';
