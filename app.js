@@ -1005,7 +1005,10 @@ async function renderAccountsSettings() {
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
     html += '<span class="settings-inst-detail">' + typeList + '</span>';
     html += '</div>';
+    html += '<div class="settings-inst-actions">';
+    html += '<button class="btn-add-card-inst" data-item="' + esc(itemId) + '">+ Add card</button>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
+    html += '</div>';
     html += '</div>';
     html += '</div>';
   });
@@ -1048,6 +1051,72 @@ document.addEventListener('click', async function(e) {
     }
   } catch (err) {
     btn.textContent = 'Failed';
+    btn.disabled = false;
+  }
+});
+
+// + Add card to an existing institution (Plaid update mode with account selection)
+document.addEventListener('click', async function(e) {
+  var btn = e.target.closest('.btn-add-card-inst');
+  if (!btn) return;
+  var itemId = btn.dataset.item;
+  btn.disabled = true;
+  var originalText = btn.textContent;
+  btn.textContent = 'Opening...';
+
+  try {
+    var sessionResult = await sb.auth.getSession();
+    var session = sessionResult.data.session;
+    var headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + session.access_token,
+      'apikey': SUPABASE_ANON_KEY
+    };
+
+    var res = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ action: 'create_add_accounts_token', item_id: itemId })
+    });
+    var data = await res.json();
+
+    if (!res.ok || !data.link_token) {
+      showError('Could not start add-card flow. ' + (data.detail || data.error || 'Check your connection and try again.'));
+      btn.textContent = originalText;
+      btn.disabled = false;
+      return;
+    }
+
+    btn.textContent = originalText;
+    btn.disabled = false;
+
+    var handler = Plaid.create({
+      token: data.link_token,
+      onSuccess: async function() {
+        showLoading(true);
+        try {
+          await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ action: 'sync_added_accounts', item_id: itemId })
+          });
+          await loadAccounts();
+          showToast('Card added');
+        } catch (err) {
+          console.error('sync_added_accounts failed:', err);
+          showError('Card linked but we couldn\'t finish syncing. Pull to refresh.');
+        }
+        showLoading(false);
+      },
+      onExit: function(err) {
+        if (err) showError('Add card failed: ' + (err.display_message || err.error_message || 'Try again.'));
+      }
+    });
+
+    handler.open();
+  } catch (err) {
+    showError('Could not start add-card flow. ' + err.message);
+    btn.textContent = originalText;
     btn.disabled = false;
   }
 });

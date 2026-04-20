@@ -1769,6 +1769,49 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   transition: background 0.2s, border-color 0.2s;
 }
 
+.btn-add-card-inst {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-add-card-inst:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-add-card-inst:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.settings-inst-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.settings-inst-help {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+
+.settings-inst-help strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 
 /* ================================
    TRANSACTIONS TAB
