@@ -470,12 +470,25 @@ document.addEventListener('click', async function(e) {
 function renderCardDesignPicker(selectedId) {
   var el = $('#card-design-picker');
   if (!el) return;
+  var usedBy = {};
+  if (cachedAccounts) {
+    cachedAccounts.forEach(function(a) {
+      if (a.card_design_id && a.id !== editingAccountId) {
+        usedBy[a.card_design_id] = a.nickname || a.name || 'another account';
+      }
+    });
+  }
   var html = '<button type="button" class="card-design-option none' + (!selectedId ? ' selected' : '') + '" data-design-id="">None</button>';
   if (cachedCardDesigns.length === 0) {
     html += '<div class="card-design-picker-empty">Upload designs in Settings &rarr; Card Designs.</div>';
   } else {
     cachedCardDesigns.forEach(function(d) {
-      html += '<button type="button" class="card-design-option' + (selectedId === d.id ? ' selected' : '') + '" data-design-id="' + d.id + '">' +
+      var takenBy = usedBy[d.id];
+      var classes = 'card-design-option';
+      if (selectedId === d.id) classes += ' selected';
+      if (takenBy) classes += ' in-use';
+      var dataTaken = takenBy ? ' data-used-by="' + esc(takenBy) + '"' : '';
+      html += '<button type="button" class="' + classes + '" data-design-id="' + d.id + '"' + dataTaken + '>' +
         '<div class="card-design-option-img" style="background-image:url(' + esc(d.url) + ')"></div>' +
       '</button>';
     });
@@ -486,6 +499,11 @@ function renderCardDesignPicker(selectedId) {
 document.addEventListener('click', function(e) {
   var btn = e.target.closest('#card-design-picker .card-design-option');
   if (!btn) return;
+  if (btn.classList.contains('in-use')) {
+    var usedBy = btn.getAttribute('data-used-by') || 'another account';
+    showToast('Already used on ' + usedBy + '. Remove it there first.');
+    return;
+  }
   var picker = document.getElementById('card-design-picker');
   picker.querySelectorAll('.card-design-option').forEach(function(b) { b.classList.remove('selected'); });
   btn.classList.add('selected');
