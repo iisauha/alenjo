@@ -1520,33 +1520,29 @@ body {
   padding: 0.5rem 0;
 }
 
-/* Card design shown next to logo in account card */
-.account-card-art {
-  height: 32px;
-  max-width: 56px;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: left center;
-  margin-top: 0.25rem;
-  margin-left: 0.4rem;
-  display: inline-block;
-  vertical-align: middle;
-}
-
+/* Logo + card design row in account card */
 .account-logo-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.25rem;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  min-width: 0;
 }
 
 .account-logo-row .account-logo {
+  flex: 0 1 auto;
+  width: 110px;
+  height: 32px;
   margin-top: 0;
 }
 
-.account-logo-row .account-card-art {
-  margin-top: 0;
-  margin-left: 0;
+.account-card-art {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 32px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: left center;
 }
 
 /* Account management in settings */
