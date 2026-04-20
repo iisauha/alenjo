@@ -189,6 +189,30 @@ body {
   border-color: rgba(255,255,255,0.25);
 }
 
+/* Normalize native date inputs so they match other app-inputs */
+input.app-input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 0;
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--text-base);
+  line-height: 1.3;
+}
+
+input.app-input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--text-base);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+input.app-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
+
 .btn-primary {
   width: 100%;
   padding: 0.9rem;
@@ -1309,14 +1333,22 @@ body {
   margin-top: 0.75rem;
   padding-top: 0.6rem;
   border-top: 1px solid var(--border);
+  font-family: inherit;
+}
+
+.bonus-header,
+.bonus-amounts {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
 }
 
 .bonus-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: var(--text-xs);
-  color: var(--text-dim);
   margin-bottom: 0.35rem;
   gap: 0.5rem;
 }
@@ -1348,10 +1380,7 @@ body {
 .bonus-fill.bonus-expired { background: var(--text-muted); }
 
 .bonus-amounts {
-  font-size: var(--text-xs);
-  color: var(--text);
   margin-top: 0.35rem;
-  font-variant-numeric: tabular-nums;
 }
 
 .bonus-modal-help {
