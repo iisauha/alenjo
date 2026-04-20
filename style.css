@@ -1530,10 +1530,12 @@ body {
 }
 
 .account-logo-row .account-logo {
-  flex: 0 1 auto;
-  width: 165px;
+  flex: 0 0 auto;
+  width: 48px;
   height: 48px;
+  max-width: none;
   margin-top: 0;
+  background-position: center center;
 }
 
 .account-card-art {
