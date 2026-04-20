@@ -1305,6 +1305,63 @@ body {
 .liab-util-fill.util-mid { background: var(--warning); }
 .liab-util-fill.util-high { background: var(--danger); }
 
+.bonus-wrap {
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+
+.bonus-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-bottom: 0.35rem;
+  gap: 0.5rem;
+}
+
+.bonus-status {
+  font-weight: 500;
+}
+
+.bonus-status.bonus-reached { color: var(--success); }
+.bonus-status.bonus-urgent { color: var(--warning); }
+.bonus-status.bonus-expired { color: var(--text-muted); }
+
+.bonus-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.bonus-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.bonus-fill.bonus-active { background: var(--accent); }
+.bonus-fill.bonus-urgent { background: var(--warning); }
+.bonus-fill.bonus-reached { background: var(--success); }
+.bonus-fill.bonus-expired { background: var(--text-muted); }
+
+.bonus-amounts {
+  font-size: var(--text-xs);
+  color: var(--text);
+  margin-top: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.bonus-section-title {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 0.75rem 0 0.4rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+
 .liab-util-labels {
   display: flex;
   justify-content: space-between;

@@ -363,6 +363,16 @@
         <label class="override-label">Card Design</label>
         <div id="card-design-picker" class="card-design-picker"></div>
       </div>
+      <div id="card-bonus-section" style="display:none">
+        <div class="bonus-section-title">Sign-up bonus tracker</div>
+        <label class="override-label">Target Spend</label>
+        <input type="number" id="bonus-target" class="app-input" placeholder="e.g. 4000" step="any" min="0">
+        <label class="override-label">Start Date</label>
+        <input type="date" id="bonus-start" class="app-input">
+        <label class="override-label">Months to Complete</label>
+        <input type="number" id="bonus-months" class="app-input" placeholder="e.g. 3" min="1" max="24">
+        <button type="button" id="btn-clear-bonus" class="btn-secondary-sm" style="margin-top:0.25rem">Clear bonus</button>
+      </div>
       <div class="modal-actions">
         <button id="account-edit-cancel" class="btn-secondary-sm">Cancel</button>
         <button id="account-edit-save" class="btn-primary-sm">Save</button>

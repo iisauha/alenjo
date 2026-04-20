@@ -1285,6 +1285,21 @@ function accountCard(account, type) {
       liabHtml += '<div class="liab-detail liab-unavailable"><span>This card\'s issuer doesn\'t share card details with Plaid.</span></div>';
     }
 
+    var bonus = computeBonusProgress(account);
+    if (bonus) {
+      var daysLeft = bonus.daysLeft;
+      var reached = bonus.earned >= bonus.target;
+      var expired = daysLeft < 0 && !reached;
+      var barClass = reached ? 'bonus-reached' : expired ? 'bonus-expired' : (daysLeft <= 14 ? 'bonus-urgent' : 'bonus-active');
+      var statusText = reached ? 'Earned' : expired ? 'Deadline passed' : 'by ' + formatLiabDate(bonus.endDate) + ' (' + daysLeft + 'd)';
+      liabHtml +=
+        '<div class="bonus-wrap">' +
+          '<div class="bonus-header"><span>Sign-up bonus</span><span class="bonus-status ' + barClass + '">' + statusText + '</span></div>' +
+          '<div class="bonus-bar"><div class="bonus-fill ' + barClass + '" style="width:' + bonus.pct.toFixed(1) + '%"></div></div>' +
+          '<div class="bonus-amounts">' + formatMoney(bonus.earned) + ' of ' + formatMoney(bonus.target) + '</div>' +
+        '</div>';
+    }
+
     liabHtml += '</div>';
   }
 
@@ -1319,6 +1334,47 @@ function formatLiabDate(dateStr) {
   return monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
 }
 
+function computeBonusProgress(account) {
+  if (!account || !account.bonus_target_amount || !account.bonus_start_date || !account.bonus_months) return null;
+  var target = parseFloat(account.bonus_target_amount);
+  var months = parseInt(account.bonus_months);
+  if (!(target > 0) || !(months > 0)) return null;
+
+  var startStr = account.bonus_start_date;
+  var startDate = new Date(startStr + 'T00:00:00');
+  var endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + months);
+  var endStr = endDate.getFullYear() + '-' +
+    String(endDate.getMonth() + 1).padStart(2, '0') + '-' +
+    String(endDate.getDate()).padStart(2, '0');
+
+  var earned = 0;
+  if (txData && account.plaid_account_id) {
+    txData.forEach(function(tx) {
+      if (tx.plaid_account_id !== account.plaid_account_id) return;
+      if (tx.date < startStr || tx.date > endStr) return;
+      var cat = tx.enriched_category_primary || tx.category;
+      if (cat === 'LOAN_PAYMENTS' || cat === 'TRANSFER_IN' || cat === 'TRANSFER_OUT') return;
+      earned += parseFloat(tx.amount || 0);
+    });
+  }
+  if (earned < 0) earned = 0;
+
+  var now = new Date();
+  var today = now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0');
+  var daysLeft = Math.ceil((endDate - now) / 86400000);
+
+  return {
+    earned: earned,
+    target: target,
+    endDate: endStr,
+    daysLeft: daysLeft,
+    pct: Math.min(100, Math.max(0, (earned / target) * 100))
+  };
+}
+
 // Account edit modal (nickname + card design)
 var accountEditModal = $('#account-edit-modal');
 var nicknameInput = $('#nickname-input');
@@ -1332,7 +1388,24 @@ document.addEventListener('click', function(e) {
 
   var acct = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === editingAccountId; }) : null;
   renderCardDesignPicker(acct && acct.card_design_id ? acct.card_design_id : null);
+
+  var bonusSection = $('#card-bonus-section');
+  if (acct && acct.type === 'credit') {
+    bonusSection.style.display = '';
+    $('#bonus-target').value = acct.bonus_target_amount || '';
+    $('#bonus-start').value = acct.bonus_start_date || '';
+    $('#bonus-months').value = acct.bonus_months || '';
+  } else {
+    bonusSection.style.display = 'none';
+  }
+
   accountEditModal.classList.add('visible');
+});
+
+$('#btn-clear-bonus').addEventListener('click', function() {
+  $('#bonus-target').value = '';
+  $('#bonus-start').value = '';
+  $('#bonus-months').value = '';
 });
 
 $('#account-edit-save').addEventListener('click', function() {
@@ -1371,6 +1444,30 @@ $('#account-edit-save').addEventListener('click', function() {
         if (result.error) console.error('Card design save error:', result.error);
       });
     }
+  }
+
+  // Save sign-up bonus tracker
+  if ($('#card-bonus-section').style.display !== 'none') {
+    var bTarget = parseFloat($('#bonus-target').value);
+    var bStart = $('#bonus-start').value || null;
+    var bMonths = parseInt($('#bonus-months').value);
+    var hasAll = bTarget > 0 && bStart && bMonths > 0;
+    var bonusData = hasAll
+      ? { bonus_target_amount: bTarget, bonus_start_date: bStart, bonus_months: bMonths }
+      : { bonus_target_amount: null, bonus_start_date: null, bonus_months: null };
+    if (cachedAccounts) {
+      cachedAccounts.forEach(function(a) {
+        if (a.id === editingAccountId) {
+          a.bonus_target_amount = bonusData.bonus_target_amount;
+          a.bonus_start_date = bonusData.bonus_start_date;
+          a.bonus_months = bonusData.bonus_months;
+        }
+      });
+    }
+    var saveBonusId = editingAccountId;
+    sb.from('accounts').update(bonusData).eq('id', saveBonusId).then(function(result) {
+      if (result.error) console.error('Bonus save error:', result.error);
+    });
   }
 
   if (cachedAccounts) renderAccounts(cachedAccounts);
@@ -1469,6 +1566,11 @@ async function loadTransactions() {
   txData = result.data;
   txEmpty.hidden = true;
   txContent.hidden = false;
+
+  // Re-render snapshot in case any credit card has a bonus tracker that needs tx data
+  if (cachedAccounts && cachedAccounts.some(function(a) { return a.type === 'credit' && a.bonus_target_amount; })) {
+    renderAccounts(cachedAccounts);
+  }
 
   // Load user actions and ignore rules
   var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted');
