@@ -1290,12 +1290,18 @@ function accountCard(account, type) {
       var daysLeft = bonus.daysLeft;
       var reached = bonus.earned >= bonus.target;
       var expired = daysLeft < 0 && !reached;
-      var barClass = reached ? 'bonus-reached' : expired ? 'bonus-expired' : (daysLeft <= 14 ? 'bonus-urgent' : 'bonus-active');
+      var statusClass = reached ? 'bonus-reached' : expired ? 'bonus-expired' : (daysLeft <= 14 ? 'bonus-urgent' : '');
       var statusText = reached ? 'Earned' : expired ? 'Deadline passed' : 'by ' + formatLiabDate(bonus.endDate) + ' (' + daysLeft + 'd)';
+
+      var hue;
+      if (bonus.pct < 50) hue = (bonus.pct / 50) * 30;
+      else hue = 30 + ((bonus.pct - 50) / 50) * 90;
+      var fillColor = expired ? 'var(--text-muted)' : 'hsl(' + hue.toFixed(0) + ', 70%, 50%)';
+
       liabHtml +=
         '<div class="bonus-wrap">' +
-          '<div class="bonus-header"><span>Sign-up bonus</span><span class="bonus-status ' + barClass + '">' + statusText + '</span></div>' +
-          '<div class="bonus-bar"><div class="bonus-fill ' + barClass + '" style="width:' + bonus.pct.toFixed(1) + '%"></div></div>' +
+          '<div class="bonus-header"><span>Sign-up bonus</span><span class="bonus-status ' + statusClass + '">' + statusText + '</span></div>' +
+          '<div class="bonus-bar"><div class="bonus-fill" style="width:' + bonus.pct.toFixed(1) + '%; background:' + fillColor + '"></div></div>' +
           '<div class="bonus-amounts">' + formatMoney(bonus.earned) + ' of ' + formatMoney(bonus.target) + '</div>' +
         '</div>';
     }

@@ -1371,13 +1371,8 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 .bonus-fill {
   height: 100%;
   border-radius: 2px;
-  transition: width 0.5s ease;
+  transition: width 0.5s ease, background-color 0.5s ease;
 }
-
-.bonus-fill.bonus-active { background: var(--accent); }
-.bonus-fill.bonus-urgent { background: var(--warning); }
-.bonus-fill.bonus-reached { background: var(--success); }
-.bonus-fill.bonus-expired { background: var(--text-muted); }
 
 .bonus-amounts {
   margin-top: 0.35rem;
