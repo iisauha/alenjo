@@ -343,81 +343,37 @@ function loadCropper() {
   return cropperAssetsPromise;
 }
 
-var hfTransformersPromise = null;
-function loadHfTransformers() {
-  if (hfTransformersPromise) return hfTransformersPromise;
-  hfTransformersPromise = import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm');
-  return hfTransformersPromise;
-}
-
-var rmbgContextPromise = null;
 var rmbgModelEverLoaded = false;
-function loadRmbgContext() {
-  if (rmbgContextPromise) return rmbgContextPromise;
-  rmbgContextPromise = (async function() {
-    var hf = await loadHfTransformers();
-    hf.env.allowLocalModels = false;
-    var modelId = 'briaai/RMBG-1.4';
-    var model = await hf.AutoModel.from_pretrained(modelId, {
-      config: { model_type: 'custom' }
-    });
-    var processor = await hf.AutoProcessor.from_pretrained(modelId, {
-      config: {
-        do_normalize: true,
-        do_pad: false,
-        do_rescale: true,
-        do_resize: true,
-        image_mean: [0.5, 0.5, 0.5],
-        image_std: [1, 1, 1],
-        resample: 2,
-        rescale_factor: 0.00392156862745098,
-        size: { width: 1024, height: 1024 }
+
+function removeCardBackground(blob) {
+  return new Promise(function(resolve, reject) {
+    var worker;
+    try {
+      worker = new Worker('bg-worker.js?v=' + (window._v || Date.now()), { type: 'module' });
+    } catch (err) {
+      reject(new Error('Your browser does not support the extraction engine. Please update Safari.'));
+      return;
+    }
+    var cleanup = function() { try { worker.terminate(); } catch (_) {} };
+    worker.onmessage = function(e) {
+      var d = e.data || {};
+      if (d.type === 'status') {
+        setDesignStatus(d.text);
+      } else if (d.type === 'result') {
+        rmbgModelEverLoaded = true;
+        cleanup();
+        resolve(d.blob);
+      } else if (d.type === 'error') {
+        cleanup();
+        reject(new Error(d.message || 'Extraction failed'));
       }
-    });
-    rmbgModelEverLoaded = true;
-    return { hf: hf, model: model, processor: processor };
-  })();
-  return rmbgContextPromise;
-}
-
-async function removeCardBackground(blob) {
-  var ctx = await loadRmbgContext();
-  var image = await ctx.hf.RawImage.fromBlob(blob);
-  var inputs = await ctx.processor(image);
-  var out = await ctx.model({ input: inputs.pixel_values });
-  var tensor = out.output || out[Object.keys(out)[0]];
-  var scaled = tensor[0].mul(255).to('uint8');
-  var mask = await ctx.hf.RawImage.fromTensor(scaled).resize(image.width, image.height);
-
-  var canvas = document.createElement('canvas');
-  canvas.width = image.width;
-  canvas.height = image.height;
-  var c = canvas.getContext('2d');
-  c.drawImage(image.toCanvas(), 0, 0);
-  var px = c.getImageData(0, 0, canvas.width, canvas.height);
-  for (var i = 0; i < mask.data.length; i++) {
-    px.data[4 * i + 3] = mask.data[i];
-  }
-  c.putImageData(px, 0, 0);
-
-  var finalBlob = await new Promise(function(resolve, reject) {
-    canvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
+    };
+    worker.onerror = function(e) {
+      cleanup();
+      reject(new Error((e && e.message) || 'Extraction worker error'));
+    };
+    worker.postMessage({ blob: blob });
   });
-
-  try {
-    [tensor, scaled, inputs.pixel_values].forEach(function(t) {
-      if (t && typeof t.dispose === 'function') t.dispose();
-    });
-    if (out) Object.keys(out).forEach(function(k) {
-      if (out[k] && typeof out[k].dispose === 'function') out[k].dispose();
-    });
-    if (ctx.model && typeof ctx.model.dispose === 'function') await ctx.model.dispose();
-  } catch (e) {
-    console.warn('rmbg dispose warning', e);
-  }
-  rmbgContextPromise = null;
-
-  return finalBlob;
 }
 
 async function trimTransparentEdges(blob) {
