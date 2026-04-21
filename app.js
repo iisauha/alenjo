@@ -790,6 +790,27 @@ async function backgroundSync() {
       cachedAccounts = result.data || [];
       renderAccounts(cachedAccounts);
     }
+
+    // Refresh txData so sign-up bonus progress reflects newly-synced transactions
+    var hasBonus = cachedAccounts && cachedAccounts.some(function(a) { return a.type === 'credit' && a.bonus_target_amount; });
+    if (hasBonus) {
+      var now = new Date();
+      var dataStartDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      var fcResult = await sb.rpc('get_first_connection_date');
+      if (fcResult.data) {
+        var fc = new Date(fcResult.data);
+        fc.setMonth(fc.getMonth() - 2);
+        dataStartDate = fc;
+      }
+      var cap = new Date(now.getFullYear(), now.getMonth() - 24, 1);
+      if (dataStartDate < cap) dataStartDate = cap;
+      var dataStartStr = dataStartDate.toISOString().split('T')[0];
+      var txResult = await sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false });
+      if (!txResult.error && txResult.data) {
+        txData = txResult.data;
+        renderAccounts(cachedAccounts);
+      }
+    }
   } catch (e) {
     console.error('Background sync error:', e);
   }
