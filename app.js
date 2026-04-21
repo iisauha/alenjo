@@ -670,6 +670,24 @@ function refinePointToImage(evt) {
   return { x: x, y: y, scale: scale };
 }
 
+function updateRefineCursor(evt) {
+  var cursor = $('#card-refine-cursor');
+  var wrap = document.querySelector('.card-refine-canvas-wrap');
+  if (!cursor || !wrap) return;
+  var r = wrap.getBoundingClientRect();
+  cursor.style.left = (evt.clientX - r.left) + 'px';
+  cursor.style.top = (evt.clientY - r.top) + 'px';
+  cursor.style.width = refineState.brushPx + 'px';
+  cursor.style.height = refineState.brushPx + 'px';
+  cursor.classList.toggle('erase', refineState.tool === 'erase');
+  cursor.classList.add('visible');
+}
+
+function hideRefineCursor() {
+  var cursor = $('#card-refine-cursor');
+  if (cursor) cursor.classList.remove('visible');
+}
+
 function refinePaintSegment(x0, y0, x1, y1, r) {
   var mctx = refineState.maskCanvas.getContext('2d');
   mctx.save();
@@ -697,6 +715,7 @@ function refinePointerDown(e) {
   if (e.target && e.target.setPointerCapture) {
     try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
   }
+  updateRefineCursor(e);
   var p = refinePointToImage(e);
   refineState.drawing = true;
   var r = (refineState.brushPx / 2) * p.scale;
@@ -706,6 +725,8 @@ function refinePointerDown(e) {
 }
 
 function refinePointerMove(e) {
+  if (!refineState.maskCanvas) return;
+  updateRefineCursor(e);
   if (!refineState.drawing) return;
   e.preventDefault();
   var p = refinePointToImage(e);
@@ -726,6 +747,8 @@ function refinePointerUp() {
   if (!c) return;
   c.addEventListener('pointerdown', refinePointerDown, { passive: false });
   c.addEventListener('pointermove', refinePointerMove, { passive: false });
+  c.addEventListener('pointerleave', hideRefineCursor);
+  c.addEventListener('pointercancel', hideRefineCursor);
   window.addEventListener('pointerup', refinePointerUp);
   window.addEventListener('pointercancel', refinePointerUp);
   c.addEventListener('touchstart', function(e) { e.preventDefault(); }, { passive: false });
@@ -739,10 +762,17 @@ document.addEventListener('click', function(e) {
   document.querySelectorAll('.card-refine-tool').forEach(function(b) {
     b.classList.toggle('active', b === toolBtn);
   });
+  var cursor = $('#card-refine-cursor');
+  if (cursor) cursor.classList.toggle('erase', refineState.tool === 'erase');
 });
 
 $('#card-refine-size-input').addEventListener('input', function(e) {
   refineState.brushPx = parseInt(e.target.value, 10) || 40;
+  var cursor = $('#card-refine-cursor');
+  if (cursor) {
+    cursor.style.width = refineState.brushPx + 'px';
+    cursor.style.height = refineState.brushPx + 'px';
+  }
 });
 
 $('#card-refine-reset').addEventListener('click', async function() {
