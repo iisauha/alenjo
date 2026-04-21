@@ -351,6 +351,7 @@ function loadHfTransformers() {
 }
 
 var rmbgContextPromise = null;
+var rmbgModelEverLoaded = false;
 function loadRmbgContext() {
   if (rmbgContextPromise) return rmbgContextPromise;
   rmbgContextPromise = (async function() {
@@ -373,6 +374,7 @@ function loadRmbgContext() {
         size: { width: 1024, height: 1024 }
       }
     });
+    rmbgModelEverLoaded = true;
     return { hf: hf, model: model, processor: processor };
   })();
   return rmbgContextPromise;
@@ -384,8 +386,8 @@ async function removeCardBackground(blob) {
   var inputs = await ctx.processor(image);
   var out = await ctx.model({ input: inputs.pixel_values });
   var tensor = out.output || out[Object.keys(out)[0]];
-  var mask = await ctx.hf.RawImage.fromTensor(tensor[0].mul(255).to('uint8'))
-    .resize(image.width, image.height);
+  var scaled = tensor[0].mul(255).to('uint8');
+  var mask = await ctx.hf.RawImage.fromTensor(scaled).resize(image.width, image.height);
 
   var canvas = document.createElement('canvas');
   canvas.width = image.width;
@@ -397,9 +399,25 @@ async function removeCardBackground(blob) {
     px.data[4 * i + 3] = mask.data[i];
   }
   c.putImageData(px, 0, 0);
-  return new Promise(function(resolve, reject) {
+
+  var finalBlob = await new Promise(function(resolve, reject) {
     canvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
   });
+
+  try {
+    [tensor, scaled, inputs.pixel_values].forEach(function(t) {
+      if (t && typeof t.dispose === 'function') t.dispose();
+    });
+    if (out) Object.keys(out).forEach(function(k) {
+      if (out[k] && typeof out[k].dispose === 'function') out[k].dispose();
+    });
+    if (ctx.model && typeof ctx.model.dispose === 'function') await ctx.model.dispose();
+  } catch (e) {
+    console.warn('rmbg dispose warning', e);
+  }
+  rmbgContextPromise = null;
+
+  return finalBlob;
 }
 
 async function trimTransparentEdges(blob) {
@@ -546,7 +564,7 @@ $('#card-crop-apply').addEventListener('click', async function() {
 
   var extractedBlob;
   try {
-    setDesignStatus(rmbgContextPromise ? 'Extracting card...' : 'Loading extraction model (first time, ~85MB)...');
+    setDesignStatus(rmbgModelEverLoaded ? 'Loading extraction model...' : 'Loading extraction model (first time, ~85MB)...');
     extractedBlob = await removeCardBackground(croppedBlob);
   } catch (err) {
     console.error('background removal error', err);
@@ -780,6 +798,9 @@ function refinePointerUp() {
     refineState.canvasRect = null;
     refineState.wrapRect = null;
   });
+  var swallow = function(e) { e.preventDefault(); };
+  c.addEventListener('touchstart', swallow, { passive: false });
+  c.addEventListener('touchmove', swallow, { passive: false });
 })();
 
 document.addEventListener('click', function(e) {
