@@ -859,10 +859,9 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   border: 2px solid rgba(255, 255, 255, 0.95);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
   pointer-events: none;
-  transform: translate(-50%, -50%);
   opacity: 0;
   transition: opacity 0.12s ease, border-color 0.12s ease;
-  will-change: transform, left, top;
+  will-change: transform;
 }
 
 .card-refine-cursor.visible {

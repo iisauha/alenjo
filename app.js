@@ -572,7 +572,9 @@ var refineState = {
   brushPx: 40,
   drawing: false,
   lastPt: null,
-  redrawQueued: false
+  redrawQueued: false,
+  canvasRect: null,
+  wrapRect: null
 };
 
 function blobToImage(blob) {
@@ -594,7 +596,7 @@ function fitInto(w, h, maxSide) {
 async function openRefineModal(origBlob, extractedBlob) {
   var origImg = await blobToImage(origBlob);
   var extImg = await blobToImage(extractedBlob);
-  var fit = fitInto(origImg.naturalWidth, origImg.naturalHeight, 1200);
+  var fit = fitInto(origImg.naturalWidth, origImg.naturalHeight, 800);
   var w = fit.w, h = fit.h;
 
   var origCanvas = document.createElement('canvas');
@@ -618,12 +620,20 @@ async function openRefineModal(origBlob, extractedBlob) {
   refineState.displayCanvas = display;
   redrawRefineNow();
 
+  requestAnimationFrame(cacheRefineRects);
+
   document.querySelectorAll('.card-refine-tool').forEach(function(b) {
     b.classList.toggle('active', b.dataset.tool === 'keep');
   });
   var sizeInput = $('#card-refine-size-input');
   sizeInput.value = 40;
   refineState.brushPx = 40;
+  var cursor = $('#card-refine-cursor');
+  if (cursor) {
+    cursor.classList.remove('visible', 'erase');
+    cursor.style.width = '40px';
+    cursor.style.height = '40px';
+  }
 
   $('#card-refine-modal').classList.add('visible');
 }
@@ -637,6 +647,8 @@ function closeRefineModal() {
   refineState.lastPt = null;
   refineState.drawing = false;
   refineState.redrawQueued = false;
+  refineState.canvasRect = null;
+  refineState.wrapRect = null;
 }
 
 function redrawRefineNow() {
@@ -661,26 +673,38 @@ function queueRefineRedraw() {
   });
 }
 
+function cacheRefineRects() {
+  var c = refineState.displayCanvas;
+  var wrap = document.querySelector('.card-refine-canvas-wrap');
+  if (!c || !wrap) return;
+  refineState.canvasRect = c.getBoundingClientRect();
+  refineState.wrapRect = wrap.getBoundingClientRect();
+}
+
 function refinePointToImage(evt) {
   var c = refineState.displayCanvas;
-  var rect = c.getBoundingClientRect();
-  var x = (evt.clientX - rect.left) * (c.width / rect.width);
-  var y = (evt.clientY - rect.top) * (c.height / rect.height);
-  var scale = c.width / rect.width;
-  return { x: x, y: y, scale: scale };
+  var rect = refineState.canvasRect || c.getBoundingClientRect();
+  var scaleX = c.width / rect.width;
+  var scaleY = c.height / rect.height;
+  return {
+    x: (evt.clientX - rect.left) * scaleX,
+    y: (evt.clientY - rect.top) * scaleY,
+    scale: scaleX
+  };
 }
 
 function updateRefineCursor(evt) {
   var cursor = $('#card-refine-cursor');
-  var wrap = document.querySelector('.card-refine-canvas-wrap');
-  if (!cursor || !wrap) return;
-  var r = wrap.getBoundingClientRect();
-  cursor.style.left = (evt.clientX - r.left) + 'px';
-  cursor.style.top = (evt.clientY - r.top) + 'px';
-  cursor.style.width = refineState.brushPx + 'px';
-  cursor.style.height = refineState.brushPx + 'px';
-  cursor.classList.toggle('erase', refineState.tool === 'erase');
-  cursor.classList.add('visible');
+  if (!cursor) return;
+  var r = refineState.wrapRect;
+  if (!r) {
+    var wrap = document.querySelector('.card-refine-canvas-wrap');
+    if (!wrap) return;
+    r = refineState.wrapRect = wrap.getBoundingClientRect();
+  }
+  var half = refineState.brushPx / 2;
+  cursor.style.transform = 'translate(' + (evt.clientX - r.left - half) + 'px,' + (evt.clientY - r.top - half) + 'px)';
+  if (!cursor.classList.contains('visible')) cursor.classList.add('visible');
 }
 
 function hideRefineCursor() {
@@ -715,6 +739,7 @@ function refinePointerDown(e) {
   if (e.target && e.target.setPointerCapture) {
     try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
   }
+  cacheRefineRects();
   updateRefineCursor(e);
   var p = refinePointToImage(e);
   refineState.drawing = true;
@@ -751,8 +776,10 @@ function refinePointerUp() {
   c.addEventListener('pointercancel', hideRefineCursor);
   window.addEventListener('pointerup', refinePointerUp);
   window.addEventListener('pointercancel', refinePointerUp);
-  c.addEventListener('touchstart', function(e) { e.preventDefault(); }, { passive: false });
-  c.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+  window.addEventListener('resize', function() {
+    refineState.canvasRect = null;
+    refineState.wrapRect = null;
+  });
 })();
 
 document.addEventListener('click', function(e) {
