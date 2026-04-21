@@ -584,7 +584,9 @@ $('#card-crop-apply').addEventListener('click', async function() {
 var refineState = {
   origCanvas: null,
   maskCanvas: null,
+  maskCtx: null,
   displayCanvas: null,
+  displayCtx: null,
   extractedBlob: null,
   tool: 'keep',
   brushPx: 40,
@@ -614,7 +616,7 @@ function fitInto(w, h, maxSide) {
 async function openRefineModal(origBlob, extractedBlob) {
   var origImg = await blobToImage(origBlob);
   var extImg = await blobToImage(extractedBlob);
-  var fit = fitInto(origImg.naturalWidth, origImg.naturalHeight, 800);
+  var fit = fitInto(origImg.naturalWidth, origImg.naturalHeight, 600);
   var w = fit.w, h = fit.h;
 
   var origCanvas = document.createElement('canvas');
@@ -623,10 +625,12 @@ async function openRefineModal(origBlob, extractedBlob) {
 
   var maskCanvas = document.createElement('canvas');
   maskCanvas.width = w; maskCanvas.height = h;
-  maskCanvas.getContext('2d').drawImage(extImg, 0, 0, w, h);
+  var maskCtx = maskCanvas.getContext('2d');
+  maskCtx.drawImage(extImg, 0, 0, w, h);
 
   refineState.origCanvas = origCanvas;
   refineState.maskCanvas = maskCanvas;
+  refineState.maskCtx = maskCtx;
   refineState.extractedBlob = extractedBlob;
   refineState.tool = 'keep';
   refineState.lastPt = null;
@@ -636,6 +640,7 @@ async function openRefineModal(origBlob, extractedBlob) {
   display.width = w;
   display.height = h;
   refineState.displayCanvas = display;
+  refineState.displayCtx = display.getContext('2d');
   redrawRefineNow();
 
   requestAnimationFrame(cacheRefineRects);
@@ -660,7 +665,9 @@ function closeRefineModal() {
   $('#card-refine-modal').classList.remove('visible');
   refineState.origCanvas = null;
   refineState.maskCanvas = null;
+  refineState.maskCtx = null;
   refineState.displayCanvas = null;
+  refineState.displayCtx = null;
   refineState.extractedBlob = null;
   refineState.lastPt = null;
   refineState.drawing = false;
@@ -671,15 +678,13 @@ function closeRefineModal() {
 
 function redrawRefineNow() {
   var c = refineState.displayCanvas;
-  if (!c || !refineState.origCanvas || !refineState.maskCanvas) return;
-  var ctx = c.getContext('2d');
-  ctx.save();
+  var ctx = refineState.displayCtx;
+  if (!c || !ctx || !refineState.origCanvas || !refineState.maskCanvas) return;
   ctx.globalCompositeOperation = 'source-over';
   ctx.clearRect(0, 0, c.width, c.height);
   ctx.drawImage(refineState.origCanvas, 0, 0);
   ctx.globalCompositeOperation = 'destination-in';
   ctx.drawImage(refineState.maskCanvas, 0, 0);
-  ctx.restore();
 }
 
 function queueRefineRedraw() {
@@ -731,8 +736,8 @@ function hideRefineCursor() {
 }
 
 function refinePaintSegment(x0, y0, x1, y1, r) {
-  var mctx = refineState.maskCanvas.getContext('2d');
-  mctx.save();
+  var mctx = refineState.maskCtx;
+  if (!mctx) return;
   mctx.globalCompositeOperation = refineState.tool === 'erase' ? 'destination-out' : 'source-over';
   mctx.fillStyle = '#fff';
   mctx.strokeStyle = '#fff';
@@ -748,7 +753,6 @@ function refinePaintSegment(x0, y0, x1, y1, r) {
     mctx.lineTo(x1, y1);
     mctx.stroke();
   }
-  mctx.restore();
 }
 
 function refinePointerDown(e) {
@@ -824,13 +828,12 @@ $('#card-refine-size-input').addEventListener('input', function(e) {
 });
 
 $('#card-refine-reset').addEventListener('click', async function() {
-  if (!refineState.extractedBlob || !refineState.maskCanvas) return;
+  if (!refineState.extractedBlob || !refineState.maskCtx) return;
   var img = await blobToImage(refineState.extractedBlob);
-  var mctx = refineState.maskCanvas.getContext('2d');
-  mctx.save();
+  var mctx = refineState.maskCtx;
   mctx.globalCompositeOperation = 'copy';
   mctx.drawImage(img, 0, 0, refineState.maskCanvas.width, refineState.maskCanvas.height);
-  mctx.restore();
+  mctx.globalCompositeOperation = 'source-over';
   redrawRefineNow();
 });
 
