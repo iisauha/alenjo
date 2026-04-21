@@ -540,7 +540,9 @@ var refineState = {
   brushPx: 40,
   drawing: false,
   lastPt: null,
-  wrapRect: null
+  canvasRect: null,
+  ringPt: null,
+  ringScale: 1
 };
 
 function blobToImage(blob) {
@@ -587,18 +589,13 @@ async function openRefineModal(origBlob, extractedBlob) {
   sizeInput.value = 40;
   refineState.brushPx = 40;
 
-  var cursor = $('#card-refine-cursor');
-  if (cursor) {
-    cursor.style.width = refineState.brushPx + 'px';
-    cursor.style.height = refineState.brushPx + 'px';
-    cursor.classList.remove('visible');
-  }
-
   $('#card-refine-modal').classList.add('visible');
-  requestAnimationFrame(function() {
-    var wrap = document.querySelector('.card-refine-canvas-wrap');
-    if (wrap) refineState.wrapRect = wrap.getBoundingClientRect();
-  });
+  requestAnimationFrame(cacheRefineCanvasRect);
+}
+
+function cacheRefineCanvasRect() {
+  var c = refineState.displayCanvas;
+  if (c) refineState.canvasRect = c.getBoundingClientRect();
 }
 
 function closeRefineModal() {
@@ -610,17 +607,8 @@ function closeRefineModal() {
   refineState.origBlob = null;
   refineState.lastPt = null;
   refineState.drawing = false;
-  refineState.wrapRect = null;
-  var cursor = $('#card-refine-cursor');
-  if (cursor) cursor.classList.remove('visible');
-}
-
-function moveRefineCursor(clientX, clientY) {
-  var cursor = $('#card-refine-cursor');
-  var r = refineState.wrapRect;
-  if (!cursor || !r) return;
-  var size = refineState.brushPx;
-  cursor.style.transform = 'translate3d(' + (clientX - r.left - size / 2) + 'px,' + (clientY - r.top - size / 2) + 'px,0)';
+  refineState.canvasRect = null;
+  refineState.ringPt = null;
 }
 
 function redrawRefine() {
@@ -629,16 +617,27 @@ function redrawRefine() {
   var ctx = c.getContext('2d');
   ctx.clearRect(0, 0, c.width, c.height);
   ctx.drawImage(refineState.editedCanvas, 0, 0);
+  var rp = refineState.ringPt;
+  if (rp) {
+    var scale = refineState.ringScale || 1;
+    var radius = (refineState.brushPx / 2) * scale;
+    ctx.lineWidth = Math.max(1, scale);
+    ctx.strokeStyle = '#F45030';
+    ctx.beginPath();
+    ctx.arc(rp.x, rp.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 }
 
 function refinePointToImage(evt) {
   var c = refineState.displayCanvas;
-  var rect = c.getBoundingClientRect();
-  var t = (evt.touches && evt.touches[0]) || evt;
-  var x = (t.clientX - rect.left) * (c.width / rect.width);
-  var y = (t.clientY - rect.top) * (c.height / rect.height);
+  var rect = refineState.canvasRect || (refineState.canvasRect = c.getBoundingClientRect());
   var scale = c.width / rect.width;
-  return { x: x, y: y, scale: scale };
+  return {
+    x: (evt.clientX - rect.left) * scale,
+    y: (evt.clientY - rect.top) * scale,
+    scale: scale
+  };
 }
 
 function refineDot(cx, cy, r) {
@@ -672,11 +671,10 @@ function refineStroke(x0, y0, x1, y1, r) {
 function refinePointerDown(e) {
   if (!refineState.editedCanvas) return;
   e.preventDefault();
-  moveRefineCursor(e.clientX, e.clientY);
-  var cursor = $('#card-refine-cursor');
-  if (cursor) cursor.classList.add('visible');
   var p = refinePointToImage(e);
   refineState.drawing = true;
+  refineState.ringPt = { x: p.x, y: p.y };
+  refineState.ringScale = p.scale;
   var r = (refineState.brushPx / 2) * p.scale;
   refineDot(p.x, p.y, r);
   refineState.lastPt = { x: p.x, y: p.y };
@@ -684,17 +682,20 @@ function refinePointerDown(e) {
 }
 
 function refinePointerMove(e) {
-  moveRefineCursor(e.clientX, e.clientY);
-  if (!refineState.drawing) return;
-  e.preventDefault();
+  if (!refineState.editedCanvas) return;
   var p = refinePointToImage(e);
-  var r = (refineState.brushPx / 2) * p.scale;
-  if (refineState.lastPt) {
-    refineStroke(refineState.lastPt.x, refineState.lastPt.y, p.x, p.y, r);
-  } else {
-    refineDot(p.x, p.y, r);
+  refineState.ringPt = { x: p.x, y: p.y };
+  refineState.ringScale = p.scale;
+  if (refineState.drawing) {
+    e.preventDefault();
+    var r = (refineState.brushPx / 2) * p.scale;
+    if (refineState.lastPt) {
+      refineStroke(refineState.lastPt.x, refineState.lastPt.y, p.x, p.y, r);
+    } else {
+      refineDot(p.x, p.y, r);
+    }
+    refineState.lastPt = { x: p.x, y: p.y };
   }
-  refineState.lastPt = { x: p.x, y: p.y };
   redrawRefine();
 }
 
@@ -703,16 +704,9 @@ function refinePointerUp() {
   refineState.lastPt = null;
 }
 
-function refinePointerEnter(e) {
-  if (!refineState.wrapRect) return;
-  moveRefineCursor(e.clientX, e.clientY);
-  var cursor = $('#card-refine-cursor');
-  if (cursor) cursor.classList.add('visible');
-}
-
 function refinePointerLeave() {
-  var cursor = $('#card-refine-cursor');
-  if (cursor) cursor.classList.remove('visible');
+  refineState.ringPt = null;
+  redrawRefine();
 }
 
 (function wireRefineEvents() {
@@ -720,11 +714,10 @@ function refinePointerLeave() {
   if (!c) return;
   c.addEventListener('pointerdown', refinePointerDown);
   c.addEventListener('pointermove', refinePointerMove);
-  c.addEventListener('pointerenter', refinePointerEnter);
   c.addEventListener('pointerleave', refinePointerLeave);
   window.addEventListener('pointerup', refinePointerUp);
   window.addEventListener('pointercancel', refinePointerUp);
-  window.addEventListener('resize', function() { refineState.wrapRect = null; });
+  window.addEventListener('resize', function() { refineState.canvasRect = null; });
 })();
 
 document.addEventListener('click', function(e) {
@@ -738,11 +731,7 @@ document.addEventListener('click', function(e) {
 
 $('#card-refine-size-input').addEventListener('input', function(e) {
   refineState.brushPx = parseInt(e.target.value, 10) || 40;
-  var cursor = $('#card-refine-cursor');
-  if (cursor) {
-    cursor.style.width = refineState.brushPx + 'px';
-    cursor.style.height = refineState.brushPx + 'px';
-  }
+  redrawRefine();
 });
 
 $('#card-refine-reset').addEventListener('click', async function() {
