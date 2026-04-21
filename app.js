@@ -709,10 +709,21 @@ function updateRefineModeUI() {
   var inCard = refineState.mode === 'card';
   var btn = $('#card-refine-mode-btn');
   if (btn) btn.classList.toggle('active', inCard);
+  document.querySelectorAll('.card-refine-tool').forEach(function(b) {
+    b.hidden = inCard;
+  });
   var sizeWrap = document.querySelector('.card-refine-size');
   if (sizeWrap) sizeWrap.hidden = inCard;
   var applyBtn = $('#card-refine-shape-apply');
   if (applyBtn) applyBtn.hidden = !inCard;
+  var help = document.querySelector('.card-refine-help');
+  if (help) {
+    help.innerHTML = inCard
+      ? 'Size the card outline over your image, then tap <strong>Apply</strong> to mask everything outside.'
+      : 'Paint <strong>Keep</strong> over any missed parts of the card, or <strong>Erase</strong> stray bits.';
+  }
+  var hint = document.querySelector('.card-refine-hint');
+  if (hint) hint.hidden = inCard;
   if (inCard) refineState.ringPt = null;
 }
 
@@ -904,18 +915,20 @@ $('#card-refine-mode-btn').addEventListener('click', function() {
 
 $('#card-refine-shape-apply').addEventListener('click', function() {
   if (!refineState.cardShape || !refineState.editedCanvas) return;
-  var ctx = refineState.editedCanvas.getContext('2d');
+  var ec = refineState.editedCanvas;
+  var ctx = ec.getContext('2d');
+  ctx.save();
+  ctx.globalCompositeOperation = 'copy';
+  ctx.clearRect(0, 0, ec.width, ec.height);
+  ctx.restore();
   ctx.save();
   cardShapePath(ctx, refineState.cardShape);
-  if (refineState.tool === 'erase') {
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = '#000';
-    ctx.fill();
-  } else {
-    ctx.clip();
-    ctx.drawImage(refineState.origCanvas, 0, 0);
-  }
+  ctx.clip();
+  ctx.drawImage(refineState.origCanvas, 0, 0);
   ctx.restore();
+  refineState.mode = 'brush';
+  refineState.cardDrag = null;
+  updateRefineModeUI();
   redrawRefine();
 });
 
