@@ -709,6 +709,16 @@ $('#card-refine-reset').addEventListener('click', async function() {
   redrawRefine();
 });
 
+$('#card-refine-fill').addEventListener('click', function() {
+  if (!refineState.editedCanvas || !refineState.origCanvas) return;
+  var ctx = refineState.editedCanvas.getContext('2d');
+  ctx.save();
+  ctx.globalCompositeOperation = 'copy';
+  ctx.drawImage(refineState.origCanvas, 0, 0);
+  ctx.restore();
+  redrawRefine();
+});
+
 $('#card-refine-cancel').addEventListener('click', function() {
   closeRefineModal();
   setDesignStatus('');

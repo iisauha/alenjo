@@ -818,7 +818,14 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .card-refine-help {
+  margin-bottom: 0.5rem;
+}
+
+.card-refine-hint {
   margin-bottom: 0.75rem;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
 }
 
 .card-refine-canvas-wrap {
