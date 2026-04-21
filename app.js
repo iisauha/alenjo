@@ -502,8 +502,8 @@ $('#card-crop-apply').addEventListener('click', async function() {
   var croppedBlob;
   try {
     var canvas = activeCropper.getCroppedCanvas({
-      maxWidth: 1600,
-      maxHeight: 1600,
+      maxWidth: 600,
+      maxHeight: 600,
       imageSmoothingQuality: 'high'
     });
     croppedBlob = await new Promise(function(resolve, reject) {
@@ -528,9 +528,12 @@ $('#card-crop-apply').addEventListener('click', async function() {
     return;
   }
 
-  setDesignStatus('');
+  setDesignStatus('Preparing editor...');
+  await new Promise(function(r) { setTimeout(r, 250); });
+
   try {
     await openRefineModal(croppedBlob, extractedBlob);
+    setDesignStatus('');
   } catch (err) {
     console.error('refine modal error', err);
     setDesignStatus('Could not open editor.', true);
