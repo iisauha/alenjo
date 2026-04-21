@@ -538,17 +538,16 @@ $('#card-crop-apply').addEventListener('click', async function() {
 });
 
 var refineState = {
-  origCanvas: null,
-  maskCanvas: null,
-  maskCtx: null,
+  width: 0,
+  height: 0,
+  origData: null,
+  extractedData: null,
   displayCanvas: null,
   displayCtx: null,
-  extractedBlob: null,
   tool: 'keep',
   brushPx: 40,
   drawing: false,
   lastPt: null,
-  redrawQueued: false,
   canvasRect: null,
   wrapRect: null
 };
@@ -575,31 +574,33 @@ async function openRefineModal(origBlob, extractedBlob) {
   var fit = fitInto(origImg.naturalWidth, origImg.naturalHeight, 600);
   var w = fit.w, h = fit.h;
 
-  var origCanvas = document.createElement('canvas');
-  origCanvas.width = w; origCanvas.height = h;
-  origCanvas.getContext('2d').drawImage(origImg, 0, 0, w, h);
+  var scratch = document.createElement('canvas');
+  scratch.width = w; scratch.height = h;
+  var sctx = scratch.getContext('2d');
 
-  var maskCanvas = document.createElement('canvas');
-  maskCanvas.width = w; maskCanvas.height = h;
-  var maskCtx = maskCanvas.getContext('2d');
-  maskCtx.drawImage(extImg, 0, 0, w, h);
+  sctx.clearRect(0, 0, w, h);
+  sctx.drawImage(origImg, 0, 0, w, h);
+  var origData = sctx.getImageData(0, 0, w, h);
 
-  refineState.origCanvas = origCanvas;
-  refineState.maskCanvas = maskCanvas;
-  refineState.maskCtx = maskCtx;
-  refineState.extractedBlob = extractedBlob;
-  refineState.tool = 'keep';
-  refineState.lastPt = null;
-  refineState.drawing = false;
+  sctx.clearRect(0, 0, w, h);
+  sctx.drawImage(extImg, 0, 0, w, h);
+  var extractedData = sctx.getImageData(0, 0, w, h);
 
   var display = $('#card-refine-canvas');
   display.width = w;
   display.height = h;
-  refineState.displayCanvas = display;
-  refineState.displayCtx = display.getContext('2d');
-  redrawRefineNow();
+  var dctx = display.getContext('2d');
+  dctx.putImageData(extractedData, 0, 0);
 
-  requestAnimationFrame(cacheRefineRects);
+  refineState.width = w;
+  refineState.height = h;
+  refineState.origData = origData;
+  refineState.extractedData = extractedData;
+  refineState.displayCanvas = display;
+  refineState.displayCtx = dctx;
+  refineState.tool = 'keep';
+  refineState.lastPt = null;
+  refineState.drawing = false;
 
   document.querySelectorAll('.card-refine-tool').forEach(function(b) {
     b.classList.toggle('active', b.dataset.tool === 'keep');
@@ -615,41 +616,21 @@ async function openRefineModal(origBlob, extractedBlob) {
   }
 
   $('#card-refine-modal').classList.add('visible');
+  requestAnimationFrame(cacheRefineRects);
 }
 
 function closeRefineModal() {
   $('#card-refine-modal').classList.remove('visible');
-  refineState.origCanvas = null;
-  refineState.maskCanvas = null;
-  refineState.maskCtx = null;
+  refineState.origData = null;
+  refineState.extractedData = null;
   refineState.displayCanvas = null;
   refineState.displayCtx = null;
-  refineState.extractedBlob = null;
   refineState.lastPt = null;
   refineState.drawing = false;
-  refineState.redrawQueued = false;
   refineState.canvasRect = null;
   refineState.wrapRect = null;
-}
-
-function redrawRefineNow() {
-  var c = refineState.displayCanvas;
-  var ctx = refineState.displayCtx;
-  if (!c || !ctx || !refineState.origCanvas || !refineState.maskCanvas) return;
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.clearRect(0, 0, c.width, c.height);
-  ctx.drawImage(refineState.origCanvas, 0, 0);
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.drawImage(refineState.maskCanvas, 0, 0);
-}
-
-function queueRefineRedraw() {
-  if (refineState.redrawQueued) return;
-  refineState.redrawQueued = true;
-  requestAnimationFrame(function() {
-    refineState.redrawQueued = false;
-    redrawRefineNow();
-  });
+  refineState.width = 0;
+  refineState.height = 0;
 }
 
 function cacheRefineRects() {
@@ -662,7 +643,7 @@ function cacheRefineRects() {
 
 function refinePointToImage(evt) {
   var c = refineState.displayCanvas;
-  var rect = refineState.canvasRect || c.getBoundingClientRect();
+  var rect = refineState.canvasRect || (refineState.canvasRect = c.getBoundingClientRect());
   var scaleX = c.width / rect.width;
   var scaleY = c.height / rect.height;
   return {
@@ -691,28 +672,59 @@ function hideRefineCursor() {
   if (cursor) cursor.classList.remove('visible');
 }
 
+function refinePaintDot(cx, cy, r) {
+  var w = refineState.width;
+  var h = refineState.height;
+  if (!w || !h) return;
+  var x0 = Math.max(0, Math.floor(cx - r));
+  var x1 = Math.min(w - 1, Math.ceil(cx + r));
+  var y0 = Math.max(0, Math.floor(cy - r));
+  var y1 = Math.min(h - 1, Math.ceil(cy + r));
+  if (x1 < x0 || y1 < y0) return;
+
+  var rw = x1 - x0 + 1;
+  var rh = y1 - y0 + 1;
+  var region = refineState.displayCtx.getImageData(x0, y0, rw, rh);
+  var rd = region.data;
+  var rr = r * r;
+  var keep = refineState.tool === 'keep';
+  var src = keep ? refineState.origData.data : null;
+
+  for (var py = 0; py < rh; py++) {
+    var gy = y0 + py;
+    var dy = gy - cy;
+    var dy2 = dy * dy;
+    for (var px = 0; px < rw; px++) {
+      var gx = x0 + px;
+      var dx = gx - cx;
+      if (dx * dx + dy2 > rr) continue;
+      var idx = (py * rw + px) * 4;
+      if (keep) {
+        var oi = (gy * w + gx) * 4;
+        rd[idx] = src[oi];
+        rd[idx + 1] = src[oi + 1];
+        rd[idx + 2] = src[oi + 2];
+        rd[idx + 3] = 255;
+      } else {
+        rd[idx + 3] = 0;
+      }
+    }
+  }
+  refineState.displayCtx.putImageData(region, x0, y0);
+}
+
 function refinePaintSegment(x0, y0, x1, y1, r) {
-  var mctx = refineState.maskCtx;
-  if (!mctx) return;
-  mctx.globalCompositeOperation = refineState.tool === 'erase' ? 'destination-out' : 'source-over';
-  mctx.fillStyle = '#fff';
-  mctx.strokeStyle = '#fff';
-  mctx.lineCap = 'round';
-  mctx.lineJoin = 'round';
-  mctx.lineWidth = r * 2;
-  mctx.beginPath();
-  mctx.arc(x0, y0, r, 0, Math.PI * 2);
-  mctx.fill();
-  if (x0 !== x1 || y0 !== y1) {
-    mctx.beginPath();
-    mctx.moveTo(x0, y0);
-    mctx.lineTo(x1, y1);
-    mctx.stroke();
+  var dx = x1 - x0, dy = y1 - y0;
+  var dist = Math.sqrt(dx * dx + dy * dy);
+  var steps = Math.max(1, Math.ceil(dist / Math.max(1, r / 2)));
+  for (var i = 0; i <= steps; i++) {
+    var t = i / steps;
+    refinePaintDot(x0 + dx * t, y0 + dy * t, r);
   }
 }
 
 function refinePointerDown(e) {
-  if (!refineState.maskCanvas) return;
+  if (!refineState.displayCtx) return;
   e.preventDefault();
   if (e.target && e.target.setPointerCapture) {
     try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
@@ -722,13 +734,12 @@ function refinePointerDown(e) {
   var p = refinePointToImage(e);
   refineState.drawing = true;
   var r = (refineState.brushPx / 2) * p.scale;
-  refinePaintSegment(p.x, p.y, p.x, p.y, r);
+  refinePaintDot(p.x, p.y, r);
   refineState.lastPt = { x: p.x, y: p.y };
-  queueRefineRedraw();
 }
 
 function refinePointerMove(e) {
-  if (!refineState.maskCanvas) return;
+  if (!refineState.displayCtx) return;
   updateRefineCursor(e);
   if (!refineState.drawing) return;
   e.preventDefault();
@@ -737,7 +748,6 @@ function refinePointerMove(e) {
   var last = refineState.lastPt || p;
   refinePaintSegment(last.x, last.y, p.x, p.y, r);
   refineState.lastPt = { x: p.x, y: p.y };
-  queueRefineRedraw();
 }
 
 function refinePointerUp() {
@@ -783,14 +793,9 @@ $('#card-refine-size-input').addEventListener('input', function(e) {
   }
 });
 
-$('#card-refine-reset').addEventListener('click', async function() {
-  if (!refineState.extractedBlob || !refineState.maskCtx) return;
-  var img = await blobToImage(refineState.extractedBlob);
-  var mctx = refineState.maskCtx;
-  mctx.globalCompositeOperation = 'copy';
-  mctx.drawImage(img, 0, 0, refineState.maskCanvas.width, refineState.maskCanvas.height);
-  mctx.globalCompositeOperation = 'source-over';
-  redrawRefineNow();
+$('#card-refine-reset').addEventListener('click', function() {
+  if (!refineState.extractedData || !refineState.displayCtx) return;
+  refineState.displayCtx.putImageData(refineState.extractedData, 0, 0);
 });
 
 $('#card-refine-cancel').addEventListener('click', function() {
@@ -802,16 +807,8 @@ $('#card-refine-apply').addEventListener('click', async function() {
   var btn = this;
   btn.disabled = true;
   try {
-    var out = document.createElement('canvas');
-    out.width = refineState.origCanvas.width;
-    out.height = refineState.origCanvas.height;
-    var octx = out.getContext('2d');
-    octx.drawImage(refineState.origCanvas, 0, 0);
-    octx.globalCompositeOperation = 'destination-in';
-    octx.drawImage(refineState.maskCanvas, 0, 0);
-    octx.globalCompositeOperation = 'source-over';
     var finalBlob = await new Promise(function(resolve, reject) {
-      out.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
+      refineState.displayCanvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
     });
     closeRefineModal();
     setDesignStatus('Trimming edges...');
