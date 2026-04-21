@@ -654,7 +654,7 @@ function cardShapePath(ctx, s) {
 function refineCardHitTest(ix, iy, scale) {
   var s = refineState.cardShape;
   if (!s) return null;
-  var hr = 22 * scale;
+  var hr = 32 * scale;
   var corners = [
     { type: 'nw', x: s.cx - s.w / 2, y: s.cy - s.h / 2 },
     { type: 'ne', x: s.cx + s.w / 2, y: s.cy - s.h / 2 },
@@ -719,8 +719,8 @@ function updateRefineModeUI() {
   var help = document.querySelector('.card-refine-help');
   if (help) {
     help.innerHTML = inCard
-      ? 'Size the card outline over your image, then tap <strong>Apply</strong> to mask everything outside.'
-      : 'Paint <strong>Keep</strong> over any missed parts of the card, or <strong>Erase</strong> stray bits.';
+      ? 'Drag to move the card outline, drag a corner to resize, then tap <strong>Apply</strong> to mask everything outside.'
+      : 'Paint <strong>Keep</strong> or <strong>Erase</strong> to touch up edges, or tap <strong>Shapes</strong> to mask with a card outline.';
   }
   var hint = document.querySelector('.card-refine-hint');
   if (hint) hint.hidden = inCard;
@@ -741,22 +741,6 @@ function redrawRefine() {
     ctx.strokeStyle = '#F45030';
     cardShapePath(ctx, s);
     ctx.stroke();
-    var hs = 14 * scale;
-    ctx.fillStyle = '#fff';
-    ctx.lineWidth = Math.max(1, scale);
-    ctx.strokeStyle = '#F45030';
-    var handles = [
-      [s.cx - s.w / 2, s.cy - s.h / 2],
-      [s.cx + s.w / 2, s.cy - s.h / 2],
-      [s.cx - s.w / 2, s.cy + s.h / 2],
-      [s.cx + s.w / 2, s.cy + s.h / 2]
-    ];
-    for (var i = 0; i < handles.length; i++) {
-      ctx.beginPath();
-      ctx.rect(handles[i][0] - hs / 2, handles[i][1] - hs / 2, hs, hs);
-      ctx.fill();
-      ctx.stroke();
-    }
     return;
   }
 
