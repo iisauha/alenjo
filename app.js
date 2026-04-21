@@ -397,19 +397,9 @@ async function removeCardBackground(blob) {
     px.data[4 * i + 3] = mask.data[i];
   }
   c.putImageData(px, 0, 0);
-
-  var finalBlob = await new Promise(function(resolve, reject) {
+  return new Promise(function(resolve, reject) {
     canvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
   });
-
-  try {
-    if (ctx.model && typeof ctx.model.dispose === 'function') await ctx.model.dispose();
-  } catch (e) {
-    console.warn('model dispose warning', e);
-  }
-  rmbgContextPromise = null;
-
-  return finalBlob;
 }
 
 async function trimTransparentEdges(blob) {
