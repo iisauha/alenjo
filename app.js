@@ -1434,7 +1434,7 @@ async function renderAccountsSettings() {
     html += '</div>';
     html += '</div>';
     html += '<div class="settings-inst-actions">';
-    html += '<button class="btn-add-card-inst" data-item="' + esc(itemId) + '">+ Add card</button>';
+    html += '<button class="btn-add-card-inst" data-item="' + esc(itemId) + '">Manage connected accounts</button>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
     html += '</div>';
