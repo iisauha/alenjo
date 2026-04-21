@@ -343,36 +343,62 @@ function loadCropper() {
   return cropperAssetsPromise;
 }
 
-var rmbgModelEverLoaded = false;
+var hfTransformersPromise = null;
+function loadHfTransformers() {
+  if (hfTransformersPromise) return hfTransformersPromise;
+  hfTransformersPromise = import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm');
+  return hfTransformersPromise;
+}
 
-function removeCardBackground(blob) {
-  return new Promise(function(resolve, reject) {
-    var worker;
-    try {
-      worker = new Worker('bg-worker.js?v=' + (window._v || Date.now()), { type: 'module' });
-    } catch (err) {
-      reject(new Error('Your browser does not support the extraction engine. Please update Safari.'));
-      return;
-    }
-    var cleanup = function() { try { worker.terminate(); } catch (_) {} };
-    worker.onmessage = function(e) {
-      var d = e.data || {};
-      if (d.type === 'status') {
-        setDesignStatus(d.text);
-      } else if (d.type === 'result') {
-        rmbgModelEverLoaded = true;
-        cleanup();
-        resolve(d.blob);
-      } else if (d.type === 'error') {
-        cleanup();
-        reject(new Error(d.message || 'Extraction failed'));
+var rmbgContextPromise = null;
+function loadRmbgContext() {
+  if (rmbgContextPromise) return rmbgContextPromise;
+  rmbgContextPromise = (async function() {
+    var hf = await loadHfTransformers();
+    hf.env.allowLocalModels = false;
+    var modelId = 'briaai/RMBG-1.4';
+    var model = await hf.AutoModel.from_pretrained(modelId, {
+      config: { model_type: 'custom' }
+    });
+    var processor = await hf.AutoProcessor.from_pretrained(modelId, {
+      config: {
+        do_normalize: true,
+        do_pad: false,
+        do_rescale: true,
+        do_resize: true,
+        image_mean: [0.5, 0.5, 0.5],
+        image_std: [1, 1, 1],
+        resample: 2,
+        rescale_factor: 0.00392156862745098,
+        size: { width: 1024, height: 1024 }
       }
-    };
-    worker.onerror = function(e) {
-      cleanup();
-      reject(new Error((e && e.message) || 'Extraction worker error'));
-    };
-    worker.postMessage({ blob: blob });
+    });
+    return { hf: hf, model: model, processor: processor };
+  })();
+  return rmbgContextPromise;
+}
+
+async function removeCardBackground(blob) {
+  var ctx = await loadRmbgContext();
+  var image = await ctx.hf.RawImage.fromBlob(blob);
+  var inputs = await ctx.processor(image);
+  var out = await ctx.model({ input: inputs.pixel_values });
+  var tensor = out.output || out[Object.keys(out)[0]];
+  var mask = await ctx.hf.RawImage.fromTensor(tensor[0].mul(255).to('uint8'))
+    .resize(image.width, image.height);
+
+  var canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  var c = canvas.getContext('2d');
+  c.drawImage(image.toCanvas(), 0, 0);
+  var px = c.getImageData(0, 0, canvas.width, canvas.height);
+  for (var i = 0; i < mask.data.length; i++) {
+    px.data[4 * i + 3] = mask.data[i];
+  }
+  c.putImageData(px, 0, 0);
+  return new Promise(function(resolve, reject) {
+    canvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
   });
 }
 
@@ -502,8 +528,8 @@ $('#card-crop-apply').addEventListener('click', async function() {
   var croppedBlob;
   try {
     var canvas = activeCropper.getCroppedCanvas({
-      maxWidth: 600,
-      maxHeight: 600,
+      maxWidth: 1600,
+      maxHeight: 1600,
       imageSmoothingQuality: 'high'
     });
     croppedBlob = await new Promise(function(resolve, reject) {
@@ -520,7 +546,7 @@ $('#card-crop-apply').addEventListener('click', async function() {
 
   var extractedBlob;
   try {
-    setDesignStatus(rmbgModelEverLoaded ? 'Loading extraction model...' : 'Loading extraction model (first time, ~85MB)...');
+    setDesignStatus(rmbgContextPromise ? 'Extracting card...' : 'Loading extraction model (first time, ~85MB)...');
     extractedBlob = await removeCardBackground(croppedBlob);
   } catch (err) {
     console.error('background removal error', err);
@@ -528,12 +554,9 @@ $('#card-crop-apply').addEventListener('click', async function() {
     return;
   }
 
-  setDesignStatus('Preparing editor...');
-  await new Promise(function(r) { setTimeout(r, 250); });
-
+  setDesignStatus('');
   try {
     await openRefineModal(croppedBlob, extractedBlob);
-    setDesignStatus('');
   } catch (err) {
     console.error('refine modal error', err);
     setDesignStatus('Could not open editor.', true);
