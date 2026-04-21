@@ -549,7 +549,10 @@ var refineState = {
   drawing: false,
   lastPt: null,
   canvasRect: null,
-  wrapRect: null
+  wrapRect: null,
+  pendingSegments: [],
+  pendingCursor: null,
+  frameScheduled: false
 };
 
 function blobToImage(blob) {
@@ -653,7 +656,102 @@ function refinePointToImage(evt) {
   };
 }
 
-function updateRefineCursor(evt) {
+function hideRefineCursor() {
+  var cursor = $('#card-refine-cursor');
+  if (cursor) cursor.classList.remove('visible');
+}
+
+function queueRefineFrame() {
+  if (refineState.frameScheduled) return;
+  refineState.frameScheduled = true;
+  requestAnimationFrame(flushRefineFrame);
+}
+
+function flushRefineFrame() {
+  refineState.frameScheduled = false;
+  var cur = refineState.pendingCursor;
+  if (cur) {
+    refineState.pendingCursor = null;
+    applyCursorPosition(cur.clientX, cur.clientY);
+  }
+  var segs = refineState.pendingSegments;
+  if (segs.length && refineState.displayCtx) {
+    refineState.pendingSegments = [];
+    flushPaintSegments(segs);
+  }
+}
+
+function flushPaintSegments(segs) {
+  var w = refineState.width;
+  var h = refineState.height;
+  if (!w || !h) return;
+
+  var minX = w, maxX = -1, minY = h, maxY = -1;
+  for (var i = 0; i < segs.length; i++) {
+    var s = segs[i];
+    var r = s[4];
+    var lx = Math.min(s[0], s[2]) - r;
+    var hx = Math.max(s[0], s[2]) + r;
+    var ly = Math.min(s[1], s[3]) - r;
+    var hy = Math.max(s[1], s[3]) + r;
+    if (lx < minX) minX = lx;
+    if (hx > maxX) maxX = hx;
+    if (ly < minY) minY = ly;
+    if (hy > maxY) maxY = hy;
+  }
+  minX = Math.max(0, Math.floor(minX));
+  maxX = Math.min(w - 1, Math.ceil(maxX));
+  minY = Math.max(0, Math.floor(minY));
+  maxY = Math.min(h - 1, Math.ceil(maxY));
+  if (maxX < minX || maxY < minY) return;
+
+  var rw = maxX - minX + 1;
+  var rh = maxY - minY + 1;
+  var region = refineState.displayCtx.getImageData(minX, minY, rw, rh);
+  var rd = region.data;
+  var keep = refineState.tool === 'keep';
+  var src = keep ? refineState.origData.data : null;
+
+  for (var si = 0; si < segs.length; si++) {
+    var seg = segs[si];
+    var sx0 = seg[0], sy0 = seg[1], sx1 = seg[2], sy1 = seg[3], sr = seg[4];
+    var dx = sx1 - sx0, dy = sy1 - sy0;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var steps = Math.max(1, Math.ceil(dist / Math.max(1, sr / 2)));
+    var rr = sr * sr;
+    for (var k = 0; k <= steps; k++) {
+      var t = steps === 0 ? 0 : k / steps;
+      var cx = sx0 + dx * t;
+      var cy = sy0 + dy * t;
+      var lox = Math.max(minX, Math.floor(cx - sr));
+      var hix = Math.min(maxX, Math.ceil(cx + sr));
+      var loy = Math.max(minY, Math.floor(cy - sr));
+      var hiy = Math.min(maxY, Math.ceil(cy + sr));
+      for (var py = loy; py <= hiy; py++) {
+        var yoff = (py - minY) * rw;
+        var gdy = py - cy;
+        var gdy2 = gdy * gdy;
+        for (var px = lox; px <= hix; px++) {
+          var gdx = px - cx;
+          if (gdx * gdx + gdy2 > rr) continue;
+          var idx = (yoff + (px - minX)) * 4;
+          if (keep) {
+            var oi = (py * w + px) * 4;
+            rd[idx] = src[oi];
+            rd[idx + 1] = src[oi + 1];
+            rd[idx + 2] = src[oi + 2];
+            rd[idx + 3] = 255;
+          } else {
+            rd[idx + 3] = 0;
+          }
+        }
+      }
+    }
+  }
+  refineState.displayCtx.putImageData(region, minX, minY);
+}
+
+function applyCursorPosition(clientX, clientY) {
   var cursor = $('#card-refine-cursor');
   if (!cursor) return;
   var r = refineState.wrapRect;
@@ -663,91 +761,33 @@ function updateRefineCursor(evt) {
     r = refineState.wrapRect = wrap.getBoundingClientRect();
   }
   var half = refineState.brushPx / 2;
-  cursor.style.transform = 'translate(' + (evt.clientX - r.left - half) + 'px,' + (evt.clientY - r.top - half) + 'px)';
+  cursor.style.transform = 'translate(' + (clientX - r.left - half) + 'px,' + (clientY - r.top - half) + 'px)';
   if (!cursor.classList.contains('visible')) cursor.classList.add('visible');
-}
-
-function hideRefineCursor() {
-  var cursor = $('#card-refine-cursor');
-  if (cursor) cursor.classList.remove('visible');
-}
-
-function refinePaintDot(cx, cy, r) {
-  var w = refineState.width;
-  var h = refineState.height;
-  if (!w || !h) return;
-  var x0 = Math.max(0, Math.floor(cx - r));
-  var x1 = Math.min(w - 1, Math.ceil(cx + r));
-  var y0 = Math.max(0, Math.floor(cy - r));
-  var y1 = Math.min(h - 1, Math.ceil(cy + r));
-  if (x1 < x0 || y1 < y0) return;
-
-  var rw = x1 - x0 + 1;
-  var rh = y1 - y0 + 1;
-  var region = refineState.displayCtx.getImageData(x0, y0, rw, rh);
-  var rd = region.data;
-  var rr = r * r;
-  var keep = refineState.tool === 'keep';
-  var src = keep ? refineState.origData.data : null;
-
-  for (var py = 0; py < rh; py++) {
-    var gy = y0 + py;
-    var dy = gy - cy;
-    var dy2 = dy * dy;
-    for (var px = 0; px < rw; px++) {
-      var gx = x0 + px;
-      var dx = gx - cx;
-      if (dx * dx + dy2 > rr) continue;
-      var idx = (py * rw + px) * 4;
-      if (keep) {
-        var oi = (gy * w + gx) * 4;
-        rd[idx] = src[oi];
-        rd[idx + 1] = src[oi + 1];
-        rd[idx + 2] = src[oi + 2];
-        rd[idx + 3] = 255;
-      } else {
-        rd[idx + 3] = 0;
-      }
-    }
-  }
-  refineState.displayCtx.putImageData(region, x0, y0);
-}
-
-function refinePaintSegment(x0, y0, x1, y1, r) {
-  var dx = x1 - x0, dy = y1 - y0;
-  var dist = Math.sqrt(dx * dx + dy * dy);
-  var steps = Math.max(1, Math.ceil(dist / Math.max(1, r / 2)));
-  for (var i = 0; i <= steps; i++) {
-    var t = i / steps;
-    refinePaintDot(x0 + dx * t, y0 + dy * t, r);
-  }
 }
 
 function refinePointerDown(e) {
   if (!refineState.displayCtx) return;
-  e.preventDefault();
-  if (e.target && e.target.setPointerCapture) {
-    try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
-  }
   cacheRefineRects();
-  updateRefineCursor(e);
+  refineState.pendingCursor = { clientX: e.clientX, clientY: e.clientY };
   var p = refinePointToImage(e);
   refineState.drawing = true;
   var r = (refineState.brushPx / 2) * p.scale;
-  refinePaintDot(p.x, p.y, r);
+  refineState.pendingSegments.push([p.x, p.y, p.x, p.y, r]);
   refineState.lastPt = { x: p.x, y: p.y };
+  queueRefineFrame();
 }
 
 function refinePointerMove(e) {
   if (!refineState.displayCtx) return;
-  updateRefineCursor(e);
-  if (!refineState.drawing) return;
-  e.preventDefault();
-  var p = refinePointToImage(e);
-  var r = (refineState.brushPx / 2) * p.scale;
-  var last = refineState.lastPt || p;
-  refinePaintSegment(last.x, last.y, p.x, p.y, r);
-  refineState.lastPt = { x: p.x, y: p.y };
+  refineState.pendingCursor = { clientX: e.clientX, clientY: e.clientY };
+  if (refineState.drawing) {
+    var p = refinePointToImage(e);
+    var r = (refineState.brushPx / 2) * p.scale;
+    var last = refineState.lastPt || p;
+    refineState.pendingSegments.push([last.x, last.y, p.x, p.y, r]);
+    refineState.lastPt = { x: p.x, y: p.y };
+  }
+  queueRefineFrame();
 }
 
 function refinePointerUp() {
@@ -758,19 +798,15 @@ function refinePointerUp() {
 (function wireRefineEvents() {
   var c = $('#card-refine-canvas');
   if (!c) return;
-  c.addEventListener('pointerdown', refinePointerDown, { passive: false });
-  c.addEventListener('pointermove', refinePointerMove, { passive: false });
+  c.addEventListener('pointerdown', refinePointerDown);
+  c.addEventListener('pointermove', refinePointerMove);
   c.addEventListener('pointerleave', hideRefineCursor);
-  c.addEventListener('pointercancel', hideRefineCursor);
   window.addEventListener('pointerup', refinePointerUp);
   window.addEventListener('pointercancel', refinePointerUp);
   window.addEventListener('resize', function() {
     refineState.canvasRect = null;
     refineState.wrapRect = null;
   });
-  var swallow = function(e) { e.preventDefault(); };
-  c.addEventListener('touchstart', swallow, { passive: false });
-  c.addEventListener('touchmove', swallow, { passive: false });
 })();
 
 document.addEventListener('click', function(e) {
