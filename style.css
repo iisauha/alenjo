@@ -846,30 +846,11 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   max-height: 45vh;
   display: block;
   touch-action: none;
-  cursor: none;
+  cursor: crosshair;
 }
 
 .card-refine-cursor {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.12s ease, border-color 0.12s ease;
-  will-change: transform;
-}
-
-.card-refine-cursor.visible {
-  opacity: 1;
-}
-
-.card-refine-cursor.erase {
-  border-color: rgba(244, 80, 48, 0.95);
+  display: none;
 }
 
 .card-refine-tools {
