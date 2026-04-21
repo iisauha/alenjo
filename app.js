@@ -539,7 +539,8 @@ var refineState = {
   tool: 'keep',
   brushPx: 40,
   drawing: false,
-  lastPt: null
+  lastPt: null,
+  wrapRect: null
 };
 
 function blobToImage(blob) {
@@ -586,7 +587,18 @@ async function openRefineModal(origBlob, extractedBlob) {
   sizeInput.value = 40;
   refineState.brushPx = 40;
 
+  var cursor = $('#card-refine-cursor');
+  if (cursor) {
+    cursor.style.width = refineState.brushPx + 'px';
+    cursor.style.height = refineState.brushPx + 'px';
+    cursor.classList.remove('visible');
+  }
+
   $('#card-refine-modal').classList.add('visible');
+  requestAnimationFrame(function() {
+    var wrap = document.querySelector('.card-refine-canvas-wrap');
+    if (wrap) refineState.wrapRect = wrap.getBoundingClientRect();
+  });
 }
 
 function closeRefineModal() {
@@ -598,6 +610,17 @@ function closeRefineModal() {
   refineState.origBlob = null;
   refineState.lastPt = null;
   refineState.drawing = false;
+  refineState.wrapRect = null;
+  var cursor = $('#card-refine-cursor');
+  if (cursor) cursor.classList.remove('visible');
+}
+
+function moveRefineCursor(clientX, clientY) {
+  var cursor = $('#card-refine-cursor');
+  var r = refineState.wrapRect;
+  if (!cursor || !r) return;
+  var size = refineState.brushPx;
+  cursor.style.transform = 'translate3d(' + (clientX - r.left - size / 2) + 'px,' + (clientY - r.top - size / 2) + 'px,0)';
 }
 
 function redrawRefine() {
@@ -649,6 +672,9 @@ function refineStroke(x0, y0, x1, y1, r) {
 function refinePointerDown(e) {
   if (!refineState.editedCanvas) return;
   e.preventDefault();
+  moveRefineCursor(e.clientX, e.clientY);
+  var cursor = $('#card-refine-cursor');
+  if (cursor) cursor.classList.add('visible');
   var p = refinePointToImage(e);
   refineState.drawing = true;
   var r = (refineState.brushPx / 2) * p.scale;
@@ -658,6 +684,7 @@ function refinePointerDown(e) {
 }
 
 function refinePointerMove(e) {
+  moveRefineCursor(e.clientX, e.clientY);
   if (!refineState.drawing) return;
   e.preventDefault();
   var p = refinePointToImage(e);
@@ -676,13 +703,28 @@ function refinePointerUp() {
   refineState.lastPt = null;
 }
 
+function refinePointerEnter(e) {
+  if (!refineState.wrapRect) return;
+  moveRefineCursor(e.clientX, e.clientY);
+  var cursor = $('#card-refine-cursor');
+  if (cursor) cursor.classList.add('visible');
+}
+
+function refinePointerLeave() {
+  var cursor = $('#card-refine-cursor');
+  if (cursor) cursor.classList.remove('visible');
+}
+
 (function wireRefineEvents() {
   var c = $('#card-refine-canvas');
   if (!c) return;
   c.addEventListener('pointerdown', refinePointerDown);
   c.addEventListener('pointermove', refinePointerMove);
+  c.addEventListener('pointerenter', refinePointerEnter);
+  c.addEventListener('pointerleave', refinePointerLeave);
   window.addEventListener('pointerup', refinePointerUp);
   window.addEventListener('pointercancel', refinePointerUp);
+  window.addEventListener('resize', function() { refineState.wrapRect = null; });
 })();
 
 document.addEventListener('click', function(e) {
@@ -696,6 +738,11 @@ document.addEventListener('click', function(e) {
 
 $('#card-refine-size-input').addEventListener('input', function(e) {
   refineState.brushPx = parseInt(e.target.value, 10) || 40;
+  var cursor = $('#card-refine-cursor');
+  if (cursor) {
+    cursor.style.width = refineState.brushPx + 'px';
+    cursor.style.height = refineState.brushPx + 'px';
+  }
 });
 
 $('#card-refine-reset').addEventListener('click', async function() {
