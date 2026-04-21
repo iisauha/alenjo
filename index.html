@@ -380,6 +380,30 @@
     </div>
   </div>
 
+  <!-- Card Design Refine Modal -->
+  <div id="card-refine-modal" class="modal-overlay card-refine-modal">
+    <div class="modal-card card-refine-card">
+      <h3>Clean up the edges</h3>
+      <p class="card-designs-help card-refine-help">Paint <strong>Keep</strong> over any missed parts of the card, or <strong>Erase</strong> stray bits.</p>
+      <div class="card-refine-canvas-wrap">
+        <canvas id="card-refine-canvas"></canvas>
+      </div>
+      <div class="card-refine-tools">
+        <button type="button" class="card-refine-tool active" data-tool="keep">Keep</button>
+        <button type="button" class="card-refine-tool" data-tool="erase">Erase</button>
+        <label class="card-refine-size">
+          <span>Size</span>
+          <input type="range" id="card-refine-size-input" min="10" max="120" value="40">
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="card-refine-reset" class="btn-secondary-sm">Reset</button>
+        <button id="card-refine-cancel" class="btn-secondary-sm">Cancel</button>
+        <button id="card-refine-apply" class="btn-primary-sm">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sign-up Bonus Modal -->
   <div id="bonus-edit-modal" class="modal-overlay">
     <div class="modal-card">

@@ -544,18 +544,228 @@ $('#card-crop-apply').addEventListener('click', async function() {
 
   closeCropModal();
 
-  var processedBlob;
+  var extractedBlob;
   try {
     setDesignStatus(rmbgContextPromise ? 'Extracting card...' : 'Loading extraction model (first time, ~85MB)...');
-    var extracted = await removeCardBackground(croppedBlob);
-    setDesignStatus('Trimming edges...');
-    processedBlob = await trimTransparentEdges(extracted);
+    extractedBlob = await removeCardBackground(croppedBlob);
   } catch (err) {
     console.error('background removal error', err);
     setDesignStatus('Could not remove background. Try a clearer image.', true);
     return;
   }
 
+  setDesignStatus('');
+  try {
+    await openRefineModal(croppedBlob, extractedBlob);
+  } catch (err) {
+    console.error('refine modal error', err);
+    setDesignStatus('Could not open editor.', true);
+  }
+});
+
+var refineState = {
+  origCanvas: null,
+  editedCanvas: null,
+  displayCanvas: null,
+  extractedBlob: null,
+  origBlob: null,
+  tool: 'keep',
+  brushPx: 40,
+  drawing: false,
+  lastPt: null
+};
+
+async function openRefineModal(origBlob, extractedBlob) {
+  var origImg = await blobToImage(origBlob);
+  var extImg = await blobToImage(extractedBlob);
+  var w = origImg.naturalWidth, h = origImg.naturalHeight;
+
+  var origCanvas = document.createElement('canvas');
+  origCanvas.width = w; origCanvas.height = h;
+  origCanvas.getContext('2d').drawImage(origImg, 0, 0);
+
+  var editedCanvas = document.createElement('canvas');
+  editedCanvas.width = w; editedCanvas.height = h;
+  editedCanvas.getContext('2d').drawImage(extImg, 0, 0);
+
+  refineState.origCanvas = origCanvas;
+  refineState.editedCanvas = editedCanvas;
+  refineState.origBlob = origBlob;
+  refineState.extractedBlob = extractedBlob;
+  refineState.tool = 'keep';
+  refineState.lastPt = null;
+
+  var display = $('#card-refine-canvas');
+  display.width = w;
+  display.height = h;
+  refineState.displayCanvas = display;
+  redrawRefine();
+
+  document.querySelectorAll('.card-refine-tool').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tool === 'keep');
+  });
+  var sizeInput = $('#card-refine-size-input');
+  sizeInput.value = 40;
+  refineState.brushPx = 40;
+
+  $('#card-refine-modal').classList.add('visible');
+}
+
+function closeRefineModal() {
+  $('#card-refine-modal').classList.remove('visible');
+  refineState.origCanvas = null;
+  refineState.editedCanvas = null;
+  refineState.displayCanvas = null;
+  refineState.extractedBlob = null;
+  refineState.origBlob = null;
+  refineState.lastPt = null;
+  refineState.drawing = false;
+}
+
+function blobToImage(blob) {
+  return new Promise(function(resolve, reject) {
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
+    img.src = url;
+  });
+}
+
+function redrawRefine() {
+  var c = refineState.displayCanvas;
+  if (!c) return;
+  var ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.drawImage(refineState.editedCanvas, 0, 0);
+}
+
+function refinePointToImage(evt) {
+  var c = refineState.displayCanvas;
+  var rect = c.getBoundingClientRect();
+  var t = (evt.touches && evt.touches[0]) || evt;
+  var x = (t.clientX - rect.left) * (c.width / rect.width);
+  var y = (t.clientY - rect.top) * (c.height / rect.height);
+  var scale = c.width / rect.width;
+  return { x: x, y: y, scale: scale };
+}
+
+function refineDot(cx, cy, r) {
+  var ctx = refineState.editedCanvas.getContext('2d');
+  ctx.save();
+  if (refineState.tool === 'erase') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#000';
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(refineState.origCanvas, 0, 0);
+  }
+  ctx.restore();
+}
+
+function refineStroke(x0, y0, x1, y1, r) {
+  var dx = x1 - x0, dy = y1 - y0;
+  var dist = Math.sqrt(dx * dx + dy * dy);
+  var steps = Math.max(1, Math.ceil(dist / Math.max(1, r / 2)));
+  for (var i = 0; i <= steps; i++) {
+    var t = i / steps;
+    refineDot(x0 + dx * t, y0 + dy * t, r);
+  }
+}
+
+function refinePointerDown(e) {
+  if (!refineState.editedCanvas) return;
+  e.preventDefault();
+  var p = refinePointToImage(e);
+  refineState.drawing = true;
+  var r = (refineState.brushPx / 2) * p.scale;
+  refineDot(p.x, p.y, r);
+  refineState.lastPt = { x: p.x, y: p.y };
+  redrawRefine();
+}
+
+function refinePointerMove(e) {
+  if (!refineState.drawing) return;
+  e.preventDefault();
+  var p = refinePointToImage(e);
+  var r = (refineState.brushPx / 2) * p.scale;
+  if (refineState.lastPt) {
+    refineStroke(refineState.lastPt.x, refineState.lastPt.y, p.x, p.y, r);
+  } else {
+    refineDot(p.x, p.y, r);
+  }
+  refineState.lastPt = { x: p.x, y: p.y };
+  redrawRefine();
+}
+
+function refinePointerUp() {
+  refineState.drawing = false;
+  refineState.lastPt = null;
+}
+
+(function wireRefineEvents() {
+  var c = $('#card-refine-canvas');
+  if (!c) return;
+  c.addEventListener('pointerdown', refinePointerDown);
+  c.addEventListener('pointermove', refinePointerMove);
+  window.addEventListener('pointerup', refinePointerUp);
+  window.addEventListener('pointercancel', refinePointerUp);
+})();
+
+document.addEventListener('click', function(e) {
+  var toolBtn = e.target.closest('.card-refine-tool');
+  if (!toolBtn) return;
+  refineState.tool = toolBtn.dataset.tool;
+  document.querySelectorAll('.card-refine-tool').forEach(function(b) {
+    b.classList.toggle('active', b === toolBtn);
+  });
+});
+
+$('#card-refine-size-input').addEventListener('input', function(e) {
+  refineState.brushPx = parseInt(e.target.value, 10) || 40;
+});
+
+$('#card-refine-reset').addEventListener('click', async function() {
+  if (!refineState.extractedBlob) return;
+  var img = await blobToImage(refineState.extractedBlob);
+  var ctx = refineState.editedCanvas.getContext('2d');
+  ctx.save();
+  ctx.globalCompositeOperation = 'copy';
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+  redrawRefine();
+});
+
+$('#card-refine-cancel').addEventListener('click', function() {
+  closeRefineModal();
+  setDesignStatus('');
+});
+
+$('#card-refine-apply').addEventListener('click', async function() {
+  var btn = this;
+  btn.disabled = true;
+  try {
+    var finalBlob = await new Promise(function(resolve, reject) {
+      refineState.editedCanvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
+    });
+    closeRefineModal();
+    setDesignStatus('Trimming edges...');
+    finalBlob = await trimTransparentEdges(finalBlob);
+    await finalizeDesignUpload(finalBlob);
+  } catch (err) {
+    console.error('refine save error', err);
+    setDesignStatus('Could not save.', true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function finalizeDesignUpload(processedBlob) {
   var objUrl = URL.createObjectURL(processedBlob);
   var img = new Image();
   try {
@@ -586,7 +796,6 @@ $('#card-crop-apply').addEventListener('click', async function() {
   } catch (err) {
     console.warn('NSFW scan failed, continuing:', err);
   }
-
   URL.revokeObjectURL(objUrl);
 
   setDesignStatus('Uploading...');
@@ -621,7 +830,7 @@ $('#card-crop-apply').addEventListener('click', async function() {
   renderCardDesignsSettings();
   setDesignStatus('');
   showToast('Design added');
-});
+}
 
 document.addEventListener('click', async function(e) {
   var btn = e.target.closest('[data-delete-design]');
