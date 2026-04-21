@@ -882,6 +882,33 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   border-color: var(--accent);
 }
 
+.card-refine-mode {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.card-refine-mode.active {
+  background: #F45030;
+  border-color: #F45030;
+  color: #fff;
+}
+
+.card-refine-apply-shape {
+  margin-left: auto;
+}
+
+.card-refine-size[hidden],
+.card-refine-apply-shape[hidden] {
+  display: none;
+}
+
 .card-refine-size {
   display: flex;
   align-items: center;

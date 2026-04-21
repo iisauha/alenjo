@@ -530,6 +530,9 @@ $('#card-crop-apply').addEventListener('click', async function() {
   }
 });
 
+var ISO_CARD_ASPECT = 85.60 / 53.98;
+var ISO_CARD_RADIUS_RATIO = 3.18 / 53.98;
+
 var refineState = {
   origCanvas: null,
   editedCanvas: null,
@@ -537,12 +540,15 @@ var refineState = {
   extractedBlob: null,
   origBlob: null,
   tool: 'keep',
+  mode: 'brush',
   brushPx: 40,
   drawing: false,
   lastPt: null,
   canvasRect: null,
   ringPt: null,
-  ringScale: 1
+  ringScale: 1,
+  cardShape: null,
+  cardDrag: null
 };
 
 function blobToImage(blob) {
@@ -573,6 +579,9 @@ async function openRefineModal(origBlob, extractedBlob) {
   refineState.origBlob = origBlob;
   refineState.extractedBlob = extractedBlob;
   refineState.tool = 'keep';
+  refineState.mode = 'brush';
+  refineState.cardShape = null;
+  refineState.cardDrag = null;
   refineState.lastPt = null;
   refineState.drawing = false;
 
@@ -589,6 +598,7 @@ async function openRefineModal(origBlob, extractedBlob) {
   sizeInput.value = 40;
   refineState.brushPx = 40;
 
+  updateRefineModeUI();
   $('#card-refine-modal').classList.add('visible');
   requestAnimationFrame(cacheRefineCanvasRect);
 }
@@ -609,6 +619,101 @@ function closeRefineModal() {
   refineState.drawing = false;
   refineState.canvasRect = null;
   refineState.ringPt = null;
+  refineState.mode = 'brush';
+  refineState.cardShape = null;
+  refineState.cardDrag = null;
+}
+
+function initCardShape() {
+  var w = refineState.editedCanvas.width;
+  var h = refineState.editedCanvas.height;
+  var maxW = w * 0.9;
+  var maxH = h * 0.9;
+  var sw = maxW;
+  var sh = sw / ISO_CARD_ASPECT;
+  if (sh > maxH) { sh = maxH; sw = sh * ISO_CARD_ASPECT; }
+  refineState.cardShape = { cx: w / 2, cy: h / 2, w: sw, h: sh };
+}
+
+function cardShapePath(ctx, s) {
+  var r = s.h * ISO_CARD_RADIUS_RATIO;
+  var x = s.cx - s.w / 2, y = s.cy - s.h / 2;
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, s.w, s.h, r);
+  } else {
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + s.w, y, x + s.w, y + r, r);
+    ctx.arcTo(x + s.w, y + s.h, x + s.w - r, y + s.h, r);
+    ctx.arcTo(x, y + s.h, x, y + s.h - r, r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+}
+
+function refineCardHitTest(ix, iy, scale) {
+  var s = refineState.cardShape;
+  if (!s) return null;
+  var hr = 22 * scale;
+  var corners = [
+    { type: 'nw', x: s.cx - s.w / 2, y: s.cy - s.h / 2 },
+    { type: 'ne', x: s.cx + s.w / 2, y: s.cy - s.h / 2 },
+    { type: 'sw', x: s.cx - s.w / 2, y: s.cy + s.h / 2 },
+    { type: 'se', x: s.cx + s.w / 2, y: s.cy + s.h / 2 }
+  ];
+  for (var i = 0; i < corners.length; i++) {
+    var dx = ix - corners[i].x, dy = iy - corners[i].y;
+    if (dx * dx + dy * dy <= hr * hr) return corners[i].type;
+  }
+  if (ix >= s.cx - s.w / 2 && ix <= s.cx + s.w / 2 &&
+      iy >= s.cy - s.h / 2 && iy <= s.cy + s.h / 2) {
+    return 'move';
+  }
+  return null;
+}
+
+function updateCardDrag(p) {
+  var d = refineState.cardDrag;
+  if (!d) return;
+  var s = refineState.cardShape;
+  var start = d.startShape;
+  var dx = p.x - d.startPt.x;
+  var dy = p.y - d.startPt.y;
+  if (d.type === 'move') {
+    s.cx = start.cx + dx;
+    s.cy = start.cy + dy;
+    return;
+  }
+  var sgnX = (d.type === 'ne' || d.type === 'se') ? 1 : -1;
+  var sgnY = (d.type === 'sw' || d.type === 'se') ? 1 : -1;
+  var anchorX = start.cx - sgnX * start.w / 2;
+  var anchorY = start.cy - sgnY * start.h / 2;
+  var newCornerX = start.cx + sgnX * start.w / 2 + dx;
+  var newCornerY = start.cy + sgnY * start.h / 2 + dy;
+  var newW = Math.abs(newCornerX - anchorX);
+  var newH = Math.abs(newCornerY - anchorY);
+  if (newW / ISO_CARD_ASPECT >= newH) {
+    newH = newW / ISO_CARD_ASPECT;
+  } else {
+    newW = newH * ISO_CARD_ASPECT;
+  }
+  var minW = Math.min(refineState.editedCanvas.width, refineState.editedCanvas.height) * 0.1;
+  if (newW < minW) { newW = minW; newH = newW / ISO_CARD_ASPECT; }
+  s.w = newW;
+  s.h = newH;
+  s.cx = anchorX + sgnX * newW / 2;
+  s.cy = anchorY + sgnY * newH / 2;
+}
+
+function updateRefineModeUI() {
+  var inCard = refineState.mode === 'card';
+  var btn = $('#card-refine-mode-btn');
+  if (btn) btn.classList.toggle('active', inCard);
+  var sizeWrap = document.querySelector('.card-refine-size');
+  if (sizeWrap) sizeWrap.hidden = inCard;
+  var applyBtn = $('#card-refine-shape-apply');
+  if (applyBtn) applyBtn.hidden = !inCard;
+  if (inCard) refineState.ringPt = null;
 }
 
 function redrawRefine() {
@@ -617,9 +722,35 @@ function redrawRefine() {
   var ctx = c.getContext('2d');
   ctx.clearRect(0, 0, c.width, c.height);
   ctx.drawImage(refineState.editedCanvas, 0, 0);
+  var scale = refineState.ringScale || 1;
+
+  if (refineState.mode === 'card' && refineState.cardShape) {
+    var s = refineState.cardShape;
+    ctx.lineWidth = Math.max(1.5, 1.5 * scale);
+    ctx.strokeStyle = '#F45030';
+    cardShapePath(ctx, s);
+    ctx.stroke();
+    var hs = 14 * scale;
+    ctx.fillStyle = '#fff';
+    ctx.lineWidth = Math.max(1, scale);
+    ctx.strokeStyle = '#F45030';
+    var handles = [
+      [s.cx - s.w / 2, s.cy - s.h / 2],
+      [s.cx + s.w / 2, s.cy - s.h / 2],
+      [s.cx - s.w / 2, s.cy + s.h / 2],
+      [s.cx + s.w / 2, s.cy + s.h / 2]
+    ];
+    for (var i = 0; i < handles.length; i++) {
+      ctx.beginPath();
+      ctx.rect(handles[i][0] - hs / 2, handles[i][1] - hs / 2, hs, hs);
+      ctx.fill();
+      ctx.stroke();
+    }
+    return;
+  }
+
   var rp = refineState.ringPt;
   if (rp) {
-    var scale = refineState.ringScale || 1;
     var radius = (refineState.brushPx / 2) * scale;
     ctx.lineWidth = Math.max(1, scale);
     ctx.strokeStyle = '#F45030';
@@ -672,9 +803,22 @@ function refinePointerDown(e) {
   if (!refineState.editedCanvas) return;
   e.preventDefault();
   var p = refinePointToImage(e);
+  refineState.ringScale = p.scale;
+
+  if (refineState.mode === 'card') {
+    var hit = refineCardHitTest(p.x, p.y, p.scale);
+    if (hit) {
+      refineState.cardDrag = {
+        type: hit,
+        startPt: { x: p.x, y: p.y },
+        startShape: { cx: refineState.cardShape.cx, cy: refineState.cardShape.cy, w: refineState.cardShape.w, h: refineState.cardShape.h }
+      };
+    }
+    return;
+  }
+
   refineState.drawing = true;
   refineState.ringPt = { x: p.x, y: p.y };
-  refineState.ringScale = p.scale;
   var r = (refineState.brushPx / 2) * p.scale;
   refineDot(p.x, p.y, r);
   refineState.lastPt = { x: p.x, y: p.y };
@@ -684,8 +828,18 @@ function refinePointerDown(e) {
 function refinePointerMove(e) {
   if (!refineState.editedCanvas) return;
   var p = refinePointToImage(e);
-  refineState.ringPt = { x: p.x, y: p.y };
   refineState.ringScale = p.scale;
+
+  if (refineState.mode === 'card') {
+    if (refineState.cardDrag) {
+      e.preventDefault();
+      updateCardDrag(p);
+      redrawRefine();
+    }
+    return;
+  }
+
+  refineState.ringPt = { x: p.x, y: p.y };
   if (refineState.drawing) {
     e.preventDefault();
     var r = (refineState.brushPx / 2) * p.scale;
@@ -702,6 +856,7 @@ function refinePointerMove(e) {
 function refinePointerUp() {
   refineState.drawing = false;
   refineState.lastPt = null;
+  refineState.cardDrag = null;
 }
 
 function refinePointerLeave() {
@@ -731,6 +886,36 @@ document.addEventListener('click', function(e) {
 
 $('#card-refine-size-input').addEventListener('input', function(e) {
   refineState.brushPx = parseInt(e.target.value, 10) || 40;
+  redrawRefine();
+});
+
+$('#card-refine-mode-btn').addEventListener('click', function() {
+  if (!refineState.editedCanvas) return;
+  if (refineState.mode === 'card') {
+    refineState.mode = 'brush';
+    refineState.cardDrag = null;
+  } else {
+    refineState.mode = 'card';
+    if (!refineState.cardShape) initCardShape();
+  }
+  updateRefineModeUI();
+  redrawRefine();
+});
+
+$('#card-refine-shape-apply').addEventListener('click', function() {
+  if (!refineState.cardShape || !refineState.editedCanvas) return;
+  var ctx = refineState.editedCanvas.getContext('2d');
+  ctx.save();
+  cardShapePath(ctx, refineState.cardShape);
+  if (refineState.tool === 'erase') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#000';
+    ctx.fill();
+  } else {
+    ctx.clip();
+    ctx.drawImage(refineState.origCanvas, 0, 0);
+  }
+  ctx.restore();
   redrawRefine();
 });
 
