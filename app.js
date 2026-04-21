@@ -343,11 +343,111 @@ function loadCropper() {
   return cropperAssetsPromise;
 }
 
-var bgRemovalModulePromise = null;
-function loadBgRemoval() {
-  if (bgRemovalModulePromise) return bgRemovalModulePromise;
-  bgRemovalModulePromise = import('https://esm.sh/@imgly/background-removal@1.5.8');
-  return bgRemovalModulePromise;
+var hfTransformersPromise = null;
+function loadHfTransformers() {
+  if (hfTransformersPromise) return hfTransformersPromise;
+  hfTransformersPromise = import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm');
+  return hfTransformersPromise;
+}
+
+var rmbgContextPromise = null;
+function loadRmbgContext() {
+  if (rmbgContextPromise) return rmbgContextPromise;
+  rmbgContextPromise = (async function() {
+    var hf = await loadHfTransformers();
+    hf.env.allowLocalModels = false;
+    var modelId = 'briaai/RMBG-1.4';
+    var model = await hf.AutoModel.from_pretrained(modelId, {
+      config: { model_type: 'custom' }
+    });
+    var processor = await hf.AutoProcessor.from_pretrained(modelId, {
+      config: {
+        do_normalize: true,
+        do_pad: false,
+        do_rescale: true,
+        do_resize: true,
+        image_mean: [0.5, 0.5, 0.5],
+        image_std: [1, 1, 1],
+        resample: 2,
+        rescale_factor: 0.00392156862745098,
+        size: { width: 1024, height: 1024 }
+      }
+    });
+    return { hf: hf, model: model, processor: processor };
+  })();
+  return rmbgContextPromise;
+}
+
+async function removeCardBackground(blob) {
+  var ctx = await loadRmbgContext();
+  var image = await ctx.hf.RawImage.fromBlob(blob);
+  var inputs = await ctx.processor(image);
+  var out = await ctx.model({ input: inputs.pixel_values });
+  var tensor = out.output || out[Object.keys(out)[0]];
+  var mask = await ctx.hf.RawImage.fromTensor(tensor[0].mul(255).to('uint8'))
+    .resize(image.width, image.height);
+
+  var canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  var c = canvas.getContext('2d');
+  c.drawImage(image.toCanvas(), 0, 0);
+  var px = c.getImageData(0, 0, canvas.width, canvas.height);
+  for (var i = 0; i < mask.data.length; i++) {
+    px.data[4 * i + 3] = mask.data[i];
+  }
+  c.putImageData(px, 0, 0);
+  return new Promise(function(resolve, reject) {
+    canvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
+  });
+}
+
+async function trimTransparentEdges(blob) {
+  var objUrl = URL.createObjectURL(blob);
+  var img = new Image();
+  try {
+    await new Promise(function(resolve, reject) {
+      img.onload = resolve;
+      img.onerror = function() { reject(new Error('load failed')); };
+      img.src = objUrl;
+    });
+  } catch (e) {
+    URL.revokeObjectURL(objUrl);
+    return blob;
+  }
+
+  var w = img.naturalWidth, h = img.naturalHeight;
+  var canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  URL.revokeObjectURL(objUrl);
+
+  var data = ctx.getImageData(0, 0, w, h).data;
+  var top = h, left = w, right = -1, bottom = -1;
+  var alphaThreshold = 16;
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > alphaThreshold) {
+        if (x < left) left = x;
+        if (x > right) right = x;
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+      }
+    }
+  }
+  if (right < left || bottom < top) return blob;
+
+  var cw = right - left + 1;
+  var ch = bottom - top + 1;
+  var out = document.createElement('canvas');
+  out.width = cw;
+  out.height = ch;
+  out.getContext('2d').drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch);
+  return new Promise(function(resolve) {
+    out.toBlob(function(b) { resolve(b || blob); }, 'image/png');
+  });
 }
 
 var activeCropper = null;
@@ -443,22 +543,13 @@ $('#card-crop-apply').addEventListener('click', async function() {
   }
 
   closeCropModal();
-  setDesignStatus('Removing background (first time downloads a ~40MB model)...');
 
   var processedBlob;
   try {
-    var mod = await loadBgRemoval();
-    processedBlob = await mod.removeBackground(croppedBlob, {
-      progress: function(key, cur, total) {
-        if (key && key.indexOf('fetch') === 0 && total) {
-          var pct = Math.round((cur / total) * 100);
-          setDesignStatus('Loading extraction model... ' + pct + '%');
-        } else if (key && key.indexOf('compute') === 0) {
-          setDesignStatus('Extracting card...');
-        }
-      },
-      output: { format: 'image/png' }
-    });
+    setDesignStatus(rmbgContextPromise ? 'Extracting card...' : 'Loading extraction model (first time, ~85MB)...');
+    var extracted = await removeCardBackground(croppedBlob);
+    setDesignStatus('Trimming edges...');
+    processedBlob = await trimTransparentEdges(extracted);
   } catch (err) {
     console.error('background removal error', err);
     setDesignStatus('Could not remove background. Try a clearer image.', true);
