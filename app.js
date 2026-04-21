@@ -325,23 +325,65 @@ function setDesignStatus(msg, err) {
   el.classList.toggle('error', !!err);
 }
 
-function hasTransparentBackground(img) {
-  var w = img.naturalWidth, h = img.naturalHeight;
-  if (!w || !h) return false;
-  var canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  var ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  var data;
-  try { data = ctx.getImageData(0, 0, w, h).data; }
-  catch (e) { return false; }
-  var transparent = 0;
-  var total = w * h;
-  for (var i = 3; i < data.length; i += 4) {
-    if (data[i] < 250) transparent++;
-  }
-  return transparent / total > 0.03;
+var cropperAssetsPromise = null;
+function loadCropper() {
+  if (cropperAssetsPromise) return cropperAssetsPromise;
+  var cssLoad = new Promise(function(resolve) {
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css';
+    link.onload = resolve;
+    link.onerror = resolve;
+    document.head.appendChild(link);
+  });
+  cropperAssetsPromise = Promise.all([
+    cssLoad,
+    loadScript('https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js')
+  ]);
+  return cropperAssetsPromise;
+}
+
+var bgRemovalModulePromise = null;
+function loadBgRemoval() {
+  if (bgRemovalModulePromise) return bgRemovalModulePromise;
+  bgRemovalModulePromise = import('https://esm.sh/@imgly/background-removal@1.5.8');
+  return bgRemovalModulePromise;
+}
+
+var activeCropper = null;
+var cropModalObjUrl = null;
+
+function closeCropModal() {
+  var modal = $('#card-crop-modal');
+  if (modal) modal.classList.remove('visible');
+  if (activeCropper) { try { activeCropper.destroy(); } catch (e) {} activeCropper = null; }
+  if (cropModalObjUrl) { URL.revokeObjectURL(cropModalObjUrl); cropModalObjUrl = null; }
+  var img = $('#card-crop-image');
+  if (img) img.src = '';
+  var applyBtn = $('#card-crop-apply');
+  if (applyBtn) applyBtn.disabled = false;
+}
+
+function openCropModal(file) {
+  var modal = $('#card-crop-modal');
+  var img = $('#card-crop-image');
+  if (!modal || !img) return;
+  if (activeCropper) { try { activeCropper.destroy(); } catch (e) {} activeCropper = null; }
+  if (cropModalObjUrl) { URL.revokeObjectURL(cropModalObjUrl); cropModalObjUrl = null; }
+  cropModalObjUrl = URL.createObjectURL(file);
+  img.onload = function() {
+    activeCropper = new window.Cropper(img, {
+      viewMode: 1,
+      autoCropArea: 0.9,
+      background: false,
+      movable: false,
+      zoomable: true,
+      rotatable: false,
+      toggleDragModeOnDblclick: false
+    });
+  };
+  img.src = cropModalObjUrl;
+  modal.classList.add('visible');
 }
 
 $('#btn-add-card-design').addEventListener('click', function() {
@@ -355,34 +397,85 @@ $('#card-design-upload').addEventListener('change', async function(e) {
 
   setDesignStatus('');
 
-  if (!/^image\/(png|webp)$/.test(file.type)) {
-    setDesignStatus('PNG or WebP only.', true);
+  if (!/^image\/(png|webp|jpeg)$/.test(file.type)) {
+    setDesignStatus('Image must be PNG, JPEG, or WebP.', true);
     return;
   }
-  if (file.size > 5 * 1024 * 1024) {
-    setDesignStatus('Image must be under 5MB.', true);
+  if (file.size > 10 * 1024 * 1024) {
+    setDesignStatus('Image must be under 10MB.', true);
     return;
   }
 
-  setDesignStatus('Checking image...');
+  setDesignStatus('Loading editor...');
+  try {
+    await loadCropper();
+  } catch (err) {
+    console.error('cropper load error', err);
+    setDesignStatus('Could not load image editor.', true);
+    return;
+  }
+  setDesignStatus('');
+  openCropModal(file);
+});
 
-  var objUrl = URL.createObjectURL(file);
+$('#card-crop-cancel').addEventListener('click', closeCropModal);
+
+$('#card-crop-apply').addEventListener('click', async function() {
+  if (!activeCropper) return;
+  var applyBtn = this;
+  applyBtn.disabled = true;
+
+  var croppedBlob;
+  try {
+    var canvas = activeCropper.getCroppedCanvas({
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageSmoothingQuality: 'high'
+    });
+    croppedBlob = await new Promise(function(resolve, reject) {
+      canvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('Crop failed')); }, 'image/png');
+    });
+  } catch (err) {
+    console.error('crop error', err);
+    setDesignStatus('Could not crop image.', true);
+    applyBtn.disabled = false;
+    return;
+  }
+
+  closeCropModal();
+  setDesignStatus('Removing background (first time downloads a ~40MB model)...');
+
+  var processedBlob;
+  try {
+    var mod = await loadBgRemoval();
+    processedBlob = await mod.removeBackground(croppedBlob, {
+      progress: function(key, cur, total) {
+        if (key && key.indexOf('fetch') === 0 && total) {
+          var pct = Math.round((cur / total) * 100);
+          setDesignStatus('Loading extraction model... ' + pct + '%');
+        } else if (key && key.indexOf('compute') === 0) {
+          setDesignStatus('Extracting card...');
+        }
+      },
+      output: { format: 'image/png' }
+    });
+  } catch (err) {
+    console.error('background removal error', err);
+    setDesignStatus('Could not remove background. Try a clearer image.', true);
+    return;
+  }
+
+  var objUrl = URL.createObjectURL(processedBlob);
   var img = new Image();
   try {
     await new Promise(function(resolve, reject) {
       img.onload = resolve;
-      img.onerror = function() { reject(new Error('Could not read image')); };
+      img.onerror = function() { reject(new Error('Could not read processed image')); };
       img.src = objUrl;
     });
   } catch (err) {
     URL.revokeObjectURL(objUrl);
-    setDesignStatus('Could not read image file.', true);
-    return;
-  }
-
-  if (!hasTransparentBackground(img)) {
-    URL.revokeObjectURL(objUrl);
-    setDesignStatus('Image must be a PNG with a transparent background.', true);
+    setDesignStatus('Could not read processed image.', true);
     return;
   }
 
@@ -406,11 +499,10 @@ $('#card-design-upload').addEventListener('change', async function(e) {
   URL.revokeObjectURL(objUrl);
 
   setDesignStatus('Uploading...');
-  var ext = file.type === 'image/webp' ? 'webp' : 'png';
-  var fname = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+  var fname = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png';
   var path = currentUser.id + '/' + fname;
 
-  var up = await sb.storage.from('card-designs').upload(path, file, { contentType: file.type });
+  var up = await sb.storage.from('card-designs').upload(path, processedBlob, { contentType: 'image/png' });
   if (up.error) {
     console.error('card design upload error', up.error);
     setDesignStatus('Upload failed.', true);
@@ -424,7 +516,7 @@ $('#card-design-upload').addEventListener('change', async function(e) {
     user_id: currentUser.id,
     storage_path: path,
     url: publicUrl,
-    name: (file.name || '').slice(0, 80) || null
+    name: null
   }).select('id, storage_path, url, name, created_at').single();
 
   if (ins.error) {

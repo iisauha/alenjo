@@ -298,20 +298,12 @@
           <span class="settings-chevron"></span>
         </div>
         <div class="settings-card-body collapsed" id="settings-card-designs">
-          <p class="card-designs-help"><strong>Must be a PNG with a transparent background.</strong> Upload the card front art only (no photos or backgrounds).</p>
+          <p class="card-designs-help">Screenshot your card in Apple Wallet (or upload any photo), crop tight to the card, and we'll remove the background for you.</p>
           <p class="card-designs-help warn">Uploads are automatically scanned for explicit content. Anyone caught uploading inappropriate images will be banned.</p>
-          <p class="card-designs-help">Why the hoops? There's no public database or API with card art for every bank. Banks send designs directly to Apple, so Wallet has them but nobody else does. Sorry for the extra steps. It's totally optional, but matching art really does make it easier to spot your cards at a glance.</p>
-          <p class="card-designs-help"><strong>How to get a clean card image:</strong></p>
-          <ol class="card-designs-steps">
-            <li>Open your card in Apple Wallet and take a screenshot of the front.</li>
-            <li>Crop the screenshot down to just the card art.</li>
-            <li>Open the image in Adobe Express (free on the App Store) and tap Remove Background.</li>
-            <li>Export as PNG and upload it here. You get a few free removals, and creating a free Adobe account gives you unlimited. Totally free.</li>
-          </ol>
           <div id="card-designs-list" class="card-designs-grid"></div>
           <div id="card-designs-status" class="card-designs-status" hidden></div>
           <button id="btn-add-card-design" class="btn-secondary" style="margin-top:0.75rem">+ Upload Design</button>
-          <input type="file" id="card-design-upload" accept="image/png,image/webp" hidden>
+          <input type="file" id="card-design-upload" accept="image/png,image/webp,image/jpeg" hidden>
         </div>
       </div>
 
@@ -369,6 +361,21 @@
       <div class="modal-actions">
         <button id="account-edit-cancel" class="btn-secondary-sm">Cancel</button>
         <button id="account-edit-save" class="btn-primary-sm">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Design Crop Modal -->
+  <div id="card-crop-modal" class="modal-overlay card-crop-modal">
+    <div class="modal-card card-crop-card">
+      <h3>Crop to the card</h3>
+      <p class="card-designs-help card-crop-help">Drag to crop tight around the card. We'll remove the background next.</p>
+      <div class="card-crop-image-wrap">
+        <img id="card-crop-image" alt="">
+      </div>
+      <div class="modal-actions">
+        <button id="card-crop-cancel" class="btn-secondary-sm">Cancel</button>
+        <button id="card-crop-apply" class="btn-primary-sm">Extract Card</button>
       </div>
     </div>
   </div>

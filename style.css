@@ -785,6 +785,28 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   justify-content: flex-end;
 }
 
+.card-crop-modal .modal-card.card-crop-card {
+  max-width: 440px;
+  padding: 1.25rem;
+}
+
+.card-crop-help {
+  margin-bottom: 0.75rem;
+}
+
+.card-crop-image-wrap {
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 55vh;
+  margin-bottom: 1rem;
+}
+
+.card-crop-image-wrap img {
+  display: block;
+  max-width: 100%;
+}
+
 .loading-overlay {
   position: fixed;
   inset: 0;
