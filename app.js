@@ -565,41 +565,58 @@ $('#card-crop-apply').addEventListener('click', async function() {
 
 var refineState = {
   origCanvas: null,
-  editedCanvas: null,
+  maskCanvas: null,
   displayCanvas: null,
   extractedBlob: null,
-  origBlob: null,
   tool: 'keep',
   brushPx: 40,
   drawing: false,
-  lastPt: null
+  lastPt: null,
+  redrawQueued: false
 };
+
+function blobToImage(blob) {
+  return new Promise(function(resolve, reject) {
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
+    img.src = url;
+  });
+}
+
+function fitInto(w, h, maxSide) {
+  if (w <= maxSide && h <= maxSide) return { w: w, h: h };
+  var s = Math.min(maxSide / w, maxSide / h);
+  return { w: Math.max(1, Math.round(w * s)), h: Math.max(1, Math.round(h * s)) };
+}
 
 async function openRefineModal(origBlob, extractedBlob) {
   var origImg = await blobToImage(origBlob);
   var extImg = await blobToImage(extractedBlob);
-  var w = origImg.naturalWidth, h = origImg.naturalHeight;
+  var fit = fitInto(origImg.naturalWidth, origImg.naturalHeight, 1200);
+  var w = fit.w, h = fit.h;
 
   var origCanvas = document.createElement('canvas');
   origCanvas.width = w; origCanvas.height = h;
-  origCanvas.getContext('2d').drawImage(origImg, 0, 0);
+  origCanvas.getContext('2d').drawImage(origImg, 0, 0, w, h);
 
-  var editedCanvas = document.createElement('canvas');
-  editedCanvas.width = w; editedCanvas.height = h;
-  editedCanvas.getContext('2d').drawImage(extImg, 0, 0);
+  var maskCanvas = document.createElement('canvas');
+  maskCanvas.width = w; maskCanvas.height = h;
+  maskCanvas.getContext('2d').drawImage(extImg, 0, 0, w, h);
 
   refineState.origCanvas = origCanvas;
-  refineState.editedCanvas = editedCanvas;
-  refineState.origBlob = origBlob;
+  refineState.maskCanvas = maskCanvas;
   refineState.extractedBlob = extractedBlob;
   refineState.tool = 'keep';
   refineState.lastPt = null;
+  refineState.drawing = false;
 
   var display = $('#card-refine-canvas');
   display.width = w;
   display.height = h;
   refineState.displayCanvas = display;
-  redrawRefine();
+  redrawRefineNow();
 
   document.querySelectorAll('.card-refine-tool').forEach(function(b) {
     b.classList.toggle('active', b.dataset.tool === 'keep');
@@ -614,79 +631,78 @@ async function openRefineModal(origBlob, extractedBlob) {
 function closeRefineModal() {
   $('#card-refine-modal').classList.remove('visible');
   refineState.origCanvas = null;
-  refineState.editedCanvas = null;
+  refineState.maskCanvas = null;
   refineState.displayCanvas = null;
   refineState.extractedBlob = null;
-  refineState.origBlob = null;
   refineState.lastPt = null;
   refineState.drawing = false;
+  refineState.redrawQueued = false;
 }
 
-function blobToImage(blob) {
-  return new Promise(function(resolve, reject) {
-    var url = URL.createObjectURL(blob);
-    var img = new Image();
-    img.onload = function() { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
-    img.src = url;
-  });
-}
-
-function redrawRefine() {
+function redrawRefineNow() {
   var c = refineState.displayCanvas;
-  if (!c) return;
+  if (!c || !refineState.origCanvas || !refineState.maskCanvas) return;
   var ctx = c.getContext('2d');
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
   ctx.clearRect(0, 0, c.width, c.height);
-  ctx.drawImage(refineState.editedCanvas, 0, 0);
+  ctx.drawImage(refineState.origCanvas, 0, 0);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(refineState.maskCanvas, 0, 0);
+  ctx.restore();
+}
+
+function queueRefineRedraw() {
+  if (refineState.redrawQueued) return;
+  refineState.redrawQueued = true;
+  requestAnimationFrame(function() {
+    refineState.redrawQueued = false;
+    redrawRefineNow();
+  });
 }
 
 function refinePointToImage(evt) {
   var c = refineState.displayCanvas;
   var rect = c.getBoundingClientRect();
-  var t = (evt.touches && evt.touches[0]) || evt;
-  var x = (t.clientX - rect.left) * (c.width / rect.width);
-  var y = (t.clientY - rect.top) * (c.height / rect.height);
+  var x = (evt.clientX - rect.left) * (c.width / rect.width);
+  var y = (evt.clientY - rect.top) * (c.height / rect.height);
   var scale = c.width / rect.width;
   return { x: x, y: y, scale: scale };
 }
 
-function refineDot(cx, cy, r) {
-  var ctx = refineState.editedCanvas.getContext('2d');
-  ctx.save();
-  if (refineState.tool === 'erase') {
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#000';
-    ctx.fill();
-  } else {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(refineState.origCanvas, 0, 0);
+function refinePaintSegment(x0, y0, x1, y1, r) {
+  var mctx = refineState.maskCanvas.getContext('2d');
+  mctx.save();
+  mctx.globalCompositeOperation = refineState.tool === 'erase' ? 'destination-out' : 'source-over';
+  mctx.fillStyle = '#fff';
+  mctx.strokeStyle = '#fff';
+  mctx.lineCap = 'round';
+  mctx.lineJoin = 'round';
+  mctx.lineWidth = r * 2;
+  mctx.beginPath();
+  mctx.arc(x0, y0, r, 0, Math.PI * 2);
+  mctx.fill();
+  if (x0 !== x1 || y0 !== y1) {
+    mctx.beginPath();
+    mctx.moveTo(x0, y0);
+    mctx.lineTo(x1, y1);
+    mctx.stroke();
   }
-  ctx.restore();
-}
-
-function refineStroke(x0, y0, x1, y1, r) {
-  var dx = x1 - x0, dy = y1 - y0;
-  var dist = Math.sqrt(dx * dx + dy * dy);
-  var steps = Math.max(1, Math.ceil(dist / Math.max(1, r / 2)));
-  for (var i = 0; i <= steps; i++) {
-    var t = i / steps;
-    refineDot(x0 + dx * t, y0 + dy * t, r);
-  }
+  mctx.restore();
 }
 
 function refinePointerDown(e) {
-  if (!refineState.editedCanvas) return;
+  if (!refineState.maskCanvas) return;
   e.preventDefault();
+  if (e.target && e.target.setPointerCapture) {
+    try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+  }
   var p = refinePointToImage(e);
   refineState.drawing = true;
   var r = (refineState.brushPx / 2) * p.scale;
-  refineDot(p.x, p.y, r);
+  refinePaintSegment(p.x, p.y, p.x, p.y, r);
   refineState.lastPt = { x: p.x, y: p.y };
-  redrawRefine();
+  queueRefineRedraw();
 }
 
 function refinePointerMove(e) {
@@ -694,13 +710,10 @@ function refinePointerMove(e) {
   e.preventDefault();
   var p = refinePointToImage(e);
   var r = (refineState.brushPx / 2) * p.scale;
-  if (refineState.lastPt) {
-    refineStroke(refineState.lastPt.x, refineState.lastPt.y, p.x, p.y, r);
-  } else {
-    refineDot(p.x, p.y, r);
-  }
+  var last = refineState.lastPt || p;
+  refinePaintSegment(last.x, last.y, p.x, p.y, r);
   refineState.lastPt = { x: p.x, y: p.y };
-  redrawRefine();
+  queueRefineRedraw();
 }
 
 function refinePointerUp() {
@@ -711,10 +724,12 @@ function refinePointerUp() {
 (function wireRefineEvents() {
   var c = $('#card-refine-canvas');
   if (!c) return;
-  c.addEventListener('pointerdown', refinePointerDown);
-  c.addEventListener('pointermove', refinePointerMove);
+  c.addEventListener('pointerdown', refinePointerDown, { passive: false });
+  c.addEventListener('pointermove', refinePointerMove, { passive: false });
   window.addEventListener('pointerup', refinePointerUp);
   window.addEventListener('pointercancel', refinePointerUp);
+  c.addEventListener('touchstart', function(e) { e.preventDefault(); }, { passive: false });
+  c.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
 })();
 
 document.addEventListener('click', function(e) {
@@ -731,14 +746,14 @@ $('#card-refine-size-input').addEventListener('input', function(e) {
 });
 
 $('#card-refine-reset').addEventListener('click', async function() {
-  if (!refineState.extractedBlob) return;
+  if (!refineState.extractedBlob || !refineState.maskCanvas) return;
   var img = await blobToImage(refineState.extractedBlob);
-  var ctx = refineState.editedCanvas.getContext('2d');
-  ctx.save();
-  ctx.globalCompositeOperation = 'copy';
-  ctx.drawImage(img, 0, 0);
-  ctx.restore();
-  redrawRefine();
+  var mctx = refineState.maskCanvas.getContext('2d');
+  mctx.save();
+  mctx.globalCompositeOperation = 'copy';
+  mctx.drawImage(img, 0, 0, refineState.maskCanvas.width, refineState.maskCanvas.height);
+  mctx.restore();
+  redrawRefineNow();
 });
 
 $('#card-refine-cancel').addEventListener('click', function() {
@@ -750,8 +765,16 @@ $('#card-refine-apply').addEventListener('click', async function() {
   var btn = this;
   btn.disabled = true;
   try {
+    var out = document.createElement('canvas');
+    out.width = refineState.origCanvas.width;
+    out.height = refineState.origCanvas.height;
+    var octx = out.getContext('2d');
+    octx.drawImage(refineState.origCanvas, 0, 0);
+    octx.globalCompositeOperation = 'destination-in';
+    octx.drawImage(refineState.maskCanvas, 0, 0);
+    octx.globalCompositeOperation = 'source-over';
     var finalBlob = await new Promise(function(resolve, reject) {
-      refineState.editedCanvas.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
+      out.toBlob(function(b) { b ? resolve(b) : reject(new Error('blob failed')); }, 'image/png');
     });
     closeRefineModal();
     setDesignStatus('Trimming edges...');

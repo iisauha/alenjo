@@ -807,9 +807,14 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   max-width: 100%;
 }
 
+.card-refine-modal {
+  overscroll-behavior: contain;
+}
+
 .card-refine-modal .modal-card.card-refine-card {
   max-width: 440px;
   padding: 1.25rem;
+  touch-action: pan-y;
 }
 
 .card-refine-help {
