@@ -3544,6 +3544,9 @@ function countOccurrencesInHorizon(bill, horizonDays) {
 
 // Total occurrences of a bill within the horizon - used for the
 // financial summary so biweekly paychecks count twice over 31 days.
+// Overdue / stale next_due_dates are skipped forward so a bill set
+// up a year ago with no confirmations doesn't generate hundreds of
+// fake occurrences.
 function totalOccurrencesInHorizon(bill, horizonDays) {
   var today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -3551,19 +3554,18 @@ function totalOccurrencesInHorizon(bill, horizonDays) {
   var d = parseLocalDate(bill.next_due_date);
   d.setHours(0, 0, 0, 0);
 
-  var count = 0;
-  var guard = 0;
-  while (d <= end && guard++ < 400) {
-    count++;
-    if (bill.frequency === 'biweekly') {
-      d.setDate(d.getDate() + 14);
-    } else if (bill.frequency === 'custom' && bill.frequency_days) {
-      d.setDate(d.getDate() + bill.frequency_days);
-    } else {
-      var monthStep = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 }[bill.frequency] || 1;
-      d.setMonth(d.getMonth() + monthStep);
-    }
+  function step() {
+    if (bill.frequency === 'biweekly') d.setDate(d.getDate() + 14);
+    else if (bill.frequency === 'custom' && bill.frequency_days) d.setDate(d.getDate() + bill.frequency_days);
+    else d.setMonth(d.getMonth() + ({ monthly: 1, quarterly: 3, semiannual: 6, annual: 12 }[bill.frequency] || 1));
   }
+
+  var guard = 0;
+  while (d < today && guard++ < 500) step();
+
+  var count = 0;
+  guard = 0;
+  while (d <= end && guard++ < 400) { count++; step(); }
   return count;
 }
 
