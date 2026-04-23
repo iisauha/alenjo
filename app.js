@@ -115,6 +115,54 @@ sb.auth.signOut().then(function() {
 });
 
 // ============================================
+// RESUME / VISIBILITY
+// ============================================
+// iOS keeps the PWA's JS state but pauses execution in the background.
+// Without an explicit refresh on resume, the user sees stale data until
+// they force-quit and reopen the app.
+var lastHiddenAt = 0;
+var resumeRefreshInFlight = false;
+
+function refreshOnResume() {
+  if (!currentUser) return;
+  if (resumeRefreshInFlight) return;
+  var appScreen = $('#screen-app');
+  if (!appScreen || !appScreen.classList.contains('active')) return;
+
+  resumeRefreshInFlight = true;
+  loadAccounts().then(function() {
+    var activeTab = localStorage.getItem('alenjo_active_tab') || 'snapshot';
+    if (activeTab === 'transactions') {
+      return loadTransactions();
+    }
+    if (activeTab === 'recurring') {
+      recBillsLoaded = false;
+      return loadRecurringBills();
+    }
+  }).catch(function(e) {
+    console.error('Resume refresh error:', e);
+  }).then(function() {
+    resumeRefreshInFlight = false;
+  });
+}
+
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    lastHiddenAt = Date.now();
+    return;
+  }
+  // Short glances at another app don't need a refresh
+  if (lastHiddenAt && Date.now() - lastHiddenAt > 5000) {
+    refreshOnResume();
+  }
+});
+
+// bfcache restores on iOS Safari don't always fire visibilitychange
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) refreshOnResume();
+});
+
+// ============================================
 // SCREENS & TABS
 // ============================================
 function showScreen(name) {
