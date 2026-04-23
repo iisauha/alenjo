@@ -100,6 +100,7 @@ sb.auth.signOut().then(function() {
       currentUser = session.user;
       firstSync = true;
       Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
+        if (cachedAccounts && cachedAccounts.length > 0) throttledSync();
         return loadTransactions();
       }).then(function() {
         return loadRecurringBills();
@@ -1353,12 +1354,6 @@ async function loadAccounts() {
   resolveLogos();
   renderLastUpdated();
 
-  // Background sync (includes balance update via free /accounts/get)
-  if (cachedAccounts.length > 0) {
-    throttledSync();
-    startSyncInterval();
-  }
-
   loadingAccounts = false;
 }
 
@@ -1366,7 +1361,6 @@ async function loadAccounts() {
 // Plaid allows 30 req/min/item. Each sync = 3 calls/item.
 // We stay conservative: 1 item = 5min, scale up slightly with more items.
 var syncInFlight = false;
-var syncIntervalId = null;
 
 function getSyncCooldown() {
   if (!cachedAccounts) return 5 * 60 * 1000;
@@ -1398,17 +1392,6 @@ function throttledSync() {
     syncInFlight = false;
     renderLastUpdated();
   });
-}
-
-// Start recurring sync timer when accounts exist
-function startSyncInterval() {
-  if (syncIntervalId) clearInterval(syncIntervalId);
-  var cooldown = getSyncCooldown();
-  syncIntervalId = setInterval(function() {
-    if (currentUser && cachedAccounts && cachedAccounts.length > 0) {
-      throttledSync();
-    }
-  }, cooldown);
 }
 
 async function backgroundSync() {
@@ -2488,7 +2471,6 @@ async function loadTransactions() {
     });
   }
 
-  // Background sync is handled by throttledSync() from loadAccounts
 }
 
 function getEffectiveTx(tx) {
