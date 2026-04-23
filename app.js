@@ -3753,7 +3753,10 @@ function confirmBill(billId) {
   if (!bill) return;
 
   var today = formatLocalDate(new Date());
-  var newNext = computeNextDueDate(bill.anchor_date, bill.frequency, bill.frequency_days, today);
+  // Advance past whichever is later - today, or the current due date.
+  // Using just today kept pre-marked upcoming bills on the same date.
+  var advanceFrom = bill.next_due_date > today ? bill.next_due_date : today;
+  var newNext = computeNextDueDate(bill.anchor_date, bill.frequency, bill.frequency_days, advanceFrom);
 
   bill.last_confirmed_date = today;
   bill.next_due_date = newNext;
@@ -3841,7 +3844,8 @@ function openRecDetailSheet(billId) {
 
   // Compute the next date after confirmation for the modal message
   var today = formatLocalDate(new Date());
-  var futureNext = computeNextDueDate(bill.anchor_date, bill.frequency, bill.frequency_days, today);
+  var advanceFrom = bill.next_due_date > today ? bill.next_due_date : today;
+  var futureNext = computeNextDueDate(bill.anchor_date, bill.frequency, bill.frequency_days, advanceFrom);
   var futureDate = parseLocalDate(futureNext);
   var futureStr = futureDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
