@@ -16,6 +16,7 @@ var authEmail = $('#auth-email');
 var authPassword = $('#auth-password');
 var authSubmit = $('#auth-submit');
 var authError = $('#auth-error');
+var authFaceId = $('#auth-faceid');
 var btnConnectPlaid = $('#btn-connect-plaid');
 var btnAddAccount = $('#btn-add-account');
 // (removed investing button ref)
@@ -89,6 +90,15 @@ function startAutofillWatch() {
 }
 authEmail.addEventListener('change', startAutofillWatch);
 authPassword.addEventListener('change', startAutofillWatch);
+
+// Tapping "Sign in with Face ID" focuses the password field inside a
+// user-gesture handler, which lets iOS surface the saved-password /
+// Face ID AutoFill sheet. Re-arm the autofill auto-submit so picking
+// a credential drops the user straight into the app.
+authFaceId.addEventListener('click', function() {
+  autofillReady = false;
+  authPassword.focus();
+});
 
 // Sign out any existing session on load so user must log in every time
 // Then listen for fresh sign-ins only

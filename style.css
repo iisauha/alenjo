@@ -255,6 +255,34 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   border-color: rgba(255,255,255,0.2);
 }
 
+.btn-faceid {
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 0.25rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: color 0.2s;
+}
+
+.btn-faceid:hover,
+.btn-faceid:active {
+  color: var(--text);
+}
+
+.btn-faceid svg {
+  flex-shrink: 0;
+}
+
 
 
 .auth-error {
