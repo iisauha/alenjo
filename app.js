@@ -3528,9 +3528,8 @@ function getDaysUntilDue(bill) {
   return Math.round((due - today) / 86400000);
 }
 
-// A recurring bill only has one active occurrence at a time (the next_due_date).
-// The user must confirm it before the next occurrence appears.
-// This returns 1 if the bill's next_due_date falls within the horizon (or is overdue), 0 otherwise.
+// Whether a bill has any occurrence within the horizon - used for
+// list visibility (show or hide the row).
 function countOccurrencesInHorizon(bill, horizonDays) {
   var today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -3541,6 +3540,31 @@ function countOccurrencesInHorizon(bill, horizonDays) {
   // Show if overdue or within the horizon window
   if (d <= end) return 1;
   return 0;
+}
+
+// Total occurrences of a bill within the horizon - used for the
+// financial summary so biweekly paychecks count twice over 31 days.
+function totalOccurrencesInHorizon(bill, horizonDays) {
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var end = new Date(today.getTime() + horizonDays * 86400000);
+  var d = parseLocalDate(bill.next_due_date);
+  d.setHours(0, 0, 0, 0);
+
+  var count = 0;
+  var guard = 0;
+  while (d <= end && guard++ < 400) {
+    count++;
+    if (bill.frequency === 'biweekly') {
+      d.setDate(d.getDate() + 14);
+    } else if (bill.frequency === 'custom' && bill.frequency_days) {
+      d.setDate(d.getDate() + bill.frequency_days);
+    } else {
+      var monthStep = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 }[bill.frequency] || 1;
+      d.setMonth(d.getMonth() + monthStep);
+    }
+  }
+  return count;
 }
 
 function renderRecurringBills() {
@@ -3562,7 +3586,7 @@ function renderRecurringBills() {
   var totalIncome = 0;
   var totalExpenses = 0;
   recBills.forEach(function(b) {
-    var occurrences = countOccurrencesInHorizon(b, recHorizonDays);
+    var occurrences = totalOccurrencesInHorizon(b, recHorizonDays);
     var totalForBill = parseFloat(b.amount) * occurrences;
     if (b.is_income) totalIncome += totalForBill;
     else totalExpenses += totalForBill;
@@ -3726,6 +3750,8 @@ function showConfirmModal(billName, nextDateStr, callback, isIncome) {
   var textEl = $('#rec-confirm-text');
   var verb = isIncome ? 'received' : 'paid';
   textEl.innerHTML = 'Mark <strong>' + esc(billName) + '</strong> as ' + verb + '? It won\'t appear again until <strong>' + nextDateStr + '</strong>.';
+  var yesBtn = $('#rec-confirm-yes');
+  if (yesBtn) yesBtn.textContent = isIncome ? 'Mark Received' : 'Mark Paid';
   recConfirmCallback = callback;
   modal.classList.add('visible');
 }
