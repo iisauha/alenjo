@@ -98,6 +98,7 @@ sb.auth.signOut().then(function() {
   sb.auth.onAuthStateChange(function(event, session) {
     if (event === 'SIGNED_IN' && session && session.user) {
       currentUser = session.user;
+      firstSync = true;
       Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
         return loadTransactions();
       }).then(function() {
