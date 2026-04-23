@@ -190,9 +190,10 @@ document.addEventListener('visibilitychange', function() {
     lastHiddenAt = Date.now();
     return;
   }
-  // Backgrounded past the inactivity threshold - kick to login
+  // Backgrounded past the inactivity threshold - full reload so iOS
+  // re-runs its AutoFill heuristics and pops the Face ID sheet.
   if (currentUser && Date.now() - lastActivityAt > INACTIVITY_MS) {
-    sb.auth.signOut();
+    location.reload();
     return;
   }
   // Short glances at another app don't need a refresh
@@ -223,7 +224,7 @@ function markActivity() {
 setInterval(function() {
   if (!currentUser) return;
   if (Date.now() - lastActivityAt > INACTIVITY_MS) {
-    sb.auth.signOut();
+    location.reload();
   }
 }, 5000);
 
