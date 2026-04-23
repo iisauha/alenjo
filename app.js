@@ -211,6 +211,12 @@ function showScreen(name) {
     if (savedTab === 'investments' || savedTab === 'settings') savedTab = 'snapshot';
     if (savedTab) switchTab(savedTab);
   }
+  if (name === 'login') {
+    // Nudge iOS to surface the saved-password / Face ID autofill prompt
+    setTimeout(function() {
+      try { authEmail.focus({ preventScroll: true }); } catch (e) { authEmail.focus(); }
+    }, 150);
+  }
 }
 
 function switchTab(tabName) {
