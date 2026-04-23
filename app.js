@@ -3654,14 +3654,8 @@ function renderRecurringBills() {
   }
 
   // Filter bills that have at least one occurrence in the horizon.
-  // Once a bill has been confirmed, hide it from the list until it's
-  // within 7 days of the next occurrence - otherwise marking a
-  // biweekly paycheck as received leaves it sitting in the list for
-  // two more weeks.
   var filtered = recBills.filter(function(b) {
-    if (countOccurrencesInHorizon(b, recHorizonDays) === 0) return false;
-    if (b.last_confirmed_date && getDaysUntilDue(b) > 7) return false;
-    return true;
+    return countOccurrencesInHorizon(b, recHorizonDays) > 0;
   });
 
   var sorted = filtered.slice().sort(function(a, b) {
