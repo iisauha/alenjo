@@ -99,6 +99,7 @@ sb.auth.signOut().then(function() {
     if (event === 'SIGNED_IN' && session && session.user) {
       currentUser = session.user;
       firstSync = true;
+      lastActivityAt = Date.now();
       Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
         if (cachedAccounts && cachedAccounts.length > 0) throttledSync();
         return loadTransactions();
@@ -153,6 +154,11 @@ document.addEventListener('visibilitychange', function() {
     lastHiddenAt = Date.now();
     return;
   }
+  // Backgrounded past the inactivity threshold - kick to login
+  if (currentUser && Date.now() - lastActivityAt > INACTIVITY_MS) {
+    sb.auth.signOut();
+    return;
+  }
   // Short glances at another app don't need a refresh
   if (lastHiddenAt && Date.now() - lastHiddenAt > 5000) {
     refreshOnResume();
@@ -163,6 +169,27 @@ document.addEventListener('visibilitychange', function() {
 window.addEventListener('pageshow', function(e) {
   if (e.persisted) refreshOnResume();
 });
+
+// ============================================
+// AUTO LOGOUT
+// ============================================
+var INACTIVITY_MS = 60 * 1000;
+var lastActivityAt = Date.now();
+
+function markActivity() {
+  lastActivityAt = Date.now();
+}
+
+['pointerdown', 'touchstart', 'keydown', 'scroll'].forEach(function(ev) {
+  document.addEventListener(ev, markActivity, { passive: true, capture: true });
+});
+
+setInterval(function() {
+  if (!currentUser) return;
+  if (Date.now() - lastActivityAt > INACTIVITY_MS) {
+    sb.auth.signOut();
+  }
+}, 5000);
 
 // ============================================
 // SCREENS & TABS
