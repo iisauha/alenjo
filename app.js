@@ -3627,9 +3627,15 @@ function renderRecurringBills() {
     summaryEl.innerHTML = summaryHtml;
   }
 
-  // Filter bills that have at least one occurrence in the horizon
+  // Filter bills that have at least one occurrence in the horizon.
+  // Once a bill has been confirmed, hide it from the list until it's
+  // within 7 days of the next occurrence - otherwise marking a
+  // biweekly paycheck as received leaves it sitting in the list for
+  // two more weeks.
   var filtered = recBills.filter(function(b) {
-    return countOccurrencesInHorizon(b, recHorizonDays) > 0;
+    if (countOccurrencesInHorizon(b, recHorizonDays) === 0) return false;
+    if (b.last_confirmed_date && getDaysUntilDue(b) > 7) return false;
+    return true;
   });
 
   var sorted = filtered.slice().sort(function(a, b) {
@@ -3715,10 +3721,11 @@ function renderBillRow(bill) {
 var recConfirmModal = $('#rec-confirm-modal');
 var recConfirmCallback = null;
 
-function showConfirmModal(billName, nextDateStr, callback) {
+function showConfirmModal(billName, nextDateStr, callback, isIncome) {
   var modal = recConfirmModal;
   var textEl = $('#rec-confirm-text');
-  textEl.innerHTML = 'Mark <strong>' + esc(billName) + '</strong> as paid? It won\'t appear again until <strong>' + nextDateStr + '</strong>.';
+  var verb = isIncome ? 'received' : 'paid';
+  textEl.innerHTML = 'Mark <strong>' + esc(billName) + '</strong> as ' + verb + '? It won\'t appear again until <strong>' + nextDateStr + '</strong>.';
   recConfirmCallback = callback;
   modal.classList.add('visible');
 }
@@ -3750,7 +3757,7 @@ function confirmBill(billId) {
 
   bill.last_confirmed_date = today;
   bill.next_due_date = newNext;
-  showToast('Bill marked as paid');
+  showToast(bill.is_income ? 'Income marked as received' : 'Bill marked as paid');
   renderRecurringBills();
 
   sb.from('recurring_bills').update({
@@ -3827,7 +3834,7 @@ function openRecDetailSheet(billId) {
   // Actions
   var actionsEl = $('#rec-detail-actions');
   var actionsHtml = '';
-  actionsHtml += '<button class="btn-primary" id="rec-detail-confirm" style="width:100%;margin-bottom:0.5rem">Mark as Paid</button>';
+  actionsHtml += '<button class="btn-primary" id="rec-detail-confirm" style="width:100%;margin-bottom:0.5rem">' + (isIncome ? 'Mark as Received' : 'Mark as Paid') + '</button>';
   actionsHtml += '<button class="btn-secondary" id="rec-detail-edit" style="width:100%;margin-bottom:0.5rem">Edit</button>';
   actionsHtml += '<button class="btn-danger" id="rec-detail-delete" style="width:100%">Delete</button>';
   actionsEl.innerHTML = actionsHtml;
@@ -3843,7 +3850,7 @@ function openRecDetailSheet(billId) {
     closeRecDetailSheet();
     showConfirmModal(bill.name, futureStr, function() {
       confirmBill(billId);
-    });
+    }, isIncome);
   });
   $('#rec-detail-edit').addEventListener('click', function() { editBill(billId); });
   $('#rec-detail-delete').addEventListener('click', function() { deleteBillAndClose(billId); });
