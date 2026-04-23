@@ -1394,7 +1394,11 @@ function throttledSync() {
   firstSync = false;
   syncInFlight = true;
   localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
-  backgroundSync().finally(function() { syncInFlight = false; });
+  renderLastUpdated();
+  backgroundSync().finally(function() {
+    syncInFlight = false;
+    renderLastUpdated();
+  });
 }
 
 // Start recurring sync timer when accounts exist
@@ -1452,7 +1456,6 @@ async function backgroundSync() {
     }
 
     localStorage.setItem('alenjo_last_sync_success', String(Date.now()));
-    renderLastUpdated();
   } catch (e) {
     console.error('Background sync error:', e);
   }
@@ -1475,8 +1478,17 @@ function formatRelativeTime(ts) {
 function renderLastUpdated() {
   var el = $('#snapshot-updated');
   if (!el) return;
+  if (!cachedAccounts || cachedAccounts.length === 0) {
+    el.hidden = true;
+    return;
+  }
+  if (syncInFlight) {
+    el.textContent = 'Updating...';
+    el.hidden = false;
+    return;
+  }
   var ts = parseInt(localStorage.getItem('alenjo_last_sync_success') || '0');
-  if (!ts || !cachedAccounts || cachedAccounts.length === 0) {
+  if (!ts) {
     el.hidden = true;
     return;
   }
