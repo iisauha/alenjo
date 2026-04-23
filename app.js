@@ -183,6 +183,7 @@ function switchTab(tabName) {
   var nav = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
   if (nav) nav.classList.add('active');
   if (tabName !== 'settings') localStorage.setItem('alenjo_active_tab', tabName);
+  if (tabName === 'snapshot' && typeof renderLastUpdated === 'function') renderLastUpdated();
 }
 
 // Settings via header avatar/name
@@ -1349,6 +1350,7 @@ async function loadAccounts() {
   cachedAccounts = result.data || [];
   renderAccounts(cachedAccounts);
   resolveLogos();
+  renderLastUpdated();
 
   // Background sync (includes balance update via free /accounts/get)
   if (cachedAccounts.length > 0) {
@@ -1447,9 +1449,38 @@ async function backgroundSync() {
         renderAccounts(cachedAccounts);
       }
     }
+
+    localStorage.setItem('alenjo_last_sync_success', String(Date.now()));
+    renderLastUpdated();
   } catch (e) {
     console.error('Background sync error:', e);
   }
+}
+
+function formatRelativeTime(ts) {
+  var diff = Date.now() - ts;
+  if (diff < 0) diff = 0;
+  var min = Math.floor(diff / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return min + 'm ago';
+  var hr = Math.floor(min / 60);
+  if (hr < 24) return hr + 'h ago';
+  var day = Math.floor(hr / 24);
+  if (day < 7) return day + 'd ago';
+  var d = new Date(ts);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function renderLastUpdated() {
+  var el = $('#snapshot-updated');
+  if (!el) return;
+  var ts = parseInt(localStorage.getItem('alenjo_last_sync_success') || '0');
+  if (!ts || !cachedAccounts || cachedAccounts.length === 0) {
+    el.hidden = true;
+    return;
+  }
+  el.textContent = 'Updated ' + formatRelativeTime(ts);
+  el.hidden = false;
 }
 
 
