@@ -1394,7 +1394,6 @@ function throttledSync() {
   firstSync = false;
   syncInFlight = true;
   localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
-  renderLastUpdated();
   backgroundSync().finally(function() {
     syncInFlight = false;
     renderLastUpdated();
@@ -1478,17 +1477,8 @@ function formatRelativeTime(ts) {
 function renderLastUpdated() {
   var el = $('#snapshot-updated');
   if (!el) return;
-  if (!cachedAccounts || cachedAccounts.length === 0) {
-    el.hidden = true;
-    return;
-  }
-  if (syncInFlight) {
-    el.textContent = 'Updating...';
-    el.hidden = false;
-    return;
-  }
   var ts = parseInt(localStorage.getItem('alenjo_last_sync_success') || '0');
-  if (!ts) {
+  if (!ts || !cachedAccounts || cachedAccounts.length === 0) {
     el.hidden = true;
     return;
   }
