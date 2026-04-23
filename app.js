@@ -91,30 +91,10 @@ function startAutofillWatch() {
 authEmail.addEventListener('change', startAutofillWatch);
 authPassword.addEventListener('change', startAutofillWatch);
 
-// Tapping "Sign in with Face ID" asks the browser for a saved
-// credential. Where the Credential Management API works (Chrome,
-// some Safari builds), this pops the native Face ID / password
-// picker directly. Everywhere else we fall back to focusing the
-// password field, which surfaces iOS's AutoFill bar above the
-// keyboard.
-authFaceId.addEventListener('click', async function() {
-  autofillReady = false;
-  if (navigator.credentials && typeof navigator.credentials.get === 'function') {
-    try {
-      var cred = await navigator.credentials.get({ password: true, mediation: 'required' });
-      if (cred && cred.id) {
-        authEmail.value = cred.id;
-        authPassword.value = cred.password || '';
-        authSubmit.disabled = true;
-        authSubmit.textContent = 'Signing in...';
-        authForm.requestSubmit();
-        return;
-      }
-    } catch (err) {
-      // API not supported or user canceled - fall through
-    }
-  }
-  authPassword.focus();
+// Hard-reload so iOS replays its AutoFill heuristics and pops the
+// native Face ID / password sheet, same as a fresh app open.
+authFaceId.addEventListener('click', function() {
+  location.reload();
 });
 
 // Sign out any existing session on load so user must log in every time
