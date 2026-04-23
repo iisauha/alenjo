@@ -111,7 +111,16 @@ sb.auth.signOut().then(function() {
         showScreen('app');
       });
     } else if (event === 'SIGNED_OUT') {
+      var wasSignedIn = currentUser !== null;
       currentUser = null;
+      if (wasSignedIn) {
+        authEmail.value = '';
+        authPassword.value = '';
+        // After an explicit sign-out the user must tap Sign In, even if
+        // the browser refills the fields.
+        autofillReady = true;
+        if (autofillPoller) { clearInterval(autofillPoller); autofillPoller = null; }
+      }
       showScreen('login');
     }
   });
