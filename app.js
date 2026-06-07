@@ -38,6 +38,89 @@ var cachedAccounts = null;
 var cachedBalances = { available: 0, savings: 0, investments: 0 };
 
 // ============================================
+// ============================================
+// BETA GATE + SIGNUP
+// ============================================
+var betaForm = $('#beta-form');
+var betaCode = $('#beta-code');
+var betaSubmit = $('#beta-submit');
+var betaError = $('#beta-error');
+var signupForm = $('#signup-form');
+var signupName = $('#signup-name');
+var signupEmail = $('#signup-email');
+var signupPassword = $('#signup-password');
+var signupSubmit = $('#signup-submit');
+var signupError = $('#signup-error');
+var signupSuccess = $('#signup-success');
+
+$('#btn-goto-beta').addEventListener('click', function() { showScreen('beta'); });
+$('#btn-back-to-login').addEventListener('click', function() { showScreen('login'); });
+$('#btn-back-to-login-from-signup').addEventListener('click', function() { showScreen('login'); });
+
+betaForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  betaSubmit.disabled = true;
+  betaError.hidden = true;
+  betaSubmit.textContent = 'Checking...';
+
+  try {
+    var res = await fetch(SUPABASE_URL + '/functions/v1/validate-beta-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: betaCode.value.trim() })
+    });
+    var data = await res.json();
+    if (data.valid) {
+      betaCode.value = '';
+      showScreen('signup');
+    } else {
+      betaError.textContent = 'Invalid beta code.';
+      betaError.hidden = false;
+    }
+  } catch (err) {
+    betaError.textContent = 'Something went wrong. Try again.';
+    betaError.hidden = false;
+  }
+
+  betaSubmit.disabled = false;
+  betaSubmit.textContent = 'Continue';
+});
+
+signupForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  signupSubmit.disabled = true;
+  signupError.hidden = true;
+  signupSuccess.hidden = true;
+  signupSubmit.textContent = 'Creating account...';
+
+  var name = signupName.value.trim();
+  var email = signupEmail.value.trim();
+  var password = signupPassword.value;
+
+  var result = await sb.auth.signUp({
+    email: email,
+    password: password,
+    options: { data: { full_name: name } }
+  });
+
+  if (result.error) {
+    signupError.textContent = result.error.message;
+    signupError.hidden = false;
+    signupSubmit.disabled = false;
+    signupSubmit.textContent = 'Create Account';
+    return;
+  }
+
+  signupSuccess.textContent = 'Account created! Check your email to confirm, then sign in.';
+  signupSuccess.hidden = false;
+  signupForm.reset();
+  signupSubmit.disabled = false;
+  signupSubmit.textContent = 'Create Account';
+
+  setTimeout(function() { showScreen('login'); }, 3000);
+});
+
+// ============================================
 // AUTH (sign-in only, no new signups)
 // ============================================
 authForm.addEventListener('submit', async function(e) {
