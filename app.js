@@ -2524,8 +2524,10 @@ function getEffectiveTx(tx) {
   } else if (action.split_ways && action.split_ways > 1) {
     result.isSplit = true;
     result.splitWays = action.split_ways;
-    result.reimbursement = Math.abs(tx.amount) - Math.abs(tx.amount) / action.split_ways;
-    if (!result.excluded) result.amount = tx.amount / action.split_ways;
+    // Round up to nearest cent so user always gets the higher portion when amount doesn't divide evenly
+    var userPortion = Math.ceil(Math.abs(tx.amount) * 100 / action.split_ways) / 100;
+    result.reimbursement = Math.abs(tx.amount) - userPortion;
+    if (!result.excluded) result.amount = tx.amount > 0 ? userPortion : -userPortion;
   }
   if (action.category_override) {
     result.isRecategorized = true;
