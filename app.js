@@ -2155,8 +2155,8 @@ function accountCard(account, type) {
     if (liab && liab.is_overdue && hasMinPayment) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
 
     if (details) liabHtml += details;
-    if (!liab && !details) {
-      liabHtml += '<div class="liab-detail liab-unavailable"><span>This card\'s issuer doesn\'t share card details with Plaid.</span></div>';
+    if (!details) {
+      liabHtml += '<div class="liab-detail liab-unavailable"><span>This institution currently does not support card details.</span></div>';
     }
 
     var bonus = computeBonusProgress(account);
