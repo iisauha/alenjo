@@ -1550,12 +1550,11 @@ async function backgroundSync() {
     var hasBonus = cachedAccounts && cachedAccounts.some(function(a) { return a.type === 'credit' && a.bonus_target_amount; });
     if (hasBonus) {
       var now = new Date();
-      var dataStartDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      var dataStartDate = new Date(now.getFullYear(), now.getMonth() - 24, 1);
       var fcResult = await sb.rpc('get_first_connection_date');
       if (fcResult.data) {
         var fc = new Date(fcResult.data);
-        fc.setMonth(fc.getMonth() - 2);
-        dataStartDate = fc;
+        dataStartDate = new Date(fc.getFullYear(), fc.getMonth(), 1);
       }
       var cap = new Date(now.getFullYear(), now.getMonth() - 24, 1);
       if (dataStartDate < cap) dataStartDate = cap;
@@ -2404,14 +2403,13 @@ async function loadTransactions() {
   txEmpty.hidden = true;
   txLoadingEl.classList.remove('visible');
 
-  // Determine data window: first connection - 2 months, capped at 24 months
+  // Determine data window: start of first connection month, capped at 24 months
   var now = new Date();
-  var dataStartDate = new Date(now.getFullYear(), now.getMonth() - 2, 1); // default 3 months
+  var dataStartDate = new Date(now.getFullYear(), now.getMonth() - 24, 1);
   var fcResult = await sb.rpc('get_first_connection_date');
   if (fcResult.data) {
     var fc = new Date(fcResult.data);
-    fc.setMonth(fc.getMonth() - 2);
-    dataStartDate = fc;
+    dataStartDate = new Date(fc.getFullYear(), fc.getMonth(), 1);
   }
   var cap = new Date(now.getFullYear(), now.getMonth() - 24, 1);
   if (dataStartDate < cap) dataStartDate = cap;
