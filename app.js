@@ -379,7 +379,7 @@ function applyTabOrder() {
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
   // Remove old tabs that no longer exist
-  var validTabs = ['snapshot', 'transactions', 'recurring'];
+  var validTabs = ['snapshot', 'transactions', 'recurring', 'budget'];
   order = order.filter(function(t) { return validTabs.indexOf(t) !== -1; });
   // Ensure all valid tabs are present
   validTabs.forEach(function(t) {
@@ -4607,6 +4607,230 @@ function flashSaved(btn) {
     btn.disabled = false;
   }, 1200);
 }
+
+// ============================================
+// BUDGET TAB
+// ============================================
+(function() {
+  var STORAGE_KEY = 'alenjo_budget';
+
+  function loadBudgetData() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { income: '', expenses: [] }; }
+    catch (e) { return { income: '', expenses: [] }; }
+  }
+
+  function saveBudgetData(data) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  var budgetData = loadBudgetData();
+
+  var incomeInput   = document.getElementById('budget-income-input');
+  var expenseList   = document.getElementById('budget-expense-list');
+  var discretionary = document.getElementById('budget-discretionary');
+  var discPct       = document.getElementById('budget-discretionary-pct');
+  var addBtn        = document.getElementById('btn-add-budget-expense');
+  var addSheet      = document.getElementById('budget-add-sheet');
+  var sheetTitle    = document.getElementById('budget-sheet-title');
+  var expName       = document.getElementById('budget-exp-name');
+  var expAmount     = document.getElementById('budget-exp-amount');
+  var expSave       = document.getElementById('budget-exp-save');
+  var expCancel     = document.getElementById('budget-exp-cancel');
+
+  var editingIndex = -1;
+
+  function fmt(n) {
+    return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  function renderExpenses() {
+    if (!budgetData.expenses.length) {
+      expenseList.innerHTML = '<p class="budget-empty-hint">No expenses added yet</p>';
+      return;
+    }
+    expenseList.innerHTML = budgetData.expenses.map(function(exp, i) {
+      return '<div class="budget-expense-row">' +
+        '<span class="budget-expense-name">' + esc(exp.name) + '</span>' +
+        '<span class="budget-expense-amt">' + fmt(exp.amount) + '/mo</span>' +
+        '<button class="budget-expense-delete" data-index="' + i + '" title="Remove" aria-label="Remove ' + esc(exp.name) + '">&times;</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderResult() {
+    var income = parseFloat(budgetData.income) || 0;
+    var totalExp = budgetData.expenses.reduce(function(s, e) { return s + e.amount; }, 0);
+    var disc = income - totalExp;
+
+    if (!income) {
+      discretionary.textContent = '--';
+      discretionary.className = 'budget-discretionary';
+      discPct.textContent = '';
+    } else {
+      discretionary.textContent = (disc < 0 ? '-' : '') + fmt(disc);
+      discretionary.className = 'budget-discretionary ' + (disc >= 0 ? 'positive' : 'negative');
+      var pct = income > 0 ? Math.round((disc / income) * 100) : 0;
+      discPct.textContent = pct + '% of income remaining';
+    }
+
+    renderSankey(income, totalExp, disc);
+  }
+
+  function renderSankey(income, totalExp, disc) {
+    var svg = document.getElementById('budget-sankey');
+    if (!svg) return;
+    svg.innerHTML = '';
+
+    if (!income) return;
+
+    var W = svg.getBoundingClientRect().width || 300;
+    var H = 200;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('height', H);
+
+    var pad = 16;
+    var nodeW = 12;
+    var centerX = W / 2;
+    var yPad = 20;
+    var usableH = H - yPad * 2;
+
+    // Income node (left)
+    var inX = pad;
+    var inH = usableH;
+    var inY = yPad;
+
+    // Expenses node (right-top) and discretionary node (right-bottom)
+    var expH = income > 0 ? Math.round((Math.min(totalExp, income) / income) * usableH) : 0;
+    var discH = Math.max(usableH - expH, 4);
+    var expY = yPad;
+    var discY = yPad + expH;
+    var outX = W - pad - nodeW;
+
+    function band(x1, y1, h1, x2, y2, h2, color, opacity) {
+      var cp = (x2 - x1) * 0.5;
+      var d = 'M ' + (x1 + nodeW) + ' ' + y1 +
+              ' C ' + (x1 + nodeW + cp) + ' ' + y1 + ', ' + (x2 - cp) + ' ' + y2 + ', ' + x2 + ' ' + y2 +
+              ' L ' + x2 + ' ' + (y2 + h2) +
+              ' C ' + (x2 - cp) + ' ' + (y2 + h2) + ', ' + (x1 + nodeW + cp) + ' ' + (y1 + h1) + ', ' + (x1 + nodeW) + ' ' + (y1 + h1) +
+              ' Z';
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', color);
+      path.setAttribute('fill-opacity', opacity);
+      svg.appendChild(path);
+    }
+
+    function rect(x, y, w, h, color) {
+      var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r.setAttribute('x', x); r.setAttribute('y', y);
+      r.setAttribute('width', w); r.setAttribute('height', h);
+      r.setAttribute('rx', 3); r.setAttribute('fill', color);
+      svg.appendChild(r);
+    }
+
+    function label(x, y, text, anchor, color) {
+      var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', x); t.setAttribute('y', y);
+      t.setAttribute('text-anchor', anchor);
+      t.setAttribute('fill', color || '#8E95A8');
+      t.setAttribute('font-size', '11');
+      t.setAttribute('font-family', 'DM Sans, sans-serif');
+      t.textContent = text;
+      svg.appendChild(t);
+    }
+
+    // Bands
+    if (expH > 2) band(inX, inY, expH, outX, expY, expH, '#F45030', 0.18);
+    band(inX, inY + expH, Math.max(inH - expH, 4), outX, discY, discH, '#2ECC71', 0.18);
+
+    // Nodes
+    rect(inX, inY, nodeW, inH, '#3C82F6');
+    if (expH > 2) rect(outX, expY, nodeW, expH, '#F45030');
+    rect(outX, discY, nodeW, discH, '#2ECC71');
+
+    // Labels
+    label(inX + nodeW + 6, inY + inH / 2 + 4, 'Income', 'start', '#3C82F6');
+    if (expH > 14) label(outX - 6, expY + expH / 2 + 4, 'Expenses', 'end', '#F45030');
+    if (discH > 14) label(outX - 6, discY + discH / 2 + 4, 'Free', 'end', '#2ECC71');
+  }
+
+  function render() {
+    renderExpenses();
+    renderResult();
+  }
+
+  // Restore income
+  if (budgetData.income) incomeInput.value = budgetData.income;
+
+  incomeInput.addEventListener('input', function() {
+    budgetData.income = this.value;
+    saveBudgetData(budgetData);
+    renderResult();
+  });
+
+  expenseList.addEventListener('click', function(e) {
+    var del = e.target.closest('.budget-expense-delete');
+    if (!del) return;
+    var idx = parseInt(del.dataset.index, 10);
+    budgetData.expenses.splice(idx, 1);
+    saveBudgetData(budgetData);
+    render();
+  });
+
+  expenseList.addEventListener('click', function(e) {
+    var row = e.target.closest('.budget-expense-row');
+    if (!row || e.target.classList.contains('budget-expense-delete')) return;
+    var idx = parseInt(row.querySelector('.budget-expense-delete').dataset.index, 10);
+    editingIndex = idx;
+    var exp = budgetData.expenses[idx];
+    expName.value = exp.name;
+    expAmount.value = exp.amount;
+    sheetTitle.textContent = 'Edit Expense';
+    expSave.textContent = 'Save';
+    addSheet.classList.add('active');
+    setTimeout(function() { expName.focus(); }, 50);
+  });
+
+  addBtn.addEventListener('click', function() {
+    editingIndex = -1;
+    expName.value = '';
+    expAmount.value = '';
+    sheetTitle.textContent = 'Add Expense';
+    expSave.textContent = 'Add';
+    addSheet.classList.add('active');
+    setTimeout(function() { expName.focus(); }, 50);
+  });
+
+  function closeSheet() { addSheet.classList.remove('active'); }
+
+  expCancel.addEventListener('click', closeSheet);
+  addSheet.addEventListener('click', function(e) {
+    if (e.target === addSheet) closeSheet();
+  });
+
+  expSave.addEventListener('click', function() {
+    var name = expName.value.trim();
+    var amount = parseFloat(expAmount.value);
+    if (!name || isNaN(amount) || amount <= 0) return;
+    if (editingIndex >= 0) {
+      budgetData.expenses[editingIndex] = { name: name, amount: amount };
+    } else {
+      budgetData.expenses.push({ name: name, amount: amount });
+    }
+    saveBudgetData(budgetData);
+    render();
+    closeSheet();
+  });
+
+  // Re-render sankey on tab switch (needs real width)
+  document.getElementById('bottom-nav').addEventListener('click', function(e) {
+    if (e.target.closest('[data-tab="budget"]')) {
+      setTimeout(renderResult, 50);
+    }
+  });
+
+  render();
+})();
 
 // ============================================
 // SERVICE WORKER CLEANUP

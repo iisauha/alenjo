@@ -309,6 +309,58 @@
       </div>
     </div>
 
+    <!-- BUDGET TAB -->
+    <section id="tab-budget" class="tab-content">
+      <div class="budget-wrap">
+
+        <div class="budget-income-card">
+          <label class="budget-section-label">Monthly Income (after tax)</label>
+          <div class="budget-income-row">
+            <span class="budget-currency-symbol">$</span>
+            <input type="number" id="budget-income-input" class="budget-income-input" inputmode="decimal" placeholder="0" min="0" step="1">
+          </div>
+        </div>
+
+        <div class="budget-expenses-card">
+          <div class="budget-expenses-header">
+            <span class="budget-section-label">Recurring Expenses</span>
+            <button id="btn-add-budget-expense" class="btn-link-accent">+ Add</button>
+          </div>
+          <div id="budget-expense-list" class="budget-expense-list">
+            <p class="budget-empty-hint">No expenses added yet</p>
+          </div>
+        </div>
+
+        <div class="budget-result-card">
+          <div class="budget-result-label">Discretionary Income</div>
+          <div id="budget-discretionary" class="budget-discretionary">--</div>
+          <div id="budget-discretionary-pct" class="budget-discretionary-pct"></div>
+        </div>
+
+        <div class="budget-sankey-card">
+          <div class="budget-section-label" style="margin-bottom:0.75rem">Cash Flow</div>
+          <svg id="budget-sankey" class="budget-sankey" width="100%"></svg>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Budget Add Expense Sheet -->
+    <div id="budget-add-sheet" class="action-sheet-overlay">
+      <div class="action-sheet">
+        <div class="action-sheet-header">
+          <span class="action-sheet-title" id="budget-sheet-title">Add Expense</span>
+        </div>
+        <input type="text" id="budget-exp-name" class="app-input" placeholder="Name (e.g. Rent)" maxlength="40" style="margin-bottom:0.75rem">
+        <div class="budget-add-amount-row">
+          <span class="budget-currency-symbol" style="font-size:1.1rem">$</span>
+          <input type="number" id="budget-exp-amount" class="app-input" inputmode="decimal" placeholder="Amount" min="0" step="1">
+        </div>
+        <button id="budget-exp-save" class="btn-primary" style="width:100%;margin-top:1rem">Add</button>
+        <button class="action-sheet-cancel" id="budget-exp-cancel">Cancel</button>
+      </div>
+    </div>
+
     <!-- SETTINGS TAB -->
     <section id="tab-settings" class="tab-content">
       <div class="settings-card">
@@ -380,6 +432,12 @@
           <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
         </svg>
         <span>Transactions</span>
+      </button>
+      <button class="nav-item" data-tab="budget">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <span>Budget</span>
       </button>
     </nav>
   </div>
