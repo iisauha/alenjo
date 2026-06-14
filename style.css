@@ -3808,6 +3808,10 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  cursor: pointer;
+}
+.budget-expense-row:active {
+  opacity: 0.7;
 }
 
 .budget-expense-name {
@@ -3832,14 +3836,18 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  padding: 0.2rem 0.35rem;
-  font-size: 1rem;
-  line-height: 1;
+  padding: 0.4rem 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 6px;
   flex-shrink: 0;
+  min-width: 32px;
+  min-height: 32px;
   transition: color 0.15s;
 }
-.budget-expense-delete:hover { color: var(--danger); }
+.budget-expense-delete:hover,
+.budget-expense-delete:active { color: var(--danger); }
 
 .budget-result-label {
   font-size: var(--text-xs);
@@ -3878,14 +3886,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   height: 200px;
 }
 
-.budget-add-amount-row {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.budget-add-amount-row .app-input {
-  flex: 1;
-}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

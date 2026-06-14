@@ -4625,17 +4625,17 @@ function flashSaved(btn) {
 
   var budgetData = loadBudgetData();
 
-  var incomeInput   = document.getElementById('budget-income-input');
-  var expenseList   = document.getElementById('budget-expense-list');
-  var discretionary = document.getElementById('budget-discretionary');
-  var discPct       = document.getElementById('budget-discretionary-pct');
-  var addBtn        = document.getElementById('btn-add-budget-expense');
-  var addSheet      = document.getElementById('budget-add-sheet');
-  var sheetTitle    = document.getElementById('budget-sheet-title');
-  var expName       = document.getElementById('budget-exp-name');
-  var expAmount     = document.getElementById('budget-exp-amount');
-  var expSave       = document.getElementById('budget-exp-save');
-  var expCancel     = document.getElementById('budget-exp-cancel');
+  var incomeInput    = document.getElementById('budget-income-input');
+  var expenseList    = document.getElementById('budget-expense-list');
+  var discretionary  = document.getElementById('budget-discretionary');
+  var discPct        = document.getElementById('budget-discretionary-pct');
+  var addBtn         = document.getElementById('btn-add-budget-expense');
+  var addSheet       = document.getElementById('budget-add-sheet');
+  var sheetTitle     = document.getElementById('budget-sheet-title');
+  var expName        = document.getElementById('budget-exp-name');
+  var expAmount      = document.getElementById('budget-exp-amount');
+  var expSave        = document.getElementById('budget-exp-save');
+  var expCancel      = document.getElementById('budget-exp-cancel');
 
   var editingIndex = -1;
 
@@ -4643,33 +4643,37 @@ function flashSaved(btn) {
     return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   }
 
+  // ---- Expense list ----
   function renderExpenses() {
     if (!budgetData.expenses.length) {
       expenseList.innerHTML = '<p class="budget-empty-hint">No expenses added yet</p>';
       return;
     }
     expenseList.innerHTML = budgetData.expenses.map(function(exp, i) {
-      return '<div class="budget-expense-row">' +
+      return '<div class="budget-expense-row" data-index="' + i + '">' +
         '<span class="budget-expense-name">' + esc(exp.name) + '</span>' +
         '<span class="budget-expense-amt">' + fmt(exp.amount) + '/mo</span>' +
-        '<button class="budget-expense-delete" data-index="' + i + '" title="Remove" aria-label="Remove ' + esc(exp.name) + '">&times;</button>' +
+        '<button class="budget-expense-delete" data-index="' + i + '" aria-label="Remove">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+        '</button>' +
       '</div>';
     }).join('');
   }
 
+  // ---- Result & Sankey ----
   function renderResult() {
-    var income = parseFloat(budgetData.income) || 0;
+    var income   = parseFloat(budgetData.income) || 0;
     var totalExp = budgetData.expenses.reduce(function(s, e) { return s + e.amount; }, 0);
-    var disc = income - totalExp;
+    var disc     = income - totalExp;
 
     if (!income) {
       discretionary.textContent = '--';
-      discretionary.className = 'budget-discretionary';
-      discPct.textContent = '';
+      discretionary.className   = 'budget-discretionary';
+      discPct.textContent       = '';
     } else {
       discretionary.textContent = (disc < 0 ? '-' : '') + fmt(disc);
-      discretionary.className = 'budget-discretionary ' + (disc >= 0 ? 'positive' : 'negative');
-      var pct = income > 0 ? Math.round((disc / income) * 100) : 0;
+      discretionary.className   = 'budget-discretionary ' + (disc >= 0 ? 'positive' : 'negative');
+      var pct = Math.round((disc / income) * 100);
       discPct.textContent = pct + '% of income remaining';
     }
 
@@ -4680,86 +4684,114 @@ function flashSaved(btn) {
     var svg = document.getElementById('budget-sankey');
     if (!svg) return;
     svg.innerHTML = '';
-
     if (!income) return;
 
-    var W = svg.getBoundingClientRect().width || 300;
+    var W = svg.parentElement.clientWidth - 32; // card padding
+    if (W < 100) W = 300;
     var H = 200;
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W);
     svg.setAttribute('height', H);
 
-    var pad = 16;
-    var nodeW = 12;
-    var centerX = W / 2;
-    var yPad = 20;
+    var pad   = 12;
+    var nodeW = 10;
+    var yPad  = 24;
     var usableH = H - yPad * 2;
-
-    // Income node (left)
-    var inX = pad;
-    var inH = usableH;
-    var inY = yPad;
-
-    // Expenses node (right-top) and discretionary node (right-bottom)
-    var expH = income > 0 ? Math.round((Math.min(totalExp, income) / income) * usableH) : 0;
-    var discH = Math.max(usableH - expH, 4);
-    var expY = yPad;
-    var discY = yPad + expH;
+    var inX  = pad;
     var outX = W - pad - nodeW;
+    var inY  = yPad;
+    var inH  = usableH;
 
-    function band(x1, y1, h1, x2, y2, h2, color, opacity) {
-      var cp = (x2 - x1) * 0.5;
-      var d = 'M ' + (x1 + nodeW) + ' ' + y1 +
-              ' C ' + (x1 + nodeW + cp) + ' ' + y1 + ', ' + (x2 - cp) + ' ' + y2 + ', ' + x2 + ' ' + y2 +
-              ' L ' + x2 + ' ' + (y2 + h2) +
-              ' C ' + (x2 - cp) + ' ' + (y2 + h2) + ', ' + (x1 + nodeW + cp) + ' ' + (y1 + h1) + ', ' + (x1 + nodeW) + ' ' + (y1 + h1) +
-              ' Z';
-      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', d);
-      path.setAttribute('fill', color);
-      path.setAttribute('fill-opacity', opacity);
-      svg.appendChild(path);
+    var expH  = income > 0 ? Math.round((Math.min(totalExp, income) / income) * usableH) : 0;
+    var discH = Math.max(usableH - expH, 4);
+    var expY  = yPad;
+    var discY = yPad + expH;
+
+    function svgEl(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+    function band(x1, y1, h1, x2, y2, h2, color) {
+      var cp = (x2 - x1) * 0.55;
+      var d  = 'M ' + (x1 + nodeW) + ' ' + y1 +
+               ' C ' + (x1 + nodeW + cp) + ' ' + y1 + ',' + (x2 - cp) + ' ' + y2 + ',' + x2 + ' ' + y2 +
+               ' L ' + x2 + ' ' + (y2 + h2) +
+               ' C ' + (x2 - cp) + ' ' + (y2 + h2) + ',' + (x1 + nodeW + cp) + ' ' + (y1 + h1) + ',' + (x1 + nodeW) + ' ' + (y1 + h1) +
+               ' Z';
+      var p = svgEl('path');
+      p.setAttribute('d', d);
+      p.setAttribute('fill', color);
+      p.setAttribute('fill-opacity', '0.15');
+      svg.appendChild(p);
     }
 
-    function rect(x, y, w, h, color) {
-      var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    function bar(x, y, w, h, color) {
+      var r = svgEl('rect');
       r.setAttribute('x', x); r.setAttribute('y', y);
       r.setAttribute('width', w); r.setAttribute('height', h);
       r.setAttribute('rx', 3); r.setAttribute('fill', color);
       svg.appendChild(r);
     }
 
-    function label(x, y, text, anchor, color) {
-      var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    function text(x, y, str, anchor, color, size) {
+      var t = svgEl('text');
       t.setAttribute('x', x); t.setAttribute('y', y);
-      t.setAttribute('text-anchor', anchor);
+      t.setAttribute('text-anchor', anchor || 'start');
       t.setAttribute('fill', color || '#8E95A8');
-      t.setAttribute('font-size', '11');
+      t.setAttribute('font-size', size || '11');
       t.setAttribute('font-family', 'DM Sans, sans-serif');
-      t.textContent = text;
+      t.textContent = str;
       svg.appendChild(t);
     }
 
     // Bands
-    if (expH > 2) band(inX, inY, expH, outX, expY, expH, '#F45030', 0.18);
-    band(inX, inY + expH, Math.max(inH - expH, 4), outX, discY, discH, '#2ECC71', 0.18);
+    if (expH > 2)  band(inX, inY, expH, outX, expY, expH, '#F45030');
+    if (discH > 2) band(inX, inY + expH, Math.max(inH - expH, 4), outX, discY, discH, '#2ECC71');
 
-    // Nodes
-    rect(inX, inY, nodeW, inH, '#3C82F6');
-    if (expH > 2) rect(outX, expY, nodeW, expH, '#F45030');
-    rect(outX, discY, nodeW, discH, '#2ECC71');
+    // Bars
+    bar(inX, inY, nodeW, inH, '#3C82F6');
+    if (expH > 2)  bar(outX, expY, nodeW, expH, '#F45030');
+    if (discH > 2) bar(outX, discY, nodeW, discH, '#2ECC71');
 
-    // Labels
-    label(inX + nodeW + 6, inY + inH / 2 + 4, 'Income', 'start', '#3C82F6');
-    if (expH > 14) label(outX - 6, expY + expH / 2 + 4, 'Expenses', 'end', '#F45030');
-    if (discH > 14) label(outX - 6, discY + discH / 2 + 4, 'Free', 'end', '#2ECC71');
+    // Labels - left side
+    text(inX + nodeW + 7, inY + 13, 'Income', 'start', '#3C82F6', '11');
+    text(inX + nodeW + 7, inY + 26, fmt(income), 'start', '#3C82F6', '10');
+
+    // Labels - right side
+    if (expH > 18) {
+      text(outX - 7, expY + expH / 2 + 4, 'Expenses', 'end', '#F45030', '11');
+    }
+    if (discH > 18) {
+      text(outX - 7, discY + discH / 2 + 4, 'Free', 'end', '#2ECC71', '11');
+    }
   }
 
+  // ---- Full render ----
   function render() {
     renderExpenses();
     renderResult();
   }
 
-  // Restore income
+  // ---- Sheet open/close ----
+  function openSheet(isEdit, exp) {
+    if (isEdit && exp) {
+      sheetTitle.textContent  = 'Edit Expense';
+      expSave.textContent     = 'Save';
+      expName.value           = exp.name;
+      expAmount.value         = exp.amount;
+    } else {
+      sheetTitle.textContent  = 'Add Expense';
+      expSave.textContent     = 'Add';
+      expName.value           = '';
+      expAmount.value         = '';
+    }
+    addSheet.classList.add('visible');
+    setTimeout(function() { expName.focus(); }, 80);
+  }
+
+  function closeSheet() {
+    addSheet.classList.remove('visible');
+  }
+
+  // ---- Event listeners ----
   if (budgetData.income) incomeInput.value = budgetData.income;
 
   incomeInput.addEventListener('input', function() {
@@ -4769,39 +4801,27 @@ function flashSaved(btn) {
   });
 
   expenseList.addEventListener('click', function(e) {
+    // Delete button
     var del = e.target.closest('.budget-expense-delete');
-    if (!del) return;
-    var idx = parseInt(del.dataset.index, 10);
-    budgetData.expenses.splice(idx, 1);
-    saveBudgetData(budgetData);
-    render();
-  });
-
-  expenseList.addEventListener('click', function(e) {
+    if (del) {
+      var idx = parseInt(del.dataset.index, 10);
+      budgetData.expenses.splice(idx, 1);
+      saveBudgetData(budgetData);
+      render();
+      return;
+    }
+    // Tap row to edit
     var row = e.target.closest('.budget-expense-row');
-    if (!row || e.target.classList.contains('budget-expense-delete')) return;
-    var idx = parseInt(row.querySelector('.budget-expense-delete').dataset.index, 10);
-    editingIndex = idx;
-    var exp = budgetData.expenses[idx];
-    expName.value = exp.name;
-    expAmount.value = exp.amount;
-    sheetTitle.textContent = 'Edit Expense';
-    expSave.textContent = 'Save';
-    addSheet.classList.add('active');
-    setTimeout(function() { expName.focus(); }, 50);
+    if (row) {
+      editingIndex = parseInt(row.dataset.index, 10);
+      openSheet(true, budgetData.expenses[editingIndex]);
+    }
   });
 
   addBtn.addEventListener('click', function() {
     editingIndex = -1;
-    expName.value = '';
-    expAmount.value = '';
-    sheetTitle.textContent = 'Add Expense';
-    expSave.textContent = 'Add';
-    addSheet.classList.add('active');
-    setTimeout(function() { expName.focus(); }, 50);
+    openSheet(false);
   });
-
-  function closeSheet() { addSheet.classList.remove('active'); }
 
   expCancel.addEventListener('click', closeSheet);
   addSheet.addEventListener('click', function(e) {
@@ -4809,9 +4829,13 @@ function flashSaved(btn) {
   });
 
   expSave.addEventListener('click', function() {
-    var name = expName.value.trim();
+    var name   = expName.value.trim();
     var amount = parseFloat(expAmount.value);
-    if (!name || isNaN(amount) || amount <= 0) return;
+    if (!name || isNaN(amount) || amount <= 0) {
+      if (!name) expName.focus();
+      else expAmount.focus();
+      return;
+    }
     if (editingIndex >= 0) {
       budgetData.expenses[editingIndex] = { name: name, amount: amount };
     } else {
@@ -4822,10 +4846,17 @@ function flashSaved(btn) {
     closeSheet();
   });
 
-  // Re-render sankey on tab switch (needs real width)
+  // Allow Enter key in sheet inputs to save
+  [expName, expAmount].forEach(function(input) {
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') expSave.click();
+    });
+  });
+
+  // Re-render Sankey when Budget tab becomes visible (needs real width)
   document.getElementById('bottom-nav').addEventListener('click', function(e) {
     if (e.target.closest('[data-tab="budget"]')) {
-      setTimeout(renderResult, 50);
+      requestAnimationFrame(function() { setTimeout(renderResult, 30); });
     }
   });
 
