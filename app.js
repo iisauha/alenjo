@@ -4640,7 +4640,12 @@ function flashSaved(btn) {
   var editingIndex = -1;
 
   function fmt(n) {
-    return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    var abs = Math.abs(n);
+    var hasDecimals = abs % 1 !== 0;
+    return '$' + abs.toLocaleString('en-US', {
+      minimumFractionDigits: hasDecimals ? 2 : 0,
+      maximumFractionDigits: 2
+    });
   }
 
   // ---- Expense list ----
@@ -4795,7 +4800,7 @@ function flashSaved(btn) {
   if (budgetData.income) incomeInput.value = budgetData.income;
 
   incomeInput.addEventListener('input', function() {
-    budgetData.income = this.value ? String(Math.round(parseFloat(this.value))) : '';
+    budgetData.income = this.value;
     saveBudgetData(budgetData);
     renderResult();
   });
@@ -4830,7 +4835,7 @@ function flashSaved(btn) {
 
   expSave.addEventListener('click', function() {
     var name   = expName.value.trim();
-    var amount = Math.round(parseFloat(expAmount.value));
+    var amount = parseFloat(expAmount.value);
     if (!name || isNaN(amount) || amount <= 0) {
       if (!name) expName.focus();
       else expAmount.focus();
