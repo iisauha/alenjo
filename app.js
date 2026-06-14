@@ -4652,7 +4652,7 @@ function flashSaved(btn) {
     expenseList.innerHTML = budgetData.expenses.map(function(exp, i) {
       return '<div class="budget-expense-row" data-index="' + i + '">' +
         '<span class="budget-expense-name">' + esc(exp.name) + '</span>' +
-        '<span class="budget-expense-amt">' + fmt(exp.amount) + '/mo</span>' +
+        '<span class="budget-expense-amt">' + fmt(exp.amount) + '/2wk</span>' +
         '<button class="budget-expense-delete" data-index="' + i + '" aria-label="Remove">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
         '</button>' +
@@ -4674,7 +4674,7 @@ function flashSaved(btn) {
       discretionary.textContent = (disc < 0 ? '-' : '') + fmt(disc);
       discretionary.className   = 'budget-discretionary ' + (disc >= 0 ? 'positive' : 'negative');
       var pct = Math.round((disc / income) * 100);
-      discPct.textContent = pct + '% of income remaining';
+      discPct.textContent = pct + '% of paycheck remaining';
     }
 
     renderSankey(income, totalExp, disc);
@@ -4795,7 +4795,7 @@ function flashSaved(btn) {
   if (budgetData.income) incomeInput.value = budgetData.income;
 
   incomeInput.addEventListener('input', function() {
-    budgetData.income = this.value;
+    budgetData.income = this.value ? String(Math.round(parseFloat(this.value))) : '';
     saveBudgetData(budgetData);
     renderResult();
   });
@@ -4830,7 +4830,7 @@ function flashSaved(btn) {
 
   expSave.addEventListener('click', function() {
     var name   = expName.value.trim();
-    var amount = parseFloat(expAmount.value);
+    var amount = Math.round(parseFloat(expAmount.value));
     if (!name || isNaN(amount) || amount <= 0) {
       if (!name) expName.focus();
       else expAmount.focus();
