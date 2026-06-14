@@ -3789,6 +3789,20 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   margin-bottom: 0;
 }
 
+.budget-add-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  transition: color 0.15s;
+}
+.budget-add-btn:hover,
+.budget-add-btn:active { color: var(--accent-hover); }
+
 .budget-expense-list {
   margin-top: 0.5rem;
   display: flex;
