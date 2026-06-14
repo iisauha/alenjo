@@ -3938,16 +3938,32 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 .budget-expense-delete:hover,
 .budget-expense-delete:active { color: var(--danger); }
 
-/* Sankey chart */
-.budget-sankey-card {
-  overflow: hidden;
+/* Expense totals */
+.budget-expense-totals {
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+  padding-top: 0.65rem;
 }
 
-.budget-sankey {
-  display: block;
-  width: 100%;
-  height: 180px;
-  margin-top: 0.25rem;
+.budget-totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budget-totals-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.budget-totals-value {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 

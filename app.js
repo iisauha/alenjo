@@ -4649,23 +4649,31 @@ function flashSaved(btn) {
   }
 
   // ---- Expense list ----
+  var expTotalsEl  = document.getElementById('budget-expense-totals');
+  var expTotalAmt  = document.getElementById('budget-total-amt');
+
   function renderExpenses() {
     if (!budgetData.expenses.length) {
       expenseList.innerHTML = '<p class="budget-empty-hint">No expenses added yet</p>';
+      expTotalsEl.hidden = true;
       return;
     }
     expenseList.innerHTML = budgetData.expenses.map(function(exp, i) {
       return '<div class="budget-expense-row" data-index="' + i + '">' +
         '<span class="budget-expense-name">' + esc(exp.name) + '</span>' +
-        '<span class="budget-expense-amt">' + fmt(exp.amount) + '/2wk</span>' +
+        '<span class="budget-expense-amt">' + fmt(exp.amount) + '/mo</span>' +
         '<button class="budget-expense-delete" data-index="' + i + '" aria-label="Remove">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
         '</button>' +
       '</div>';
     }).join('');
+
+    var total = budgetData.expenses.reduce(function(s, e) { return s + e.amount; }, 0);
+    expTotalAmt.textContent = fmt(total) + '/mo';
+    expTotalsEl.hidden = false;
   }
 
-  // ---- Result & Sankey ----
+  // ---- Result ----
   function renderResult() {
     var income   = parseFloat(budgetData.income) || 0;
     var totalExp = budgetData.expenses.reduce(function(s, e) { return s + e.amount; }, 0);
@@ -4679,93 +4687,7 @@ function flashSaved(btn) {
       discretionary.textContent = (disc < 0 ? '-' : '') + fmt(disc);
       discretionary.className   = 'budget-discretionary ' + (disc >= 0 ? 'positive' : 'negative');
       var pct = Math.round((disc / income) * 100);
-      discPct.textContent = pct + '% of paycheck remaining';
-    }
-
-    renderSankey(income, totalExp, disc);
-  }
-
-  function renderSankey(income, totalExp, disc) {
-    var svg = document.getElementById('budget-sankey');
-    if (!svg) return;
-    svg.innerHTML = '';
-    if (!income) return;
-
-    var W = svg.parentElement.clientWidth - 32; // card padding
-    if (W < 100) W = 300;
-    var H = 200;
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-    svg.setAttribute('width', W);
-    svg.setAttribute('height', H);
-
-    var pad   = 12;
-    var nodeW = 10;
-    var yPad  = 24;
-    var usableH = H - yPad * 2;
-    var inX  = pad;
-    var outX = W - pad - nodeW;
-    var inY  = yPad;
-    var inH  = usableH;
-
-    var expH  = income > 0 ? Math.round((Math.min(totalExp, income) / income) * usableH) : 0;
-    var discH = Math.max(usableH - expH, 4);
-    var expY  = yPad;
-    var discY = yPad + expH;
-
-    function svgEl(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
-
-    function band(x1, y1, h1, x2, y2, h2, color) {
-      var cp = (x2 - x1) * 0.55;
-      var d  = 'M ' + (x1 + nodeW) + ' ' + y1 +
-               ' C ' + (x1 + nodeW + cp) + ' ' + y1 + ',' + (x2 - cp) + ' ' + y2 + ',' + x2 + ' ' + y2 +
-               ' L ' + x2 + ' ' + (y2 + h2) +
-               ' C ' + (x2 - cp) + ' ' + (y2 + h2) + ',' + (x1 + nodeW + cp) + ' ' + (y1 + h1) + ',' + (x1 + nodeW) + ' ' + (y1 + h1) +
-               ' Z';
-      var p = svgEl('path');
-      p.setAttribute('d', d);
-      p.setAttribute('fill', color);
-      p.setAttribute('fill-opacity', '0.15');
-      svg.appendChild(p);
-    }
-
-    function bar(x, y, w, h, color) {
-      var r = svgEl('rect');
-      r.setAttribute('x', x); r.setAttribute('y', y);
-      r.setAttribute('width', w); r.setAttribute('height', h);
-      r.setAttribute('rx', 3); r.setAttribute('fill', color);
-      svg.appendChild(r);
-    }
-
-    function text(x, y, str, anchor, color, size) {
-      var t = svgEl('text');
-      t.setAttribute('x', x); t.setAttribute('y', y);
-      t.setAttribute('text-anchor', anchor || 'start');
-      t.setAttribute('fill', color || '#8E95A8');
-      t.setAttribute('font-size', size || '11');
-      t.setAttribute('font-family', 'DM Sans, sans-serif');
-      t.textContent = str;
-      svg.appendChild(t);
-    }
-
-    // Bands
-    if (expH > 2)  band(inX, inY, expH, outX, expY, expH, '#F45030');
-    if (discH > 2) band(inX, inY + expH, Math.max(inH - expH, 4), outX, discY, discH, '#2ECC71');
-
-    // Bars
-    bar(inX, inY, nodeW, inH, '#3C82F6');
-    if (expH > 2)  bar(outX, expY, nodeW, expH, '#F45030');
-    if (discH > 2) bar(outX, discY, nodeW, discH, '#2ECC71');
-
-    // Labels - left side
-    text(inX + nodeW + 7, inY + 13, 'Income', 'start', '#3C82F6', '11');
-    text(inX + nodeW + 7, inY + 26, fmt(income), 'start', '#3C82F6', '10');
-
-    // Labels - right side
-    if (expH > 18) {
-      text(outX - 7, expY + expH / 2 + 4, 'Expenses', 'end', '#F45030', '11');
-    }
-    if (discH > 18) {
-      text(outX - 7, discY + discH / 2 + 4, 'Free', 'end', '#2ECC71', '11');
+      discPct.textContent = pct + '% of income remaining';
     }
   }
 
@@ -4856,13 +4778,6 @@ function flashSaved(btn) {
     input.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') expSave.click();
     });
-  });
-
-  // Re-render Sankey when Budget tab becomes visible (needs real width)
-  document.getElementById('bottom-nav').addEventListener('click', function(e) {
-    if (e.target.closest('[data-tab="budget"]')) {
-      requestAnimationFrame(function() { setTimeout(renderResult, 30); });
-    }
   });
 
   render();
