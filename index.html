@@ -313,21 +313,36 @@
     <section id="tab-budget" class="tab-content">
       <div class="budget-wrap">
 
-        <!-- Hero stats row: Income + Discretionary -->
-        <div class="budget-hero">
-          <div class="budget-hero-stat">
-            <span class="budget-hero-label">Monthly Income</span>
-            <div class="budget-income-row">
-              <span class="budget-currency-symbol">$</span>
-              <input type="number" id="budget-income-input" class="budget-income-input" inputmode="decimal" placeholder="0" min="0" step="0.01">
+        <!-- Flip card: front = stats, back = sankey -->
+        <div class="budget-flip-scene" id="budget-flip-scene">
+          <div class="budget-flip-card" id="budget-flip-card">
+
+            <!-- FRONT: Income + Discretionary -->
+            <div class="budget-flip-face budget-flip-front">
+              <div class="budget-hero-stat">
+                <span class="budget-hero-label">Monthly Income</span>
+                <div class="budget-income-row">
+                  <span class="budget-currency-symbol">$</span>
+                  <input type="number" id="budget-income-input" class="budget-income-input" inputmode="decimal" placeholder="0" min="0" step="0.01">
+                </div>
+                <span class="budget-hero-sub">after tax</span>
+              </div>
+              <div class="budget-hero-divider"></div>
+              <div class="budget-hero-stat">
+                <span class="budget-hero-label">Discretionary</span>
+                <div id="budget-discretionary" class="budget-discretionary">--</div>
+                <div id="budget-discretionary-pct" class="budget-discretionary-pct"></div>
+              </div>
+              <div class="budget-flip-hint">Tap to see cash flow</div>
             </div>
-            <span class="budget-hero-sub">after tax</span>
-          </div>
-          <div class="budget-hero-divider"></div>
-          <div class="budget-hero-stat">
-            <span class="budget-hero-label">Discretionary</span>
-            <div id="budget-discretionary" class="budget-discretionary">--</div>
-            <div id="budget-discretionary-pct" class="budget-discretionary-pct"></div>
+
+            <!-- BACK: Sankey chart -->
+            <div class="budget-flip-face budget-flip-back">
+              <span class="budget-hero-label" style="margin-bottom:0.5rem;display:block">Cash Flow</span>
+              <svg id="budget-sankey" class="budget-sankey" width="100%" height="70"></svg>
+              <div class="budget-flip-hint">Tap to go back</div>
+            </div>
+
           </div>
         </div>
 
@@ -342,7 +357,7 @@
           </div>
           <div id="budget-expense-totals" class="budget-expense-totals" hidden>
             <div class="budget-totals-row">
-              <span class="budget-totals-label">Total</span>
+              <span class="budget-totals-label">Total expenses</span>
               <span id="budget-total-amt" class="budget-totals-value"></span>
             </div>
           </div>

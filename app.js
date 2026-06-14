@@ -4618,24 +4618,27 @@ function flashSaved(btn) {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { income: '', expenses: [] }; }
     catch (e) { return { income: '', expenses: [] }; }
   }
-
   function saveBudgetData(data) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
 
   var budgetData = loadBudgetData();
 
-  var incomeInput    = document.getElementById('budget-income-input');
-  var expenseList    = document.getElementById('budget-expense-list');
-  var discretionary  = document.getElementById('budget-discretionary');
-  var discPct        = document.getElementById('budget-discretionary-pct');
-  var addBtn         = document.getElementById('btn-add-budget-expense');
-  var addSheet       = document.getElementById('budget-add-sheet');
-  var sheetTitle     = document.getElementById('budget-sheet-title');
-  var expName        = document.getElementById('budget-exp-name');
-  var expAmount      = document.getElementById('budget-exp-amount');
-  var expSave        = document.getElementById('budget-exp-save');
-  var expCancel      = document.getElementById('budget-exp-cancel');
+  var incomeInput   = document.getElementById('budget-income-input');
+  var expenseList   = document.getElementById('budget-expense-list');
+  var discretionary = document.getElementById('budget-discretionary');
+  var discPct       = document.getElementById('budget-discretionary-pct');
+  var addBtn        = document.getElementById('btn-add-budget-expense');
+  var addSheet      = document.getElementById('budget-add-sheet');
+  var sheetTitle    = document.getElementById('budget-sheet-title');
+  var expName       = document.getElementById('budget-exp-name');
+  var expAmount     = document.getElementById('budget-exp-amount');
+  var expSave       = document.getElementById('budget-exp-save');
+  var expCancel     = document.getElementById('budget-exp-cancel');
+  var expTotalsEl   = document.getElementById('budget-expense-totals');
+  var expTotalAmt   = document.getElementById('budget-total-amt');
+  var flipCard      = document.getElementById('budget-flip-card');
+  var flipScene     = document.getElementById('budget-flip-scene');
 
   var editingIndex = -1;
 
@@ -4648,20 +4651,40 @@ function flashSaved(btn) {
     });
   }
 
-  // ---- Expense list ----
-  var expTotalsEl  = document.getElementById('budget-expense-totals');
-  var expTotalAmt  = document.getElementById('budget-total-amt');
+  // ---- Flip card ----
+  flipScene.addEventListener('click', function(e) {
+    // Don't flip when tapping the income input
+    if (e.target === incomeInput) return;
+    var isFlipped = flipCard.classList.toggle('flipped');
+    if (isFlipped) {
+      setTimeout(function() { renderSankey(); }, 280);
+    }
+  });
 
+  // ---- Expense list ----
   function renderExpenses() {
+    var income = parseFloat(budgetData.income) || 0;
+
     if (!budgetData.expenses.length) {
       expenseList.innerHTML = '<p class="budget-empty-hint">No expenses added yet</p>';
       expTotalsEl.hidden = true;
       return;
     }
+
     expenseList.innerHTML = budgetData.expenses.map(function(exp, i) {
+      var pct = income > 0 ? Math.min(Math.round((exp.amount / income) * 100), 100) : 0;
+      var pctLabel = income > 0 ? pct + '% of income' : '';
       return '<div class="budget-expense-row" data-index="' + i + '">' +
-        '<span class="budget-expense-name">' + esc(exp.name) + '</span>' +
-        '<span class="budget-expense-amt">' + fmt(exp.amount) + '/mo</span>' +
+        '<div class="budget-expense-info">' +
+          '<span class="budget-expense-name">' + esc(exp.name) + '</span>' +
+          '<div class="budget-expense-bar-wrap">' +
+            '<div class="budget-expense-bar" style="width:' + pct + '%"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="budget-expense-right">' +
+          '<span class="budget-expense-amt">' + fmt(exp.amount) + '/mo</span>' +
+          (pctLabel ? '<span class="budget-expense-pct">' + pctLabel + '</span>' : '') +
+        '</div>' +
         '<button class="budget-expense-delete" data-index="' + i + '" aria-label="Remove">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
         '</button>' +
@@ -4689,6 +4712,81 @@ function flashSaved(btn) {
       var pct = Math.round((disc / income) * 100);
       discPct.textContent = pct + '% of income remaining';
     }
+
+    // If currently showing Sankey, re-render it too
+    if (flipCard.classList.contains('flipped')) renderSankey();
+  }
+
+  // ---- Sankey ----
+  function renderSankey() {
+    var svg = document.getElementById('budget-sankey');
+    if (!svg) return;
+    svg.innerHTML = '';
+
+    var income   = parseFloat(budgetData.income) || 0;
+    var totalExp = budgetData.expenses.reduce(function(s, e) { return s + e.amount; }, 0);
+    if (!income) return;
+
+    var W = svg.parentElement.clientWidth - 32;
+    if (W < 80) W = 260;
+    var H = parseInt(svg.getAttribute('height') || 70, 10) || 70;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W);
+
+    var pad   = 10;
+    var nodeW = 8;
+    var yPad  = 16;
+    var uH    = H - yPad * 2;
+    var inX   = pad;
+    var outX  = W - pad - nodeW;
+    var inY   = yPad;
+
+    var expH  = Math.round((Math.min(totalExp, income) / income) * uH);
+    var discH = Math.max(uH - expH, 3);
+    var expY  = yPad;
+    var discY = yPad + expH;
+
+    function el(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+    function band(x1, y1, h1, x2, y2, h2, color) {
+      var cp = (x2 - x1) * 0.55;
+      var d = 'M' + (x1+nodeW) + ' ' + y1 +
+              'C' + (x1+nodeW+cp) + ' ' + y1 + ',' + (x2-cp) + ' ' + y2 + ',' + x2 + ' ' + y2 +
+              'L' + x2 + ' ' + (y2+h2) +
+              'C' + (x2-cp) + ' ' + (y2+h2) + ',' + (x1+nodeW+cp) + ' ' + (y1+h1) + ',' + (x1+nodeW) + ' ' + (y1+h1) + 'Z';
+      var p = el('path');
+      p.setAttribute('d', d); p.setAttribute('fill', color); p.setAttribute('fill-opacity', '0.18');
+      svg.appendChild(p);
+    }
+
+    function bar(x, y, w, h, color) {
+      var r = el('rect');
+      r.setAttribute('x', x); r.setAttribute('y', y);
+      r.setAttribute('width', w); r.setAttribute('height', h);
+      r.setAttribute('rx', 2); r.setAttribute('fill', color);
+      svg.appendChild(r);
+    }
+
+    function txt(x, y, str, anchor, color, size) {
+      var t = el('text');
+      t.setAttribute('x', x); t.setAttribute('y', y);
+      t.setAttribute('text-anchor', anchor || 'start');
+      t.setAttribute('fill', color || '#8E95A8');
+      t.setAttribute('font-size', size || '10');
+      t.setAttribute('font-family', 'DM Sans, sans-serif');
+      t.textContent = str;
+      svg.appendChild(t);
+    }
+
+    if (expH > 2)  band(inX, inY, expH, outX, expY, expH, '#F45030');
+    if (discH > 2) band(inX, inY+expH, Math.max(uH-expH, 3), outX, discY, discH, '#2ECC71');
+    bar(inX, inY, nodeW, uH, '#3C82F6');
+    if (expH > 2)  bar(outX, expY, nodeW, expH, '#F45030');
+    if (discH > 2) bar(outX, discY, nodeW, discH, '#2ECC71');
+
+    txt(inX+nodeW+5, inY+10, 'Income', 'start', '#3C82F6', '10');
+    if (expH > 14)  txt(outX-5, expY+expH/2+4, 'Expenses', 'end', '#F45030', '10');
+    if (discH > 14) txt(outX-5, discY+discH/2+4, 'Free', 'end', '#2ECC71', '10');
   }
 
   // ---- Full render ----
@@ -4697,47 +4795,41 @@ function flashSaved(btn) {
     renderResult();
   }
 
-  // ---- Sheet open/close ----
+  // ---- Sheet ----
   function openSheet(isEdit, exp) {
     if (isEdit && exp) {
-      sheetTitle.textContent  = 'Edit Expense';
-      expSave.textContent     = 'Save';
-      expName.value           = exp.name;
-      expAmount.value         = exp.amount;
+      sheetTitle.textContent = 'Edit Expense';
+      expSave.textContent    = 'Save';
+      expName.value          = exp.name;
+      expAmount.value        = exp.amount;
     } else {
-      sheetTitle.textContent  = 'Add Expense';
-      expSave.textContent     = 'Add';
-      expName.value           = '';
-      expAmount.value         = '';
+      sheetTitle.textContent = 'Add Expense';
+      expSave.textContent    = 'Add';
+      expName.value          = '';
+      expAmount.value        = '';
     }
     addSheet.classList.add('visible');
     setTimeout(function() { expName.focus(); }, 80);
   }
+  function closeSheet() { addSheet.classList.remove('visible'); }
 
-  function closeSheet() {
-    addSheet.classList.remove('visible');
-  }
-
-  // ---- Event listeners ----
+  // ---- Listeners ----
   if (budgetData.income) incomeInput.value = budgetData.income;
 
   incomeInput.addEventListener('input', function() {
     budgetData.income = this.value;
     saveBudgetData(budgetData);
-    renderResult();
+    render();
   });
 
   expenseList.addEventListener('click', function(e) {
-    // Delete button
     var del = e.target.closest('.budget-expense-delete');
     if (del) {
-      var idx = parseInt(del.dataset.index, 10);
-      budgetData.expenses.splice(idx, 1);
+      budgetData.expenses.splice(parseInt(del.dataset.index, 10), 1);
       saveBudgetData(budgetData);
       render();
       return;
     }
-    // Tap row to edit
     var row = e.target.closest('.budget-expense-row');
     if (row) {
       editingIndex = parseInt(row.dataset.index, 10);
@@ -4751,16 +4843,13 @@ function flashSaved(btn) {
   });
 
   expCancel.addEventListener('click', closeSheet);
-  addSheet.addEventListener('click', function(e) {
-    if (e.target === addSheet) closeSheet();
-  });
+  addSheet.addEventListener('click', function(e) { if (e.target === addSheet) closeSheet(); });
 
   expSave.addEventListener('click', function() {
     var name   = expName.value.trim();
     var amount = parseFloat(expAmount.value);
     if (!name || isNaN(amount) || amount <= 0) {
-      if (!name) expName.focus();
-      else expAmount.focus();
+      if (!name) expName.focus(); else expAmount.focus();
       return;
     }
     if (editingIndex >= 0) {
@@ -4773,11 +4862,8 @@ function flashSaved(btn) {
     closeSheet();
   });
 
-  // Allow Enter key in sheet inputs to save
-  [expName, expAmount].forEach(function(input) {
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') expSave.click();
-    });
+  [expName, expAmount].forEach(function(inp) {
+    inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') expSave.click(); });
   });
 
   render();
