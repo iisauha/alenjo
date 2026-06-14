@@ -4700,7 +4700,7 @@ function flashSaved(btn) {
       var pct = Math.round((disc / income) * 100);
       discPct.textContent = pct + '% of income remaining';
     }
-
+  }
 
   // ---- Full render ----
   function render() {
