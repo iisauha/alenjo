@@ -2515,8 +2515,9 @@ function accountCard(account, type) {
     var acctHoldings = cachedHoldings.filter(function(h) { return h.account_id === account.id; });
     if (acctHoldings.length > 0) {
       acctHoldings.sort(function(a, b) { return (b.institution_value || 0) - (a.institution_value || 0); });
-      holdingsHtml = '<div class="card-holdings">';
-      var totalValue = 0;
+      holdingsHtml = '<div class="hold-list">';
+      var totalValue = 0, totalCost = 0, allCost = true;
+      acctHoldings.forEach(function(h) { if (h.cost_basis) totalCost += +h.cost_basis; else if (h.ticker_symbol !== 'CUR:USD') allCost = false; });
       acctHoldings.forEach(function(h) {
         var value = h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
         totalValue += value;
@@ -2534,26 +2535,21 @@ function accountCard(account, type) {
         var displayName = isCash ? 'Cash' : (ticker ? name : '');
         var price = h.institution_price || h.close_price || 0;
 
-        holdingsHtml += '<div class="card-holding-row">' +
-          '<div class="card-holding-left">' +
-            '<div class="card-holding-header">' +
-              '<span class="card-holding-ticker">' + esc(displayTicker) + '</span>' +
-              (displayName ? '<span class="card-holding-name">' + esc(displayName) + '</span>' : '') +
-            '</div>' +
-            '<span class="card-holding-meta">' +
-              (isCash ? '' : parseFloat(h.quantity).toFixed(4) + ' shares') +
-              (!isCash && price ? ' @ $' + parseFloat(price).toFixed(2) : '') +
-            '</span>' +
-          '</div>' +
-          '<div class="card-holding-right">' +
-            '<span class="card-holding-value">' + formatMoney(value) + '</span>' +
-            (gainPct !== null ? '<span class="card-holding-change ' + gainClass + '">' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(2) + '%</span>' : '') +
-            '<div class="card-holding-bar"><div class="card-holding-fill" style="width:' + pct.toFixed(1) + '%"></div></div>' +
-          '</div>' +
+        holdingsHtml += '<div class="hold-row">' +
+          '<span class="hold-ticker">' + esc(displayTicker.slice(0, 5)) + '</span>' +
+          '<span class="hold-main"><span class="hold-name">' + esc(displayName || displayTicker) + '</span>' +
+            '<span class="hold-meta">' + (isCash ? 'Cash' : (+parseFloat(h.quantity).toFixed(4)) + ' shares' + (price ? ' · $' + parseFloat(price).toFixed(2) : '')) + ' · ' + pct.toFixed(0) + '%</span></span>' +
+          '<span class="hold-right"><span class="hold-value">' + formatMoney(value) + '</span>' +
+            (gainPct !== null ? '<span class="hold-change ' + gainClass + '">' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(2) + '%</span>' : '') + '</span>' +
         '</div>';
       });
       holdingsHtml += '</div>';
-      holdingsHtml = moreSection(account.id + ':h', acctHoldings.length + (acctHoldings.length === 1 ? ' holding' : ' holdings'), holdingsHtml);
+      var cashVal = acctHoldings.reduce(function(s, h) { return s + (h.ticker_symbol === 'CUR:USD' ? (h.institution_value || 0) : 0); }, 0);
+      var totGain = allCost && totalCost > 0 ? ((totalValue - cashVal) - totalCost) / totalCost * 100 : null;
+      holdingsHtml = moreSection(account.id + ':h',
+        '<span>' + acctHoldings.length + (acctHoldings.length === 1 ? ' holding' : ' holdings') + '</span>' +
+        (totGain !== null ? '<span class="hold-change ' + (totGain >= 0 ? 'holding-up' : 'holding-down') + '">' + (totGain >= 0 ? '+' : '') + totGain.toFixed(2) + '% all time</span>' : ''),
+        holdingsHtml);
     }
   }
 
@@ -2573,39 +2569,30 @@ function accountCard(account, type) {
       liabHtml +=
         '<div class="liab-util-wrap">' +
           '<div class="liab-util-bar"><div class="liab-util-fill ' + utilClass + '" style="width:' + utilPct.toFixed(1) + '%"></div></div>' +
-          '<div class="liab-util-labels"><span>' + usedDisplay + ' / ' + formatMoney(limit) + '</span><span>' + utilLabel + '</span></div>' +
+          '<div class="liab-util-labels"><span>' + usedDisplay + ' of ' + formatMoney(limit).replace(/\.00$/, '') + '</span><span>' + utilLabel + '</span></div>' +
         '</div>';
     }
 
     var liab = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
-    var details = '';
-    if (liab && liab.apr_purchase) details += '<div class="liab-detail"><span>Purchase APR</span><span>' + parseFloat(liab.apr_purchase).toFixed(2) + '%</span></div>';
-
     var minPay = liab && liab.minimum_payment_amount != null ? parseFloat(liab.minimum_payment_amount) : null;
-    if (minPay != null) details += '<div class="liab-detail"><span>Min Payment</span><span>' + formatMoney(minPay) + '</span></div>';
-
     var hasMinPayment = minPay != null && minPay > 0;
+    var tiles = [];
+    var tile = function(label, value, cls) { tiles.push('<div class="liab-tile' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b>' + value + '</b></div>'); };
+    var dueText = '', dueClass = '';
     if (liab && liab.next_payment_due_date) {
-      var dueDate = new Date(liab.next_payment_due_date + 'T00:00:00');
-      var now = new Date();
-      var daysUntil = Math.ceil((dueDate - now) / 86400000);
-      var dueClass = '';
-      if (hasMinPayment) {
-        dueClass = daysUntil <= 3 ? 'liab-urgent' : daysUntil <= 7 ? 'liab-soon' : '';
-      }
-      var dueLabel = daysUntil >= 0 ? ' (' + daysUntil + 'd)' : (hasMinPayment ? ' (overdue)' : ' (past)');
-      details += '<div class="liab-detail ' + dueClass + '"><span>Due</span><span>' + formatLiabDate(liab.next_payment_due_date) + dueLabel + '</span></div>';
+      var daysUntil = Math.ceil((new Date(liab.next_payment_due_date + 'T00:00:00') - new Date()) / 86400000);
+      if (hasMinPayment) dueClass = daysUntil <= 3 ? 'liab-urgent' : daysUntil <= 7 ? 'liab-soon' : '';
+      dueText = 'Due ' + formatLiabDate(liab.next_payment_due_date) + (daysUntil > 1 ? ' · in ' + daysUntil + ' days' : daysUntil === 1 ? ' · tomorrow' : daysUntil === 0 ? ' · today' : hasMinPayment ? ' · overdue' : '');
     }
-    if (liab && liab.last_payment_amount) details += '<div class="liab-detail"><span>Last Payment</span><span>' + formatMoney(parseFloat(liab.last_payment_amount)) + '</span></div>';
-    if (liab && liab.last_payment_date) details += '<div class="liab-detail"><span>Last Payment Date</span><span>' + formatLiabDate(liab.last_payment_date) + '</span></div>';
-    if (liab && liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>' + formatMoney(parseFloat(liab.last_statement_balance)) + '</span></div>';
-    if (liab && liab.is_overdue && hasMinPayment) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
-
-    if (details) {
-      var peek = [];
-      if (liab && liab.next_payment_due_date) peek.push('Due ' + formatLiabDate(liab.next_payment_due_date));
-      if (minPay) peek.push('Min ' + formatMoney(minPay));
-      liabHtml += moreSection(account.id + ':d', peek.join(' · ') || 'Card details', details);
+    if (minPay != null) tile('Minimum', formatMoney(minPay));
+    if (liab && liab.last_statement_balance) tile('Statement', formatMoney(parseFloat(liab.last_statement_balance)));
+    if (liab && liab.apr_purchase) tile('Purchase APR', parseFloat(liab.apr_purchase).toFixed(2) + '%');
+    if (liab && liab.last_payment_amount) tile('Last paid', formatMoney(parseFloat(liab.last_payment_amount)) + (liab.last_payment_date ? '<small>' + formatLiabDate(liab.last_payment_date) + '</small>' : ''));
+    if (liab && liab.is_overdue && hasMinPayment) tile('Status', 'Overdue', 'liab-urgent');
+    if (tiles.length || dueText) {
+      liabHtml += moreSection(account.id + ':d',
+        '<span class="liab-due ' + dueClass + '">' + esc(dueText || 'Card details') + '</span>' + (dueText ? '<span class="more-word">Details</span>' : ''),
+        '<div class="liab-tiles">' + tiles.join('') + '</div>');
     }
 
     var bonus = computeBonusProgress(account);
@@ -2634,19 +2621,21 @@ function accountCard(account, type) {
 
 
   var cardDesign = account.card_design_id ? getCardDesignById(account.card_design_id) : null;
-  var designHtml = cardDesign ? '<div class="account-card-art" style="background-image:url(' + esc(cardDesign.url) + ')"></div>' : '';
-  var logoHtml = logoUrl ? '<div class="account-logo" style="background-image:url(' + logoUrl + ')"></div>' : '';
-  var logoRowHtml = (logoHtml || designHtml) ? '<div class="account-logo-row">' + logoHtml + designHtml + '</div>' : '';
+  // One badge per card: your card design if you added one, else the bank logo, else an initial
+  var badge = cardDesign ? '<div class="acct-badge acct-badge-art" style="background-image:url(' + esc(cardDesign.url) + ')"></div>'
+    : logoUrl ? '<div class="acct-badge acct-badge-logo" style="background-image:url(' + logoUrl + ')"></div>'
+    : '<div class="acct-badge acct-badge-initial">' + esc((account.institution || displayName).charAt(0).toUpperCase()) + '</div>';
+  var cleanName = account.nickname ? displayName : displayName.replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
+  var sub = [account.institution, account.mask ? '••' + account.mask : ''].filter(Boolean).join(' · ');
 
   return '<div class="account-card" data-id="' + account.id + '">' +
     '<div class="account-top">' +
+      badge +
       '<div class="account-left">' +
-        '<span class="account-name" data-id="' + account.id + '">' + esc(displayName) + '</span>' +
-        '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
-        (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
+        '<span class="account-name" data-id="' + account.id + '">' + esc(cleanName) + '</span>' +
+        '<span class="account-sub">' + esc(sub) + '</span>' +
         (account.apy ? '<span class="account-apy">' + formatApy(account) + '</span>' : '') +
         (account.exclude_from_totals ? '<span class="account-flag">Not in totals</span>' : '') +
-        logoRowHtml +
       '</div>' +
       '<div class="account-balance">' +
         '<div class="amount ' + (type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + (type === 'credit' ? ' amount-bonus-trigger' : '') + '"' + (type === 'credit' ? ' data-bonus-id="' + account.id + '"' : '') + '>' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
@@ -3104,15 +3093,17 @@ function buildAccountMap() {
   var map = {};
   if (cachedAccounts) {
     cachedAccounts.forEach(function(a) {
-      if (a.plaid_account_id) map[a.plaid_account_id] = a.nickname || a.name || 'Account';
+      if (a.plaid_account_id) map[a.plaid_account_id] = a.nickname || (a.name || 'Account').replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
     });
   }
   return map;
 }
 
+var lastActKey = '';
 function renderTransactionMonth() {
   var month = $('#tx-month-filter').value;
   var cardId = $('#tx-card-filter').value;
+  if (month + '|' + cardId !== lastActKey) { activeDay = null; lastActKey = month + '|' + cardId; }
   var searchVal = ($('#tx-search').value || '').toLowerCase().trim();
   var breakdown = $('#tx-breakdown');
   var legend = $('#tx-category-legend');
@@ -3159,6 +3150,10 @@ function renderTransactionMonth() {
     });
   }
 
+  if (activeDay) {
+    displayTx = displayTx.filter(function(tx) { return parseInt(getEffectiveTx(tx).date.substring(8, 10), 10) === activeDay; });
+  }
+
   // ---- Summary: spent / money in / transfers (effective amounts, skip excluded)
   var byCategory = {}, spent = 0, moneyIn = 0, transfers = 0, byDay = {};
   filtered.forEach(function(tx) {
@@ -3192,36 +3187,55 @@ function renderTransactionMonth() {
   var daysInMonth = new Date(y, m, 0).getDate();
   var now = new Date();
   var isThisMonth = now.getFullYear() === y && now.getMonth() + 1 === m;
+  var lastDay = isThisMonth ? now.getDate() : daysInMonth;
+  if (activeDay && activeDay > lastDay) activeDay = null;
   var dayTotal = function(d) {
     var o = byDay[d] || {};
     if (activeCategoryFilter) return o[activeCategoryFilter] || 0;
     return Object.keys(o).reduce(function(s, k) { return s + o[k]; }, 0);
   };
   var maxDay = 0;
-  for (var dd = 1; dd <= daysInMonth; dd++) maxDay = Math.max(maxDay, dayTotal(dd));
-  var bw = 310 / daysInMonth, bars = '';
+  for (var dd = 1; dd <= lastDay; dd++) maxDay = Math.max(maxDay, dayTotal(dd));
+  // Scrollable bars: Week / 2 weeks fill the width with that many days, Month fits them all
+  var vis = Math.min(actRange, daysInMonth);
+  var barsEl = $('#act-bars');
+  barsEl.style.setProperty('--vis', vis);
+  barsEl.classList.toggle('dense', vis > 14);
+  var bars = '';
   for (var d = 1; d <= daysInMonth; d++) {
-    var x = ((d - 1) * bw + 1).toFixed(1), w = Math.max(1, bw - 2).toFixed(1);
-    var total = dayTotal(d);
-    if (isThisMonth && d > now.getDate()) { bars += '<rect x="' + x + '" y="76" width="' + w + '" height="2" rx="1" fill="var(--track)"/>'; continue; }
-    if (!total) continue;
-    // Square-root scale so one big bill (like rent) doesn't flatten every other day
-    var h = Math.max(4, Math.sqrt(total / maxDay) * 72), top = 78 - h;
-    var segs = catEntries.filter(function(e) { return (byDay[d] || {})[e[0]] && (!activeCategoryFilter || activeCategoryFilter === e[0]); });
-    var yy = 78, tip = MONTH_SHORT[m - 1] + ' ' + d + ': ' + formatMoney(total);
-    bars += '<g><title>' + esc(tip) + '</title><clipPath id="dc' + d + '"><rect x="' + x + '" y="' + top.toFixed(1) + '" width="' + w + '" height="' + h.toFixed(1) + '" rx="1.5"/></clipPath><g clip-path="url(#dc' + d + ')">';
-    segs.forEach(function(e) {
-      var sh = byDay[d][e[0]] / total * h;
-      yy -= sh;
-      bars += '<rect x="' + x + '" y="' + yy.toFixed(1) + '" width="' + w + '" height="' + sh.toFixed(1) + '" fill="' + categoryColorMap[e[0]] + '"/>';
+    var future = d > lastDay;
+    var total = future ? 0 : dayTotal(d);
+    var date = new Date(y, m - 1, d);
+    var h = total && maxDay ? Math.max(4, Math.sqrt(total / maxDay) * 100) : 0;
+    var segs = '';
+    if (total) catEntries.forEach(function(e) {
+      var v = (byDay[d] || {})[e[0]];
+      if (!v || (activeCategoryFilter && activeCategoryFilter !== e[0])) return;
+      segs += '<i style="flex-grow:' + v.toFixed(2) + ';background:' + categoryColorMap[e[0]] + '"></i>';
     });
-    bars += '</g></g>';
+    var showLabel = vis <= 14 || d === 1 || d % 7 === 1 || d === daysInMonth;
+    bars += '<button type="button" class="act-bar' + (activeDay === d ? ' on' : '') + (activeDay && activeDay !== d ? ' dim' : '') + (isThisMonth && d === now.getDate() ? ' today' : '') + '" data-day="' + d + '"' + (future ? ' disabled' : '') +
+      ' aria-pressed="' + (activeDay === d) + '" aria-label="' + MONTH_SHORT[m - 1] + ' ' + d + ': ' + formatMoney(total) + '">' +
+      '<span class="act-bar-col">' + (h ? '<span class="act-bar-fill" style="height:' + h.toFixed(1) + '%">' + segs + '</span>' : '<span class="act-bar-zero"></span>') + '</span>' +
+      '<span class="act-bar-label">' + (showLabel ? (vis <= 14 ? '<small>' + 'SMTWTFS'.charAt(date.getDay()) + '</small>' : '') + d : '') + '</span>' +
+    '</button>';
   }
-  $('#act-daily').innerHTML = '<line x1="0" y1="78.5" x2="310" y2="78.5" stroke="var(--border)" stroke-width="1"/>' + bars;
-  $('#act-axis-start').textContent = MONTH_SHORT[m - 1] + ' 1';
-  $('#act-axis-end').textContent = MONTH_SHORT[m - 1] + ' ' + daysInMonth;
-  var daysSoFar = isThisMonth ? now.getDate() : daysInMonth;
-  $('#act-daily-note').textContent = shownSpent ? '~' + formatMoney(shownSpent / daysSoFar) + '/day' : '';
+  var keepScroll = barsEl.dataset.month === month && barsEl.dataset.vis === String(vis);
+  var prevScroll = barsEl.scrollLeft;
+  barsEl.innerHTML = bars;
+  // Start at the most recent days (or the picked day); keep position on re-render
+  if (keepScroll) barsEl.scrollLeft = prevScroll;
+  else { barsEl._focusDay = activeDay || lastDay; scrollBarsToFocus(); }
+  barsEl.dataset.month = month; barsEl.dataset.vis = String(vis);
+  $('#act-range').querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', Math.min(+b.dataset.range, daysInMonth) === vis); });
+  if (activeDay) {
+    var dayAmt = dayTotal(activeDay);
+    $('#act-spent-label').textContent = new Date(y, m - 1, activeDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + (activeCategoryFilter ? ' · ' + activeCategoryFilter : '');
+    $('#act-spent').textContent = formatMoney(dayAmt);
+    $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-clear-day">Show whole month</button>';
+  } else {
+    $('#act-daily-note').textContent = shownSpent ? '~' + formatMoney(shownSpent / lastDay) + '/day' : '';
+  }
 
   // Category chips: one swipeable row, tap to filter, tap again to clear
   legend.innerHTML = catEntries.length ? catEntries.map(function(e) {
@@ -3235,6 +3249,7 @@ function renderTransactionMonth() {
       renderTransactionMonth();
     });
   });
+  updateCatScroll();
 
   // ---- Transactions grouped by day
   displayTx.sort(function(a, b) {
@@ -3291,13 +3306,121 @@ function renderTransactionMonth() {
 var openCardSections = {};
 function moreSection(key, summary, body) {
   return '<details class="card-more" data-key="' + esc(key) + '"' + (openCardSections[key] ? ' open' : '') + '>' +
-    '<summary><span>' + esc(summary) + '</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>' +
+    '<summary><span class="card-more-sum">' + summary + '</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>' +
     '<div class="card-more-body">' + body + '</div></details>';
 }
 document.addEventListener('toggle', function(e) {
   var d = e.target;
   if (d.classList && d.classList.contains('card-more')) openCardSections[d.dataset.key] = d.open;
 }, true);
+
+// In-app picker sheet instead of the native select popup (keeps the app's look)
+var pickerSelect = null;
+function openPicker(sel) {
+  pickerSelect = sel;
+  var label = sel.getAttribute('aria-label') || (sel.id && document.querySelector('label[for="' + sel.id + '"]') ? document.querySelector('label[for="' + sel.id + '"]').textContent : 'Choose');
+  $('#picker-title').textContent = label;
+  $('#picker-list').innerHTML = Array.prototype.map.call(sel.options, function(o, i) {
+    var on = i === sel.selectedIndex;
+    return '<button type="button" class="picker-row' + (on ? ' on' : '') + '" role="option" aria-selected="' + on + '" data-i="' + i + '"><span>' + esc(o.textContent) + '</span>' +
+      (on ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>' : '') + '</button>';
+  }).join('');
+  var ov = $('#picker-sheet');
+  ov.classList.add('visible'); ov.setAttribute('aria-hidden', 'false');
+  var cur = ov.querySelector('.picker-row.on');
+  if (cur) { cur.scrollIntoView({ block: 'center' }); cur.focus({ preventScroll: true }); }
+}
+function closePicker() {
+  var ov = $('#picker-sheet');
+  ov.classList.remove('visible'); ov.setAttribute('aria-hidden', 'true');
+  if (pickerSelect && pickerSelect.parentNode.querySelector('.picker-hit')) pickerSelect.parentNode.querySelector('.picker-hit').focus({ preventScroll: true });
+  pickerSelect = null;
+}
+(function wirePicker() {
+  var ov = $('#picker-sheet');
+  if (!ov) return;
+  ov.addEventListener('click', function(e) {
+    var row = e.target.closest('.picker-row');
+    if (row && pickerSelect) {
+      var sel = pickerSelect, i = +row.dataset.i;
+      closePicker();
+      if (sel.selectedIndex !== i) { sel.selectedIndex = i; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+      return;
+    }
+    if (e.target === ov) closePicker();
+  });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && ov.classList.contains('visible')) closePicker(); });
+  // A transparent button over each select opens the picker
+  document.querySelectorAll('select:not(.visually-hidden)').forEach(function(sel) {
+    var wrap = document.createElement('span');
+    wrap.className = 'picker-wrap';
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    sel.tabIndex = -1;
+    var hit = document.createElement('button');
+    hit.type = 'button'; hit.className = 'picker-hit';
+    hit.setAttribute('aria-label', (sel.getAttribute('aria-label') || 'Choose') + ': ' + (sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : ''));
+    hit.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); openPicker(sel); });
+    wrap.appendChild(hit);
+  });
+})();
+
+// Category chip row: fade the edge that has more, plus page dots, so it reads as swipeable
+function updateCatScroll() {
+  var row = $('#tx-category-legend'), wrap = $('#act-cats-wrap'), dots = $('#act-cats-dots');
+  if (!row || !wrap) return;
+  var over = row.scrollWidth - row.clientWidth > 2;
+  wrap.classList.toggle('more-right', over && row.scrollLeft < row.scrollWidth - row.clientWidth - 2);
+  wrap.classList.toggle('more-left', over && row.scrollLeft > 2);
+  if (!over) { dots.innerHTML = ''; return; }
+  var pages = Math.min(6, Math.ceil(row.scrollWidth / row.clientWidth));
+  var at = Math.round(row.scrollLeft / Math.max(1, row.scrollWidth - row.clientWidth) * (pages - 1));
+  var h = '';
+  for (var i = 0; i < pages; i++) h += '<i' + (i === at ? ' class="on"' : '') + '></i>';
+  dots.innerHTML = h;
+}
+(function() {
+  var row = $('#tx-category-legend');
+  if (row) row.addEventListener('scroll', updateCatScroll, { passive: true });
+  window.addEventListener('resize', updateCatScroll);
+})();
+
+var activeDay = null;
+// Scroll the day bars so the focus day (today, or the picked day) is at the right edge.
+// If the tab is hidden (width 0) this waits until it's shown.
+function scrollBarsToFocus() {
+  var el = $('#act-bars');
+  if (!el || !el._focusDay || !el.clientWidth) return;
+  var col = el.scrollWidth / el.children.length;
+  el.scrollLeft = Math.max(0, el._focusDay * col - el.clientWidth);
+  el._focusDay = null;
+}
+if (window.ResizeObserver) {
+  new ResizeObserver(function() { scrollBarsToFocus(); if (typeof updateCatScroll === 'function') updateCatScroll(); })
+    .observe(document.getElementById('tx-content'));
+}
+var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 7;
+(function wireActBars() {
+  var bars = $('#act-bars'), range = $('#act-range'), note = $('#act-daily-note');
+  if (!bars) return;
+  bars.addEventListener('click', function(e) {
+    var b = e.target.closest('.act-bar');
+    if (!b || b.disabled) return;
+    var d = +b.dataset.day;
+    activeDay = activeDay === d ? null : d;
+    renderTransactionMonth();
+  });
+  range.addEventListener('click', function(e) {
+    var b = e.target.closest('button[data-range]');
+    if (!b) return;
+    actRange = +b.dataset.range;
+    try { localStorage.setItem('alenjo_act_range', String(actRange)); } catch (err) {}
+    renderTransactionMonth();
+  });
+  note.addEventListener('click', function(e) {
+    if (e.target.id === 'act-clear-day') { activeDay = null; renderTransactionMonth(); }
+  });
+})();
 
 var MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function friendlyDay(dateStr) {
@@ -3317,7 +3440,14 @@ function accountColor(plaidAccountId) {
   var i = ids.indexOf(plaidAccountId);
   return i === -1 ? 'var(--track)' : ACCOUNT_COLORS[i % ACCOUNT_COLORS.length];
 }
+function syncPickerLabels() {
+  document.querySelectorAll('.picker-wrap').forEach(function(w) {
+    var sel = w.querySelector('select'), hit = w.querySelector('.picker-hit');
+    if (sel && hit) hit.setAttribute('aria-label', (sel.getAttribute('aria-label') || 'Choose') + ': ' + (sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : ''));
+  });
+}
 function updateMonthButtons() {
+  syncPickerLabels();
   var sel = $('#tx-month-filter');
   if (!sel) return;
   $('#act-month-prev').disabled = sel.selectedIndex >= sel.options.length - 1;

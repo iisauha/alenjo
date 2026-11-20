@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120231129';</script>
+  <script>var _v = '20261120232219';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120231129">
+  <link rel="stylesheet" href="style.css?v=20261120232219">
 </head>
 <body>
 
@@ -256,7 +256,7 @@
           <h1 class="page-title">Activity</h1>
           <div class="act-head-actions">
             <button id="btn-act-search" class="act-icon-btn" type="button" aria-label="Search" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
-            <button id="btn-add-tx" class="act-icon-btn" type="button" aria-label="Add a transaction"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button id="btn-add-tx" class="act-add-btn" type="button" aria-label="Add a transaction your bank missed"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add</button>
           </div>
         </div>
         <label class="act-search" id="act-search" hidden>
@@ -281,16 +281,26 @@
               <span id="act-spent" class="act-spent-value"></span>
               <span class="act-sub"><span>In <b id="act-income" class="act-in"></b></span><span>Transfers <b id="act-transfers"></b></span></span>
             </div>
-            <svg id="act-daily" class="act-daily" viewBox="0 0 310 80" preserveAspectRatio="none" role="img" aria-label="Spending by day, colored by category"></svg>
-            <div class="act-daily-axis"><span id="act-axis-start"></span><span id="act-daily-note"></span><span id="act-axis-end"></span></div>
-            <div id="tx-category-legend" class="act-cats" role="group" aria-label="Filter by category"></div>
+            <div class="act-chart-head">
+              <div class="act-range" id="act-range" role="group" aria-label="Chart range">
+                <button type="button" data-range="7">Week</button>
+                <button type="button" data-range="14">2 weeks</button>
+                <button type="button" data-range="31">Month</button>
+              </div>
+              <span id="act-daily-note"></span>
+            </div>
+            <div id="act-bars" class="act-bars" role="group" aria-label="Spending by day. Tap a day to see its transactions."></div>
+            <div class="act-cats-wrap" id="act-cats-wrap"><div id="tx-category-legend" class="act-cats" role="group" aria-label="Filter by category"></div></div>
+            <div class="act-cats-dots" id="act-cats-dots" aria-hidden="true"></div>
           </aside>
           <section class="act-list">
             <div id="tx-breakdown"></div>
             <div class="act-list-foot">
               <span id="tx-updated" class="tx-updated"></span>
-              <button id="btn-toggle-ignored" class="signin-link" type="button">Show ignored</button>
-              <button id="btn-export-csv" class="signin-link" type="button">Export as CSV</button>
+              <div>
+                <button id="btn-toggle-ignored" class="signin-link" type="button">Show ignored</button>
+                <button id="btn-export-csv" class="signin-link" type="button">Export as CSV</button>
+              </div>
             </div>
           </section>
         </div>
@@ -551,6 +561,13 @@
   </div>
 
   <!-- Transaction Action Sheet -->
+  <div id="picker-sheet" class="action-sheet-overlay picker-overlay" aria-hidden="true">
+    <div class="action-sheet picker-sheet" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+      <div class="action-sheet-header"><span id="picker-title" class="action-sheet-title"></span></div>
+      <div id="picker-list" class="picker-list" role="listbox"></div>
+    </div>
+  </div>
+
   <div id="tx-action-sheet" class="action-sheet-overlay">
     <div class="action-sheet">
       <div class="action-sheet-header">
