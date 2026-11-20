@@ -230,6 +230,34 @@ $('#btn-forgot').addEventListener('click', async function() {
 });
 setupRememberedEmail();
 
+// ============================================
+// PASSWORD RESET (from the emailed link)
+// ============================================
+var resettingPassword = false;
+function showPasswordReset() {
+  resettingPassword = true;
+  showScreen('login');
+  $('#auth-form').hidden = true;
+  $('#reset-form').hidden = false;
+  $('#login-greeting').textContent = 'Choose a new password';
+  $('#login-subtitle').textContent = 'At least 10 characters';
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+}
+var resetForm = $('#reset-form');
+if (resetForm) resetForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var pw = $('#reset-password').value, pw2 = $('#reset-password2').value, err = $('#reset-error');
+  err.hidden = true;
+  if (pw.length < 10) { err.textContent = 'Use at least 10 characters.'; err.hidden = false; return; }
+  if (pw !== pw2) { err.textContent = 'The passwords don\u2019t match.'; err.hidden = false; return; }
+  var btn = $('#reset-submit'); btn.disabled = true; btn.textContent = 'Saving…';
+  var res = await sb.auth.updateUser({ password: pw });
+  if (res.error) { err.textContent = res.error.message; err.hidden = false; btn.disabled = false; btn.textContent = 'Save password'; return; }
+  // Done: end this temporary session and sign in normally
+  await sb.auth.signOut({ scope: 'local' });
+  location.replace(location.pathname);
+});
+
 // Auto-submit on FaceID/password autofill
 // Wait for both fields, then give iOS a moment to commit the values before submitting
 // "Fill password" / Face ID autofill: sign in right away.
@@ -344,10 +372,23 @@ if (faceIdCta) faceIdCta.addEventListener('click', function() { signInWithFaceId
 
 // Sign out any existing session on load so user must log in every time
 // Then listen for fresh sign-ins only
-sb.auth.signOut().then(function() {
+// Opening a password-reset link: keep that session so you can set a new password
+var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
+// Sign out of THIS device only on load (the default would end your
+// sessions on every device, e.g. opening on the Mac would sign out the iPhone)
+(isRecoveryLink ? Promise.resolve() : sb.auth.signOut({ scope: 'local' })).then(function() {
   showScreen('login');
 
   sb.auth.onAuthStateChange(function(event, session) {
+    if (event === 'PASSWORD_RECOVERY') {
+      showPasswordReset();
+      return;
+    }
+    if (event === 'SIGNED_IN' && session && session.user && (isRecoveryLink || resettingPassword)) {
+      // The reset link signs you in briefly; wait for the new password first
+      showPasswordReset();
+      return;
+    }
     if (event === 'SIGNED_IN' && session && session.user) {
       // Unlocking a locked app: same person, so keep everything as it was
       if (appLocked && currentUser && session.user.id === currentUser.id) {
@@ -1572,7 +1613,7 @@ if (prefAutoFaceId) {
 
 var signOutBtn = $('#btn-sign-out');
 if (signOutBtn) signOutBtn.addEventListener('click', function() {
-  sb.auth.signOut();
+  sb.auth.signOut({ scope: 'local' });
 });
 
 var prefAfterPending = $('#pref-after-pending');
@@ -3788,11 +3829,15 @@ setInterval(function() {
   });
 }, 60000);
 
+// Escapes text for HTML, including inside attribute values ("..." and '...')
 function esc(str) {
-  if (!str) return '';
-  var d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+  if (str === null || str === undefined || str === '') return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function showLoading(show) {
