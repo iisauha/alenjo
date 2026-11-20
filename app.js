@@ -304,15 +304,8 @@ function hasPasskeyHere() {
 var passkeyInFlight = false;
 async function signInWithFaceId(fromUserTap) {
   if (passkeyInFlight || signingIn) return;
-  if (!hasPasskeyHere() || !window.PublicKeyCredential) {
-    // No passkey on this device yet: fall back to the saved password in
-    // the device's password manager.
-    if (fromUserTap) {
-      var target = authEmail.value ? authPassword : authEmail;
-      try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
-      authError.textContent = 'Set up Face ID in Settings → Security after you sign in.';
-      authError.hidden = false;
-    }
+  if (!window.PublicKeyCredential) {
+    if (fromUserTap) { authError.textContent = 'This browser does not support Face ID sign-in.'; authError.hidden = false; }
     return;
   }
   passkeyInFlight = true;
@@ -323,8 +316,12 @@ async function signInWithFaceId(fromUserTap) {
   if (res.error) {
     setSigningIn(false);
     var cancelled = /NotAllowed|abort|cancel/i.test((res.error.name || '') + ' ' + (res.error.message || ''));
-    if (!cancelled) { authError.textContent = 'Face ID sign-in failed. Use your password instead.'; authError.hidden = false; }
-    else if (!fromUserTap) { $('#login-faceid-cta').hidden = false; }
+    if (!cancelled) {
+      authError.textContent = hasPasskeyHere()
+        ? 'Face ID sign-in failed. Use your password instead.'
+        : 'Face ID isn\u2019t set up yet. Sign in with your password, then go to Settings → Security.';
+      authError.hidden = false;
+    } else if (!fromUserTap) { $('#login-faceid-cta').hidden = false; }
   }
   // On success the SIGNED_IN handler takes over and opens Home.
 }
@@ -463,7 +460,7 @@ function showScreen(name) {
   }
   if (name === 'login') {
     var cta = $('#login-faceid-cta');
-    if (cta) cta.hidden = !hasPasskeyHere();
+    if (cta) cta.hidden = !(hasPasskeyHere() && window.PublicKeyCredential);
     // "Ask for Face ID on open": start the native Face ID prompt right away.
     // If the browser insists on a tap first, the big Face ID button stays up.
     if (autoFaceIdEnabled() && hasPasskeyHere()) setTimeout(function() { signInWithFaceId(false); }, 300);
@@ -475,6 +472,7 @@ function autoFaceIdEnabled() {
 }
 
 function switchTab(tabName) {
+  if (tabName === 'settings' && typeof updateFaceIdSetting === 'function') updateFaceIdSetting();
   document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
   var tab = $('#tab-' + tabName);
@@ -1456,12 +1454,20 @@ document.querySelectorAll('.hero-stat').forEach(function(btn) {
 });
 
 // Face ID setup in Settings → Security
-function updateFaceIdSetting() {
+async function updateFaceIdSetting() {
   var status = $('#faceid-status'), btn = $('#btn-setup-faceid');
   if (!status || !btn) return;
-  var on = hasPasskeyHere();
-  status.textContent = on ? 'On for this device' : 'Not set up on this device';
-  btn.textContent = on ? 'Set up again' : 'Set up';
+  var count = null;
+  if (currentUser && sb.auth.passkey && sb.auth.passkey.list) {
+    try {
+      var res = await sb.auth.passkey.list();
+      if (!res.error && res.data) count = res.data.length;
+    } catch (e) {}
+  }
+  if (count) { try { localStorage.setItem('alenjo_has_passkey', 'true'); } catch (e) {} }
+  var on = count ? true : hasPasskeyHere();
+  status.textContent = count ? count + ' passkey' + (count !== 1 ? 's' : '') + ' saved' : (on ? 'On for this device' : 'Not set up yet');
+  btn.textContent = on ? 'Add device' : 'Set up';
 }
 var setupFaceIdBtn = $('#btn-setup-faceid');
 if (setupFaceIdBtn) setupFaceIdBtn.addEventListener('click', async function() {
