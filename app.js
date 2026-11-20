@@ -2067,11 +2067,6 @@ function renderAccounts(accounts) {
       availEl.textContent = (availableCash < 0 ? '-' : '') + formatMoney(availableCash);
       availEl.className = 'hero-stat-value ' + (availableCash >= 0 ? 'balance-positive' : 'balance-negative');
     }
-    var nwEl = $('#networth-value');
-    if (nwEl) {
-      nwEl.textContent = (netWorth < 0 ? '-' : '') + formatMoney(netWorth);
-      nwEl.className = 'hero-stat-value ' + (netWorth >= 0 ? 'balance-positive' : 'balance-negative');
-    }
   } else {
     netCashEl.hidden = true;
   }
@@ -2126,9 +2121,10 @@ function renderHomeInsights() {
   renderBalanceSplit();
 }
 
+// Assets and Liabilities beside the big Available number
 function renderBalanceSplit() {
-  var wrap = $('#home-split');
-  if (!wrap || !cachedAccounts) return;
+  var aEl = $('#hero-assets'), lEl = $('#hero-liabs');
+  if (!aEl || !lEl || !cachedAccounts) return;
   var assets = 0, liabs = 0;
   cachedAccounts.forEach(function(a) {
     if (a.is_hidden || a.exclude_from_totals) return;
@@ -2136,13 +2132,8 @@ function renderBalanceSplit() {
     else if (a.type === 'investment') assets += getInvestmentValue(a);
     else if (a.type === 'depository') assets += Math.max(0, getDisplayBalance(a, 'bank').amount);
   });
-  if (!assets && !liabs) { wrap.hidden = true; return; }
-  var total = assets + liabs;
-  $('#home-assets').textContent = formatMoney(assets);
-  $('#home-liabs').textContent = formatMoney(liabs);
-  $('#home-split-assets').style.width = (assets / total * 100).toFixed(1) + '%';
-  $('#home-split-liabs').style.width = (liabs / total * 100).toFixed(1) + '%';
-  wrap.hidden = false;
+  aEl.textContent = formatMoney(assets);
+  lEl.textContent = formatMoney(liabs);
 }
 
 function formatApy(a) {

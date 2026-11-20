@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120225353';</script>
+  <script>var _v = '20261120230129';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120225353">
+  <link rel="stylesheet" href="style.css?v=20261120230129">
 </head>
 <body>
 
@@ -181,10 +181,10 @@
             <span class="hero-stat-label">Available</span>
             <span class="hero-stat-value" id="available-value"></span>
           </button>
-          <button class="hero-stat" id="hero-networth">
-            <span class="hero-stat-label">Net Worth</span>
-            <span class="hero-stat-value" id="networth-value"></span>
-          </button>
+          <div class="hero-side" id="hero-side">
+            <div class="hero-side-row"><span class="hero-stat-label">Assets</span><span class="hero-side-value" id="hero-assets"></span></div>
+            <div class="hero-side-row"><span class="hero-stat-label">Liabilities</span><span class="hero-side-value" id="hero-liabs"></span></div>
+          </div>
         </div>
         <p id="home-trend-label" class="home-trend-label" hidden></p>
         <svg id="home-trend" class="home-trend" viewBox="0 0 300 48" preserveAspectRatio="none" role="img" aria-label="Available cash over the last 30 days" hidden>
@@ -192,10 +192,6 @@
         </svg>
       </div>
 
-      <div id="home-split" class="home-split" hidden>
-        <div class="home-split-labels"><span>Assets <b id="home-assets"></b></span><span>Liabilities <b id="home-liabs"></b></span></div>
-        <div class="home-split-bar" aria-hidden="true"><span id="home-split-assets"></span><span id="home-split-liabs"></span></div>
-      </div>
 
       <div id="connect-cta" class="connect-cta">
         <p>Link your bank accounts to see your balances and spending</p>
