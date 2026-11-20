@@ -323,6 +323,7 @@ async function signInWithFaceId(fromUserTap) {
       authError.hidden = false;
     } else if (!fromUserTap) { $('#login-faceid-cta').hidden = false; }
   }
+  if (!res.error) { try { localStorage.setItem('alenjo_has_passkey', 'true'); } catch (e) {} }
   // On success the SIGNED_IN handler takes over and opens Home.
 }
 
