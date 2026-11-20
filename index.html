@@ -30,14 +30,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Bump the version (here and on the stylesheet link) when deploying CSS/JS changes so browsers pick up the new files -->
-  <script>var _v = '20261120f';</script>
+  <script>var _v = '20261120g';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120f">
+  <link rel="stylesheet" href="style.css?v=20261120g">
 </head>
 <body>
 
@@ -268,6 +268,14 @@
         <label class="set-row">
           <span class="set-row-text"><span>Include pending charges</span><span class="set-hint">Show what you can spend right now, not just what's posted</span></span>
           <input type="checkbox" id="pref-after-pending" class="set-switch" role="switch">
+        </label>
+      </div>
+
+      <h2 class="set-heading">Security</h2>
+      <div class="set-group">
+        <label class="set-row">
+          <span class="set-row-text"><span>Ask for Face ID on open</span><span class="set-hint">Show the Face ID prompt as soon as the app opens on this device</span></span>
+          <input type="checkbox" id="pref-auto-faceid" class="set-switch" role="switch">
         </label>
       </div>
 

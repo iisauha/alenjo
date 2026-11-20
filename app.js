@@ -383,8 +383,18 @@ function showScreen(name) {
     if (savedTab === 'investments' || savedTab === 'settings' || savedTab === 'budget') savedTab = 'snapshot';
     if (savedTab) switchTab(savedTab);
   }
-  // The sign-in screen no longer focuses a field on its own, so iOS only
-  // offers Face ID / saved passwords after you tap the Face ID icon or a field.
+  // Only jump into the password field (which makes iOS offer Face ID) when
+  // "Ask for Face ID on open" is turned on for this device.
+  if (name === 'login' && autoFaceIdEnabled()) {
+    setTimeout(function() {
+      var target = authEmail.value ? authPassword : authEmail;
+      try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+    }, 150);
+  }
+}
+
+function autoFaceIdEnabled() {
+  try { return localStorage.getItem('alenjo_auto_faceid') === 'true'; } catch (e) { return false; }
 }
 
 function switchTab(tabName) {
@@ -1367,6 +1377,14 @@ document.querySelectorAll('.hero-stat').forEach(function(btn) {
     if (cachedAccounts) renderAccounts(cachedAccounts);
   });
 });
+
+var prefAutoFaceId = $('#pref-auto-faceid');
+if (prefAutoFaceId) {
+  prefAutoFaceId.checked = autoFaceIdEnabled();
+  prefAutoFaceId.addEventListener('change', function() {
+    try { localStorage.setItem('alenjo_auto_faceid', this.checked ? 'true' : 'false'); } catch (e) {}
+  });
+}
 
 var signOutBtn = $('#btn-sign-out');
 if (signOutBtn) signOutBtn.addEventListener('click', function() {
