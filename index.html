@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#F3F2EC">
+  <meta name="theme-color" content="#EEECE5">
   <style id="antiframe">html{display:none}</style>
   <script>
     // Don't let other sites show Alenjo inside a frame (clickjacking)
@@ -20,7 +20,7 @@
       var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       var m = document.querySelector('meta[name="theme-color"]');
-      if (m) m.setAttribute('content', dark ? '#15140F' : '#F3F2EC');
+      if (m) m.setAttribute('content', dark ? '#1C1B17' : '#EEECE5');
     })();
   </script>
   <title>Alenjo</title>
@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120225109';</script>
+  <script>var _v = '20261120225210';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120225109">
+  <link rel="stylesheet" href="style.css?v=20261120225210">
 </head>
 <body>
 

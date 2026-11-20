@@ -1702,7 +1702,7 @@ function applyTheme() {
   var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#15140F' : '#F3F2EC');
+  if (meta) meta.setAttribute('content', dark ? '#1C1B17' : '#EEECE5');
   document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
     b.setAttribute('aria-pressed', b.dataset.themeChoice === pref ? 'true' : 'false');
   });

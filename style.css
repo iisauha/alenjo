@@ -1,22 +1,22 @@
 /* Ledger theme: light by default, dark via system setting or data-theme */
 :root {
   color-scheme: light;
-  --bg: #F3F2EC;
-  --bg-card: #FBFAF6;
-  --bg-input: #FBFAF6;
-  --bg-elevated: #E8E5DC;
-  --accent: #1F6B47;
-  --accent-hover: #185839;
-  --accent-subtle: #E1EBE2;
-  --accent-glow: #E1EBE2;
-  --on-accent: #FBFAF6;
-  --text: #1C1B19;
-  --text-muted: #5E5A52;
-  --text-dim: #6E6A61;
-  --border: #DEDACF;
-  --track: #E3DFD5;
-  --danger: #A8341F;
-  --success: #1F6B47;
+  --bg: #EEECE5;
+  --bg-card: #F7F5EF;
+  --bg-input: #F7F5EF;
+  --bg-elevated: #E4E1D8;
+  --accent: #2A6E4D;
+  --accent-hover: #225A3F;
+  --accent-subtle: #DDE8DF;
+  --accent-glow: #DDE8DF;
+  --on-accent: #F7F5EF;
+  --text: #2B2A26;
+  --text-muted: #66625A;
+  --text-dim: #706C63;
+  --border: #DCD8CE;
+  --track: #DFDBD1;
+  --danger: #A23A26;
+  --success: #2A6E4D;
   --warning: #9A6A12;
   --scrim: rgba(28, 27, 25, 0.35);
   --serif: 'Newsreader', Georgia, serif;
@@ -38,22 +38,22 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #15140F;
-  --bg-card: #1D1B16;
-  --bg-input: #1D1B16;
-  --bg-elevated: #2A2720;
-  --accent: #7FC9A0;
-  --accent-hover: #96D6B2;
-  --accent-subtle: #1F2E25;
-  --accent-glow: #1F2E25;
-  --on-accent: #15140F;
-  --text: #EDE8DD;
-  --text-muted: #A39C8E;
-  --text-dim: #948D80;
-  --border: #33302A;
-  --track: #33302A;
-  --danger: #F0937F;
-  --success: #7FC9A0;
+  --bg: #1C1B17;
+  --bg-card: #24221D;
+  --bg-input: #24221D;
+  --bg-elevated: #2E2B25;
+  --accent: #86C6A2;
+  --accent-hover: #9AD2B3;
+  --accent-subtle: #213028;
+  --accent-glow: #213028;
+  --on-accent: #1C1B17;
+  --text: #DCD6CA;
+  --text-muted: #A0998C;
+  --text-dim: #958E81;
+  --border: #34312A;
+  --track: #34312A;
+  --danger: #E8917E;
+  --success: #86C6A2;
   --warning: #E0B45E;
   --scrim: rgba(0, 0, 0, 0.55);
 }
