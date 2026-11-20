@@ -4539,10 +4539,6 @@ if (legendToggle) legendToggle.addEventListener('click', function() {
 });
 
 // ============================================
-// AI CHAT (inline on Snapshot)
-// ============================================
-
-// ============================================
 // UTILS
 // ============================================
 function formatTimestamp(ts) {
