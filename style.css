@@ -2988,3 +2988,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
 .lock-screen .login-subtitle { margin: 0 0 20px; }
 .lock-unlock { max-width: 320px; min-height: 52px; }
 .set-select { min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font: 500 0.875rem 'Inter', sans-serif; }
+
+/* Keep hidden cards hidden (the reset form only shows from a reset link) */
+.signin-card[hidden] { display: none !important; }
