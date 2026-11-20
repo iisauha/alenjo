@@ -3012,8 +3012,10 @@ async function loadTransactions() {
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   filter.innerHTML = txMonths.map(function(m) {
     var parts = m.split('-');
-    var label = monthNames[parseInt(parts[1]) - 1] + ' ' + parts[0];
-    return '<option value="' + m + '">' + label + '</option>';
+    var full = monthNames[parseInt(parts[1]) - 1] + ' ' + parts[0];
+    // The button shows just the month (year only when it isn't this year); the picker shows both
+    var short = +parts[0] === now.getFullYear() ? monthNames[parseInt(parts[1]) - 1] : monthNames[parseInt(parts[1]) - 1].slice(0, 3) + ' ' + parts[0];
+    return '<option value="' + m + '" data-full="' + full + '">' + short + '</option>';
   }).join('');
 
   // Show Plaid's real freshness time (when bank data was last updated)
@@ -3217,7 +3219,6 @@ function renderTransactionMonth() {
   $('#act-spent-label').textContent = activeCategoryFilter ? activeCategoryFilter : 'Spent';
   $('#act-spent').textContent = formatMoney(shownSpent);
   $('#act-income').textContent = (moneyIn > 0 ? '+' : '') + formatMoney(moneyIn);
-  $('#act-transfers').textContent = formatMoney(transfers);
 
   // ---- One chart: spending by day, each bar stacked by category.
   // The category chips under it are the legend and the filter.
@@ -3273,9 +3274,9 @@ function renderTransactionMonth() {
     var dayAmt = dayTotal(activeDay);
     $('#act-spent-label').textContent = new Date(y, m - 1, activeDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + (activeCategoryFilter ? ' · ' + activeCategoryFilter : '');
     $('#act-spent').textContent = formatMoney(dayAmt);
-    $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-clear-day">Show whole month</button>';
+    $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-clear-day">Show all of ' + MONTH_LONG[m - 1] + '</button>';
   } else {
-    $('#act-daily-note').textContent = shownSpent ? '~' + formatMoney(shownSpent / lastDay) + '/day' : '';
+    $('#act-daily-note').textContent = '';
   }
 
   // Category chips: one swipeable row, tap to filter, tap again to clear
@@ -3365,7 +3366,7 @@ function openPicker(sel) {
   $('#picker-title').textContent = label;
   $('#picker-list').innerHTML = Array.prototype.map.call(sel.options, function(o, i) {
     var on = i === sel.selectedIndex;
-    return '<button type="button" class="picker-row' + (on ? ' on' : '') + '" role="option" aria-selected="' + on + '" data-i="' + i + '"><span>' + esc(o.textContent) + '</span>' +
+    return '<button type="button" class="picker-row' + (on ? ' on' : '') + '" role="option" aria-selected="' + on + '" data-i="' + i + '"><span>' + esc(o.dataset.full || o.textContent) + '</span>' +
       (on ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>' : '') + '</button>';
   }).join('');
   var ov = $('#picker-sheet');
