@@ -2666,6 +2666,7 @@ document.addEventListener('click', function(e) {
   $('#manage-title').textContent = 'Manage ' + ((acct && acct.institution) || '') + ' account';
   $('#manage-subtitle').textContent = acct ? (acct.nickname || acct.name || 'Account') + (acct.mask ? ' ' + acct.mask : '') : '';
   accountEditModal.classList.add('visible');
+  var mc = accountEditModal.querySelector('.modal-card'); if (mc) mc.scrollTop = 0;
 });
 
 $('#account-edit-save').addEventListener('click', function() {
@@ -3128,7 +3129,8 @@ function renderTransactionMonth() {
   var bw = 310 / daysInMonth, bars = '';
   for (var d = 1; d <= daysInMonth; d++) {
     var v = byDay[d] || 0;
-    var h = maxDay ? Math.max(v ? 3 : 0, (v / maxDay) * 72) : 0;
+    // Square-root scale: one big bill (like rent) won't flatten every other day
+    var h = maxDay ? Math.max(v ? 4 : 0, Math.sqrt(v / maxDay) * 72) : 0;
     var future = isThisMonth && d > now.getDate();
     bars += '<rect x="' + ((d - 1) * bw + 1).toFixed(1) + '" y="' + (78 - h).toFixed(1) + '" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1.5" fill="' + (isThisMonth && d === now.getDate() ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 55%, transparent)') + '"' + (future ? ' opacity="0.25"' : '') + '><title>' + MONTH_SHORT[m - 1] + ' ' + d + ': ' + formatMoney(v) + '</title></rect>';
     if (future) bars += '<rect x="' + ((d - 1) * bw + 1).toFixed(1) + '" y="76" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="2" rx="1" fill="var(--track)"/>';
