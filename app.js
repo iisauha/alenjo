@@ -2177,11 +2177,15 @@ function renderHomeInsights() {
   chart.hidden = false; ranges.hidden = false; label.hidden = false;
   showHomePoint(null);
 }
-function homeChangeLabel(from, to, suffix) {
-  var change = to - from;
-  return '<strong class="' + (change < 0 ? 'down' : '') + '">' + (change < 0 ? '↓ ' : '↑ ') + formatMoney(Math.abs(change)) + '</strong> ' + suffix;
+// Plain-English change line: "Down $4,630.48 since Oct 21"
+function shortDate(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
 }
-var RANGE_WORDS = { 7: 'past week', 30: 'past month', 90: 'past 3 months', 365: 'past year' };
+function homeChangeLabel(from, to, sinceDate) {
+  var change = to - from;
+  if (Math.abs(change) < 0.005) return 'No change since ' + shortDate(sinceDate);
+  return '<strong class="' + (change < 0 ? 'down' : '') + '">' + (change < 0 ? 'Down ' : 'Up ') + formatMoney(Math.abs(change)) + '</strong> since ' + shortDate(sinceDate);
+}
 function showHomePoint(idx) {
   var s = homeSeries; if (!s || !s.length) return;
   var cur = $('#home-trend-cursor'), dot = $('#home-trend-dot');
@@ -2191,16 +2195,18 @@ function showHomePoint(idx) {
   availEl.className = 'hero-stat-value ' + (pt.available >= 0 ? 'balance-positive' : 'balance-negative');
   $('#hero-assets').textContent = formatMoney(pt.assets);
   $('#hero-liabs').textContent = formatMoney(pt.liabs);
+  var label = $('#home-trend-label');
   if (idx === null) {
     cur.setAttribute('visibility', 'hidden'); dot.hidden = true;
-    var days = s.length - 1;
-    $('#home-trend-label').innerHTML = homeChangeLabel(s[0].available, pt.available, days < homeRange ? 'past ' + days + ' days' : RANGE_WORDS[homeRange]);
+    label.innerHTML = homeChangeLabel(s[0].available, pt.available, s[0].date);
     return;
   }
   cur.setAttribute('x1', pt.x); cur.setAttribute('x2', pt.x); cur.setAttribute('visibility', 'visible');
   dot.hidden = false; dot.style.left = (pt.x / 3) + '%'; dot.style.top = (pt.y / 64 * 100) + '%';
-  var when = pt.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: pt.date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
-  $('#home-trend-label').innerHTML = '<span class="home-trend-date">' + when + '</span> ' + homeChangeLabel(s[0].available, pt.available, '');
+  // While dragging: which day you're on, and how it compares with today
+  var diff = s[s.length - 1].available - pt.available;
+  label.innerHTML = '<span class="home-trend-date">' + shortDate(pt.date) + '</span>' +
+    (Math.abs(diff) < 0.005 ? ' · same as today' : ' · ' + formatMoney(Math.abs(diff)) + (diff < 0 ? ' more than today' : ' less than today'));
 }
 (function wireHomeChart() {
   var chart = $('#home-chart'), ranges = $('#home-ranges');
