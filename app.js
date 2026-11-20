@@ -5,7 +5,10 @@
 var SUPABASE_URL = 'https://itkufrockebnlzcroigc.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0a3Vmcm9ja2Vibmx6Y3JvaWdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTczNjYsImV4cCI6MjA5MTI3MzM2Nn0.mhOwZBwegogIb-yjYzxS4ROQdc4Tc8xLMNlHcDfozzI';
 
-var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Passkeys (beta) give a consistent native Face ID prompt on iPhone and Mac
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { experimental: { passkey: true } }
+});
 
 // Supabase returns at most 1000 rows per request. Page through so large
 // tables (transactions, transaction actions) are never silently cut off.
@@ -252,10 +255,44 @@ function startAutofillWatch() {
 authEmail.addEventListener('change', startAutofillWatch);
 authPassword.addEventListener('change', startAutofillWatch);
 
-authFaceId.addEventListener('click', function() {
-  var target = authEmail.value ? authPassword : authEmail;
-  try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
-});
+// ============================================
+// FACE ID (passkeys)
+// ============================================
+function hasPasskeyHere() {
+  try { return localStorage.getItem('alenjo_has_passkey') === 'true'; } catch (e) { return false; }
+}
+
+var passkeyInFlight = false;
+async function signInWithFaceId(fromUserTap) {
+  if (passkeyInFlight || signingIn) return;
+  if (!hasPasskeyHere() || !window.PublicKeyCredential) {
+    // No passkey on this device yet: fall back to the saved password in
+    // the device's password manager.
+    if (fromUserTap) {
+      var target = authEmail.value ? authPassword : authEmail;
+      try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+      authError.textContent = 'Set up Face ID in Settings → Security after you sign in.';
+      authError.hidden = false;
+    }
+    return;
+  }
+  passkeyInFlight = true;
+  authError.hidden = true;
+  setSigningIn(true);
+  var res = await sb.auth.signInWithPasskey();
+  passkeyInFlight = false;
+  if (res.error) {
+    setSigningIn(false);
+    var cancelled = /NotAllowed|abort|cancel/i.test((res.error.name || '') + ' ' + (res.error.message || ''));
+    if (!cancelled) { authError.textContent = 'Face ID sign-in failed. Use your password instead.'; authError.hidden = false; }
+    else if (!fromUserTap) { $('#login-faceid-cta').hidden = false; }
+  }
+  // On success the SIGNED_IN handler takes over and opens Home.
+}
+
+authFaceId.addEventListener('click', function() { signInWithFaceId(true); });
+var faceIdCta = $('#login-faceid-cta');
+if (faceIdCta) faceIdCta.addEventListener('click', function() { signInWithFaceId(true); });
 
 // Sign out any existing session on load so user must log in every time
 // Then listen for fresh sign-ins only
@@ -388,13 +425,12 @@ function showScreen(name) {
     if (savedTab === 'investments' || savedTab === 'settings' || savedTab === 'budget') savedTab = 'snapshot';
     if (savedTab) switchTab(savedTab);
   }
-  // Only jump into the password field (which makes iOS offer Face ID) when
-  // "Ask for Face ID on open" is turned on for this device.
-  if (name === 'login' && autoFaceIdEnabled()) {
-    setTimeout(function() {
-      var target = authEmail.value ? authPassword : authEmail;
-      try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
-    }, 150);
+  if (name === 'login') {
+    var cta = $('#login-faceid-cta');
+    if (cta) cta.hidden = !hasPasskeyHere();
+    // "Ask for Face ID on open": start the native Face ID prompt right away.
+    // If the browser insists on a tap first, the big Face ID button stays up.
+    if (autoFaceIdEnabled() && hasPasskeyHere()) setTimeout(function() { signInWithFaceId(false); }, 300);
   }
 }
 
@@ -1382,6 +1418,32 @@ document.querySelectorAll('.hero-stat').forEach(function(btn) {
     if (cachedAccounts) renderAccounts(cachedAccounts);
   });
 });
+
+// Face ID setup in Settings → Security
+function updateFaceIdSetting() {
+  var status = $('#faceid-status'), btn = $('#btn-setup-faceid');
+  if (!status || !btn) return;
+  var on = hasPasskeyHere();
+  status.textContent = on ? 'On for this device' : 'Not set up on this device';
+  btn.textContent = on ? 'Set up again' : 'Set up';
+}
+var setupFaceIdBtn = $('#btn-setup-faceid');
+if (setupFaceIdBtn) setupFaceIdBtn.addEventListener('click', async function() {
+  if (!window.PublicKeyCredential) { showToast('This browser does not support Face ID sign-in'); return; }
+  this.disabled = true;
+  var res = await sb.auth.registerPasskey();
+  this.disabled = false;
+  if (res.error) {
+    var msg = res.error.message || 'Could not set up Face ID';
+    if (/not enabled|disabled|passkey/i.test(msg) && !/cancel|NotAllowed/i.test(msg)) msg = 'Face ID needs passkeys turned on in Supabase first';
+    showToast(msg);
+    return;
+  }
+  try { localStorage.setItem('alenjo_has_passkey', 'true'); } catch (e) {}
+  updateFaceIdSetting();
+  showToast('Face ID is set up on this device');
+});
+updateFaceIdSetting();
 
 var prefAutoFaceId = $('#pref-auto-faceid');
 if (prefAutoFaceId) {

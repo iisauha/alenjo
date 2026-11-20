@@ -30,14 +30,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Bump the version (here and on the stylesheet link) when deploying CSS/JS changes so browsers pick up the new files -->
-  <script>var _v = '20261120i';</script>
+  <script>var _v = '20261120j';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120i">
+  <link rel="stylesheet" href="style.css?v=20261120j">
 </head>
 <body>
 
@@ -105,6 +105,7 @@
             </button>
           </div>
           <button type="submit" id="auth-submit" class="btn-primary">Sign in</button>
+          <button type="button" id="login-faceid-cta" class="signin-faceid-cta" hidden>Sign in with Face ID</button>
           <button type="button" id="btn-forgot" class="signin-link signin-forgot">Forgot password?</button>
           <button type="button" id="btn-goto-beta" class="btn-link" hidden>Sign up</button>
         </form>
@@ -295,8 +296,12 @@
 
       <h2 class="set-heading">Security</h2>
       <div class="set-group">
+        <div class="set-row">
+          <span class="set-row-text"><span>Face ID sign-in</span><span class="set-hint" id="faceid-status">Not set up on this device</span></span>
+          <button type="button" id="btn-setup-faceid" class="btn-secondary-sm">Set up</button>
+        </div>
         <label class="set-row">
-          <span class="set-row-text"><span>Ask for Face ID on open</span><span class="set-hint">Show the Face ID prompt as soon as the app opens on this device</span></span>
+          <span class="set-row-text"><span>Ask for Face ID on open</span><span class="set-hint">Start Face ID as soon as the app opens</span></span>
           <input type="checkbox" id="pref-auto-faceid" class="set-switch" role="switch">
         </label>
       </div>
