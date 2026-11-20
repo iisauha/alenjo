@@ -1603,6 +1603,71 @@ if (lockSelect) {
   });
 }
 
+// ============================================
+// SETTINGS → ACCOUNTS (order, show on Home, count in totals)
+// ============================================
+function accountKind(a) {
+  if (a.type === 'credit') return 'Credit cards';
+  if (a.type === 'investment') return 'Investments';
+  if (a.subtype === 'savings') return 'Savings';
+  return 'Banks';
+}
+function renderAccountOrderList() {
+  var list = $('#account-order-list');
+  if (!list) return;
+  if (!cachedAccounts || !cachedAccounts.length) { list.innerHTML = '<p class="set-empty">No accounts yet</p>'; return; }
+  var groups = {};
+  cachedAccounts.forEach(function(a) { (groups[accountKind(a)] = groups[accountKind(a)] || []).push(a); });
+  var html = '';
+  ['Banks', 'Credit cards', 'Savings', 'Investments'].forEach(function(kind) {
+    var items = (groups[kind] || []).slice().sort(function(x, y) {
+      var ox = x.sort_order == null ? 1e9 : x.sort_order, oy = y.sort_order == null ? 1e9 : y.sort_order;
+      return ox - oy || Math.abs(getDisplayBalance(y, 'bank').amount) - Math.abs(getDisplayBalance(x, 'bank').amount);
+    });
+    if (!items.length) return;
+    html += '<div class="acct-order-kind">' + kind + '</div>';
+    items.forEach(function(a, i) {
+      var name = a.nickname || a.name || 'Account';
+      html += '<div class="acct-order-row' + (a.is_hidden ? ' is-hidden' : '') + '" data-id="' + esc(a.id) + '">' +
+        '<span class="acct-order-name"><span>' + esc(name) + '</span><span class="set-hint">' + esc(a.institution || '') + (a.mask ? ' ••' + esc(a.mask) : '') + (a.exclude_from_totals ? ' · not in totals' : '') + '</span></span>' +
+        '<button type="button" class="acct-order-btn" data-move="-1" aria-label="Move ' + esc(name) + ' up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+        '<button type="button" class="acct-order-btn" data-move="1" aria-label="Move ' + esc(name) + ' down"' + (i === items.length - 1 ? ' disabled' : '') + '>↓</button>' +
+        '<button type="button" class="acct-order-btn acct-eye" data-toggle-hide aria-pressed="' + (a.is_hidden ? 'false' : 'true') + '" aria-label="' + (a.is_hidden ? 'Show ' : 'Hide ') + esc(name) + '">' + (a.is_hidden ? 'Show' : 'Hide') + '</button>' +
+      '</div>';
+    });
+  });
+  list.innerHTML = html;
+}
+var accountOrderList = $('#account-order-list');
+if (accountOrderList) accountOrderList.addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn || btn.disabled) return;
+  var row = btn.closest('.acct-order-row');
+  var acct = cachedAccounts.find(function(a) { return a.id === row.dataset.id; });
+  if (!acct) return;
+  if (btn.hasAttribute('data-toggle-hide')) {
+    acct.is_hidden = !acct.is_hidden;
+    sb.from('accounts').update({ is_hidden: acct.is_hidden }).eq('id', acct.id).then(function(r) { if (r.error) showToast('Could not save'); });
+  } else {
+    // Renumber this group in its current order, then swap with the neighbour
+    var kind = accountKind(acct);
+    var rows = Array.prototype.slice.call(accountOrderList.querySelectorAll('.acct-order-row'))
+      .map(function(r) { return cachedAccounts.find(function(a) { return a.id === r.dataset.id; }); })
+      .filter(function(a) { return a && accountKind(a) === kind; });
+    var idx = rows.indexOf(acct), to = idx + parseInt(btn.dataset.move, 10);
+    if (to < 0 || to >= rows.length) return;
+    rows.splice(to, 0, rows.splice(idx, 1)[0]);
+    rows.forEach(function(a, i) {
+      if (a.sort_order !== i) {
+        a.sort_order = i;
+        sb.from('accounts').update({ sort_order: i }).eq('id', a.id).then(function(r) { if (r.error) showToast('Could not save order'); });
+      }
+    });
+  }
+  renderAccountOrderList();
+  renderAccounts(cachedAccounts);
+});
+
 var prefAutoFaceId = $('#pref-auto-faceid');
 if (prefAutoFaceId) {
   prefAutoFaceId.checked = autoFaceIdEnabled();
@@ -1641,7 +1706,6 @@ function applyTheme() {
   document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
     b.setAttribute('aria-pressed', b.dataset.themeChoice === pref ? 'true' : 'false');
   });
-  if (typeof txPieChart !== 'undefined' && txPieChart && typeof renderTransactionMonth === 'function' && txData.length) renderTransactionMonth();
 }
 document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
   b.addEventListener('click', function() {
@@ -1938,7 +2002,12 @@ function getDisplayBalance(account, type) {
 // ============================================
 // RENDER ACCOUNTS
 // ============================================
+// Accounts you've hidden stay out of the cards; "Not in totals" ones still
+// show, but don't count toward Available / Net worth.
+function inTotals(a) { return !a.exclude_from_totals; }
+
 function renderAccounts(accounts) {
+  accounts = accounts.filter(function(a) { return !a.is_hidden; });
   var banks = accounts.filter(function(a) { return a.type === 'depository' && a.subtype !== 'savings'; });
   var savings = accounts.filter(function(a) { return a.type === 'depository' && a.subtype === 'savings'; });
   var credits = accounts.filter(function(a) { return a.type === 'credit'; });
@@ -1982,9 +2051,12 @@ function renderAccounts(accounts) {
   // Available Cash (banks - credit) and Net Worth (everything)
   var netCashEl = $('#net-cash');
   if (hasAnyAccounts) {
-    var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
+    var heroBank = banks.filter(inTotals).reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
+    var heroCredit = credits.filter(inTotals).reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
+    var savingsSum = savings.filter(inTotals).reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
     var investSum = 0;
-    investments.forEach(function(a) { investSum += getInvestmentValue(a); });
+    investments.filter(inTotals).forEach(function(a) { investSum += getInvestmentValue(a); });
+    var bankSum = heroBank, creditSum = heroCredit;
     var availableCash = bankSum - creditSum;
     lastAvailableCash = availableCash;
     var netWorth = bankSum - creditSum + savingsSum + investSum;
@@ -2005,6 +2077,7 @@ function renderAccounts(accounts) {
   }
 
   renderAccountsSettings();
+  renderAccountOrderList();
   renderHomeInsights();
 }
 
@@ -2013,10 +2086,11 @@ function renderAccounts(accounts) {
 // ============================================
 var lastAvailableCash = null;
 function renderHomeInsights() {
-  var label = $('#home-trend-label'), svgEl = $('#home-trend'), spend = $('#home-spending');
-  if (!label || !svgEl || !spend) return;
+  var label = $('#home-trend-label'), svgEl = $('#home-trend');
+  if (!label || !svgEl) return;
+  renderBalanceSplit();
   if (!txData || !txData.length || lastAvailableCash === null || !cachedAccounts) {
-    label.hidden = true; svgEl.hidden = true; spend.hidden = true;
+    label.hidden = true; svgEl.hidden = true;
     return;
   }
 
@@ -2049,31 +2123,34 @@ function renderHomeInsights() {
   label.innerHTML = '<strong class="' + (change < 0 ? 'down' : '') + '">' + (change < 0 ? '↓ ' : '↑ ') + formatMoney(change) + '</strong> in the last 30 days';
   label.hidden = false; svgEl.hidden = false;
 
-  // Spending this month, by category (same rules as the Activity chart)
-  var month = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-  var byCat = {};
-  txData.forEach(function(tx) {
-    var eff = getEffectiveTx(tx);
-    if (eff.excluded || eff.amount <= 0 || eff.date.substring(0, 7) !== month) return;
-    var cat = normalizeCategory(eff.category);
-    byCat[cat] = (byCat[cat] || 0) + eff.amount;
+  renderBalanceSplit();
+}
+
+function renderBalanceSplit() {
+  var wrap = $('#home-split');
+  if (!wrap || !cachedAccounts) return;
+  var assets = 0, liabs = 0;
+  cachedAccounts.forEach(function(a) {
+    if (a.is_hidden || a.exclude_from_totals) return;
+    if (a.type === 'credit') liabs += Math.max(0, getDisplayBalance(a, 'credit').amount);
+    else if (a.type === 'investment') assets += getInvestmentValue(a);
+    else if (a.type === 'depository') assets += Math.max(0, getDisplayBalance(a, 'bank').amount);
   });
-  var cats = Object.keys(byCat).map(function(k) { return [k, byCat[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
-  var total = cats.reduce(function(sum, c) { return sum + c[1]; }, 0);
-  if (!total) { spend.hidden = true; return; }
-  var top = cats.slice(0, 3), rest = cats.slice(3).reduce(function(sum, c) { return sum + c[1]; }, 0);
-  if (rest > 0) top.push(['Other', rest]);
-  var colors = CATEGORY_COLORS.slice(0, 3).concat(['var(--track)']);
-  $('#home-spending-title').textContent = 'Spent in ' + today.toLocaleDateString('en-US', { month: 'long' });
-  $('#home-spending-total').textContent = formatMoney(total);
-  $('#home-spending-bar').innerHTML = top.map(function(c, idx) {
-    return '<span style="width:' + (c[1] / total * 100).toFixed(1) + '%;background:' + colors[idx] + '"></span>';
-  }).join('');
-  $('#home-spending-bar').setAttribute('aria-label', top.map(function(c) { return c[0] + ' ' + Math.round(c[1] / total * 100) + '%'; }).join(', '));
-  $('#home-spending-legend').innerHTML = top.map(function(c, idx) {
-    return '<span><i style="background:' + colors[idx] + '"></i>' + esc(c[0]) + '<b>' + formatMoney(c[1]) + '</b></span>';
-  }).join('');
-  spend.hidden = false;
+  if (!assets && !liabs) { wrap.hidden = true; return; }
+  var total = assets + liabs;
+  $('#home-assets').textContent = formatMoney(assets);
+  $('#home-liabs').textContent = formatMoney(liabs);
+  $('#home-split-assets').style.width = (assets / total * 100).toFixed(1) + '%';
+  $('#home-split-liabs').style.width = (liabs / total * 100).toFixed(1) + '%';
+  wrap.hidden = false;
+}
+
+function formatApy(a) {
+  var apy = parseFloat(a.apy);
+  var bal = getDisplayBalance(a, 'bank').amount;
+  var monthly = bal > 0 ? bal * (Math.pow(1 + apy / 100, 1 / 12) - 1) : 0;
+  var perMonth = monthly >= 1 ? '$' + Math.round(monthly).toLocaleString('en-US') : monthly >= 0.01 ? formatMoney(monthly) : '';
+  return apy.toFixed(2).replace(/\.?0+$/, '') + '% APY' + (perMonth ? ' · ~' + perMonth + '/mo' : '');
 }
 
 function getInvestmentValue(a) {
@@ -2317,7 +2394,10 @@ async function loadLiabilities() {
 
 
 function renderSection(listEl, items, type) {
+  // Your own order first (Settings → Accounts), then largest balance first
   var sorted = items.slice().sort(function(a, b) {
+    var oa = a.sort_order == null ? 1e9 : a.sort_order, ob = b.sort_order == null ? 1e9 : b.sort_order;
+    if (oa !== ob) return oa - ob;
     return Math.abs(getDisplayBalance(b, type).amount) - Math.abs(getDisplayBalance(a, type).amount);
   });
 
@@ -2504,6 +2584,8 @@ function accountCard(account, type) {
         '<span class="account-name" data-id="' + account.id + '">' + esc(displayName) + '</span>' +
         '<span class="account-institution">' + esc(account.institution || '') + '</span>' +
         (account.mask ? '<span class="account-mask">****' + esc(account.mask) + '</span>' : '') +
+        (account.apy ? '<span class="account-apy">' + formatApy(account) + '</span>' : '') +
+        (account.exclude_from_totals ? '<span class="account-flag">Not in totals</span>' : '') +
         logoRowHtml +
       '</div>' +
       '<div class="account-balance">' +
@@ -2568,13 +2650,21 @@ var nicknameInput = $('#nickname-input');
 var editingAccountId = null;
 
 document.addEventListener('click', function(e) {
-  var nameEl = e.target.closest('.account-name');
-  if (!nameEl || !nameEl.dataset.id) return;
-  editingAccountId = nameEl.dataset.id;
-  nicknameInput.value = nameEl.textContent;
+  var card = e.target.closest('.account-card[data-id]');
+  if (!card || e.target.closest('.amount-bonus-trigger, a, button, input')) return;
+  var nameEl = card.querySelector('.account-name');
+  editingAccountId = card.dataset.id;
+  nicknameInput.value = nameEl ? nameEl.textContent : '';
 
   var acct = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === editingAccountId; }) : null;
   renderCardDesignPicker(acct && acct.card_design_id ? acct.card_design_id : null);
+  var isDeposit = acct && acct.type === 'depository';
+  $('#apy-field').hidden = !isDeposit;
+  $('#apy-input').value = acct && acct.apy != null ? acct.apy : '';
+  $('#edit-exclude').checked = !!(acct && acct.exclude_from_totals);
+  $('#edit-hide').checked = !!(acct && acct.is_hidden);
+  $('#manage-title').textContent = 'Manage ' + ((acct && acct.institution) || '') + ' account';
+  $('#manage-subtitle').textContent = acct ? (acct.nickname || acct.name || 'Account') + (acct.mask ? ' ' + acct.mask : '') : '';
   accountEditModal.classList.add('visible');
 });
 
@@ -2616,7 +2706,25 @@ $('#account-edit-save').addEventListener('click', function() {
     }
   }
 
+  // Interest rate, totals and visibility
+  var acctNow = cachedAccounts ? cachedAccounts.find(function(a) { return a.id === editingAccountId; }) : null;
+  if (acctNow) {
+    var apyRaw = $('#apy-input').value.trim();
+    var apyVal = apyRaw === '' ? null : Math.max(0, Math.min(25, parseFloat(apyRaw)));
+    if (apyVal !== null && isNaN(apyVal)) apyVal = null;
+    var changes = {
+      apy: acctNow.type === 'depository' ? apyVal : acctNow.apy || null,
+      exclude_from_totals: $('#edit-exclude').checked,
+      is_hidden: $('#edit-hide').checked
+    };
+    Object.assign(acctNow, changes);
+    sb.from('accounts').update(changes).eq('id', acctNow.id).then(function(result) {
+      if (result.error) { console.error('Account settings save error:', result.error); showToast('Could not save account settings'); }
+    });
+  }
+
   if (cachedAccounts) renderAccounts(cachedAccounts);
+  renderAccountOrderList();
   accountEditModal.classList.remove('visible');
   editingAccountId = null;
   showToast('Saved');
@@ -2852,7 +2960,7 @@ async function loadTransactions() {
 
   // Set initial button state every load, but only bind listeners once
   var btnIgnored = $('#btn-toggle-ignored');
-  btnIgnored.textContent = showIgnoredTx ? 'Hide Ignored' : 'Show Ignored';
+  btnIgnored.textContent = showIgnoredTx ? 'Hide ignored' : 'Show ignored';
   btnIgnored.classList.toggle('active', showIgnoredTx);
 
   if (!txListenersReady) {
@@ -2871,7 +2979,7 @@ async function loadTransactions() {
     btnIgnored.addEventListener('click', function() {
       showIgnoredTx = !showIgnoredTx;
       localStorage.setItem('alenjo_show_ignored', showIgnoredTx ? 'true' : 'false');
-      this.textContent = showIgnoredTx ? 'Hide Ignored' : 'Show Ignored';
+      this.textContent = showIgnoredTx ? 'Hide ignored' : 'Show ignored';
       this.classList.toggle('active', showIgnoredTx);
       renderTransactionMonth();
     });
@@ -2922,22 +3030,8 @@ function getEffectiveTx(tx) {
   return result;
 }
 
-var txPieChart = null;
-var txPieLastMonth = null;
 var activeCategoryFilter = null;
 var showIgnoredTx = localStorage.getItem('alenjo_show_ignored') === 'true';
-function updatePieCenter(label, amount, pct) {
-  var el = document.getElementById('tx-pie-center');
-  if (!el) return;
-  if (label) {
-    el.innerHTML = '<div class="pie-center-label">' + esc(label) + '</div>' +
-      '<div class="pie-center-amount">' + formatMoney(amount) + '</div>' +
-      '<div class="pie-center-pct">' + pct + '</div>';
-  } else {
-    el.innerHTML = '<div class="pie-center-label">Total</div>' +
-      '<div class="pie-center-amount">' + formatMoney(amount) + '</div>';
-  }
-}
 
 var CATEGORY_COLORS = [
   '#2E8B57', '#4F6BD8', '#D98A2B', '#8A5CC2', '#C2524A',
@@ -3004,213 +3098,190 @@ function renderTransactionMonth() {
     });
   }
 
-  // Expenses only for pie chart — use effective amounts, skip excluded
-  var byCategory = {};
+  // ---- Summary: spent / money in / transfers (effective amounts, skip excluded)
+  var byCategory = {}, spent = 0, moneyIn = 0, transfers = 0, byDay = {};
   filtered.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
-    if (eff.excluded || eff.amount <= 0) return;
+    if (eff.excluded) return;
     var cat = normalizeCategory(eff.category);
-    if (!byCategory[cat]) byCategory[cat] = 0;
-    byCategory[cat] += eff.amount;
-  });
-
-  // Sort categories by amount
-  var catEntries = Object.entries(byCategory).sort(function(a, b) { return b[1] - a[1]; });
-  var catLabels = catEntries.map(function(e) { return e[0]; });
-  var catAmounts = catEntries.map(function(e) { return e[1]; });
-  var totalExpenses = catAmounts.reduce(function(s, a) { return s + a; }, 0);
-
-  // Update center text overlay for pie chart
-  if (activeCategoryFilter && byCategory[activeCategoryFilter]) {
-    var catAmt = byCategory[activeCategoryFilter];
-    var catPct = totalExpenses > 0 ? formatPct((catAmt / totalExpenses) * 100) : '0.00%';
-    updatePieCenter(activeCategoryFilter, catAmt, catPct);
-  } else {
-    updatePieCenter(null, totalExpenses, '');
-  }
-
-  // Render pie chart — update in place to avoid re-spin
-  var canvas = document.getElementById('tx-pie-chart');
-
-  var monthChanged = txPieLastMonth !== month;
-  txPieLastMonth = month;
-
-  if (catEntries.length > 0 && typeof Chart !== 'undefined') {
-    if (txPieChart && !monthChanged) {
-      // Update data in place — no re-spin on category click
-      txPieChart.data.labels = catLabels;
-      txPieChart.data.datasets[0].data = catAmounts;
-      txPieChart.data.datasets[0].backgroundColor = CATEGORY_COLORS.slice(0, catLabels.length);
-      txPieChart.options.animation = false;
-      txPieChart.update();
+    if (isTransferCategory(cat)) { transfers += Math.abs(eff.amount); return; }
+    if (eff.amount > 0) {
+      spent += eff.amount;
+      byCategory[cat] = (byCategory[cat] || 0) + eff.amount;
+      var day = parseInt(eff.date.substring(8, 10), 10);
+      byDay[day] = (byDay[day] || 0) + eff.amount;
     } else {
-      if (txPieChart) txPieChart.destroy();
-      txPieChart = new Chart(canvas, {
-        type: 'doughnut',
-        data: {
-          labels: catLabels,
-          datasets: [{
-            data: catAmounts,
-            backgroundColor: CATEGORY_COLORS.slice(0, catLabels.length),
-            borderWidth: 0,
-            hoverOffset: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          cutout: '58%',
-          layout: { padding: 0 },
-          animation: { animateRotate: true, animateScale: false, duration: 600, easing: 'easeOutQuart' },
-          plugins: {
-            legend: { display: false },
-            tooltip: { enabled: false }
-          },
-          onClick: function(e, elements) {
-            if (elements.length > 0) {
-              var idx = elements[0].index;
-              var clickedCat = txPieChart.data.labels[idx];
-              if (activeCategoryFilter === clickedCat) {
-                activeCategoryFilter = null;
-              } else {
-                activeCategoryFilter = clickedCat;
-              }
-              renderTransactionMonth();
-            }
-          }
-        }
-      });
+      moneyIn += -eff.amount;
     }
-  } else if (txPieChart) {
-    txPieChart.destroy();
-    txPieChart = null;
-    document.getElementById('tx-pie-center').innerHTML = '';
+  });
+  $('#act-spent').textContent = formatMoney(spent);
+  $('#act-income').textContent = (moneyIn > 0 ? '+' : '') + formatMoney(moneyIn);
+  $('#act-transfers').textContent = formatMoney(transfers);
+
+  // ---- Daily bars for the month
+  var parts = month.split('-'), y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  var daysInMonth = new Date(y, m, 0).getDate();
+  var now = new Date();
+  var isThisMonth = now.getFullYear() === y && now.getMonth() + 1 === m;
+  var maxDay = 0;
+  for (var dd = 1; dd <= daysInMonth; dd++) maxDay = Math.max(maxDay, byDay[dd] || 0);
+  var bw = 310 / daysInMonth, bars = '';
+  for (var d = 1; d <= daysInMonth; d++) {
+    var v = byDay[d] || 0;
+    var h = maxDay ? Math.max(v ? 3 : 0, (v / maxDay) * 72) : 0;
+    var future = isThisMonth && d > now.getDate();
+    bars += '<rect x="' + ((d - 1) * bw + 1).toFixed(1) + '" y="' + (78 - h).toFixed(1) + '" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1.5" fill="' + (isThisMonth && d === now.getDate() ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 55%, transparent)') + '"' + (future ? ' opacity="0.25"' : '') + '><title>' + MONTH_SHORT[m - 1] + ' ' + d + ': ' + formatMoney(v) + '</title></rect>';
+    if (future) bars += '<rect x="' + ((d - 1) * bw + 1).toFixed(1) + '" y="76" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="2" rx="1" fill="var(--track)"/>';
   }
+  $('#act-daily').innerHTML = '<line x1="0" y1="78.5" x2="310" y2="78.5" stroke="var(--border)" stroke-width="1"/>' + bars;
+  $('#act-axis-start').textContent = MONTH_SHORT[m - 1] + ' 1';
+  $('#act-axis-end').textContent = MONTH_SHORT[m - 1] + ' ' + daysInMonth;
+  var daysSoFar = isThisMonth ? now.getDate() : daysInMonth;
+  $('#act-daily-note').textContent = spent ? 'about ' + formatMoney(spent / daysSoFar) + ' a day' : '';
 
-  // Render category legend
-  legend.innerHTML = catEntries.map(function(entry, i) {
-    var cat = entry[0];
-    var amt = entry[1];
-    var pct = totalExpenses > 0 ? formatPct((amt / totalExpenses) * 100) : '0.00%';
-    var isActive = activeCategoryFilter === cat;
-    return '<div class="cat-legend-item' + (isActive ? ' active' : '') + '" data-cat="' + esc(cat) + '">' +
-      '<span class="cat-dot" style="background:' + CATEGORY_COLORS[i % CATEGORY_COLORS.length] + '"></span>' +
-      '<span class="cat-name">' + esc(cat) + '</span>' +
-      '<span class="cat-pct">' + pct + '</span>' +
-      '<span class="cat-amt">' + formatMoney(amt) + '</span>' +
-    '</div>';
-  }).join('');
-
-  // Click legend items to filter too
-  legend.querySelectorAll('.cat-legend-item').forEach(function(el) {
+  // ---- Categories as bars (tap to filter)
+  var catEntries = Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  var categoryColorMap = {};
+  catEntries.forEach(function(e, i) { categoryColorMap[e[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+  var topAmt = catEntries.length ? catEntries[0][1] : 0;
+  legend.innerHTML = catEntries.length ? catEntries.map(function(e) {
+    var on = activeCategoryFilter === e[0];
+    var dim = activeCategoryFilter && !on;
+    return '<button type="button" class="act-cat' + (on ? ' active' : '') + (dim ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
+      '<span class="act-cat-top"><span class="act-cat-name"><i style="background:' + categoryColorMap[e[0]] + '"></i>' + esc(e[0]) + '</span>' +
+      '<span class="act-cat-amt">' + formatMoney(e[1]) + '<small>' + Math.round(e[1] / (spent || 1) * 100) + '%</small></span></span>' +
+      '<span class="act-cat-bar"><span style="width:' + (e[1] / (topAmt || 1) * 100).toFixed(1) + '%;background:' + categoryColorMap[e[0]] + '"></span></span>' +
+    '</button>';
+  }).join('') : '<p class="act-empty-note">No spending this month yet.</p>';
+  legend.querySelectorAll('.act-cat').forEach(function(el) {
     el.addEventListener('click', function() {
-      var cat = el.dataset.cat;
-      if (activeCategoryFilter === cat) {
-        activeCategoryFilter = null;
-      } else {
-        activeCategoryFilter = cat;
-      }
+      activeCategoryFilter = activeCategoryFilter === el.dataset.cat ? null : el.dataset.cat;
       renderTransactionMonth();
     });
   });
+  $('#act-clear-cat').hidden = !activeCategoryFilter;
 
-  // Build category-to-color map from pie chart order
-  var categoryColorMap = {};
-  catEntries.forEach(function(entry, i) {
-    categoryColorMap[entry[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
-  });
-
-  var purchaseCount = displayTx.length;
-  var html = '<div class="tx-purchase-count">' + purchaseCount + ' transaction' + (purchaseCount !== 1 ? 's' : '') + '</div>';
-
-  // Sort transactions: most recent first by effective date
+  // ---- Transactions grouped by day
   displayTx.sort(function(a, b) {
-    var effA = getEffectiveTx(a);
-    var effB = getEffectiveTx(b);
-    var da = effA.date || a.authorized_datetime || a.authorized_date || a.date;
-    var db = effB.date || b.authorized_datetime || b.authorized_date || b.date;
-    if (da > db) return -1;
-    if (da < db) return 1;
-    return 0;
+    var da = getEffectiveTx(a).date || a.date, db = getEffectiveTx(b).date || b.date;
+    if (da !== db) return da > db ? -1 : 1;
+    return (b.authorized_datetime || '') > (a.authorized_datetime || '') ? 1 : -1;
   });
-
-  // Render transactions
-  displayTx.forEach(function(tx) {
-    var eff = getEffectiveTx(tx);
-    var postedDate = tx.date;
-    var authDate = tx.authorized_date;
-    var dateHtml = '';
-    if (authDate && authDate !== postedDate) {
-      dateHtml = '<span class="tx-date-line">Auth ' + formatTxDate(authDate, null) + '</span>' +
-        '<span class="tx-date-line">Posted ' + formatTxDate(postedDate, null) + '</span>';
-    } else {
-      dateHtml = '<span class="tx-date-line">' + formatTxDate(postedDate, null) + '</span>';
-    }
-
-    var displayName = eff.nickname || tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
-
-    var rowClass = 'tx-row';
-    var badges = '';
-    if (eff.excluded) rowClass += ' tx-actioned tx-excluded';
-    else if (eff.isSplit || eff.isRecurring || eff.isRecategorized) rowClass += ' tx-actioned';
-
-    if (eff.actionType === 'reimbursed') badges += '<span class="tx-badge tx-badge-reimbursed">Reimbursed</span>';
-    if (eff.actionType === 'ignored') badges += '<span class="tx-badge tx-badge-ignored">Ignored</span>';
-    if (eff.isSplit) {
-      var splitLabel = eff.splitWays ? eff.splitWays + '-way split' : 'Split';
-      badges += '<span class="tx-badge tx-badge-split">' + splitLabel + ' (+' + formatMoney(eff.reimbursement) + ' back)</span>';
-    }
-    if (eff.isRecurring) badges += '<span class="tx-badge tx-badge-recurring">Recurring</span>';
-
-    var amountClass = tx.pending ? 'tx-amount-pending' : (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
-    var amountHtml = '';
-    if (eff.isSplit && !eff.excluded) {
-      amountHtml = '<span class="tx-amount-original">' + (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) + '</span>' +
-        '<span class="tx-amount ' + amountClass + '">' +
-          (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(eff.amount)) +
-        '</span>';
-    } else {
-      amountHtml = '<span class="tx-amount ' + amountClass + '">' +
-        (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount)) +
-      '</span>';
-    }
-
-    var cardLabel = '';
-    if (showCardName && tx.plaid_account_id && accountMap[tx.plaid_account_id]) {
-      cardLabel = '<span class="tx-card-label">' + esc(accountMap[tx.plaid_account_id]) + '</span>';
-    }
-
-    var logoHtml = tx.enriched_logo_url ? '<img class="tx-logo" src="' + esc(tx.enriched_logo_url) + '" alt="" onerror="this.style.display=\'none\'">' : '';
-    var locationHtml = '';
-    if (tx.enriched_location_city || tx.enriched_location_region) {
-      var locParts = [tx.enriched_location_city, tx.enriched_location_region].filter(Boolean);
-      locationHtml = '<span class="tx-location">' + esc(locParts.join(', ')) + '</span>';
-    }
-
-    html += '<div class="' + rowClass + '" style="--row-i:' + (displayTx.indexOf(tx)) + '" data-txid="' + esc(tx.id) + '">' +
-      logoHtml +
-      '<div class="tx-info">' +
-        '<span class="tx-merchant">' + esc(displayName) + '</span>' +
-        '<div class="tx-badges">' +
-          '<span class="tx-cat-chip" style="--cat-color:' + (categoryColorMap[normalizeCategory(eff.category)] || '#6C7078') + '">' + esc(normalizeCategory(eff.category)) + '</span>' +
-          badges +
-        '</div>' +
-        cardLabel +
-        locationHtml +
-      '</div>' +
-      '<div class="tx-right">' +
-        amountHtml +
-        '<div class="tx-dates">' + dateHtml + '</div>' +
-      '</div>' +
-    '</div>';
-  });
-
+  var html = '';
   if (activeCategoryFilter) {
-    html = '<button class="tx-clear-filter" onclick="window._clearCatFilter()">Showing: ' + esc(activeCategoryFilter) + ' (tap to clear)</button>' + html;
+    html += '<button type="button" class="act-filter-chip" id="act-filter-chip">' + esc(activeCategoryFilter) + ' <span aria-hidden="true">×</span><span class="visually-hidden">Clear filter</span></button>';
   }
-
+  if (!displayTx.length) {
+    html += '<p class="act-empty-note">' + (searchVal ? 'Nothing matches “' + esc(searchVal) + '”.' : 'No transactions here yet.') + '</p>';
+  }
+  var groups = [], groupMap = {};
+  displayTx.forEach(function(tx) {
+    var key = getEffectiveTx(tx).date || tx.date;
+    if (!groupMap[key]) { groupMap[key] = []; groups.push(key); }
+    groupMap[key].push(tx);
+  });
+  groups.forEach(function(key) {
+    var dayNet = 0;
+    groupMap[key].forEach(function(tx) { var e = getEffectiveTx(tx); if (!e.excluded) dayNet -= e.amount; });
+    html += '<div class="act-day"><div class="act-day-head"><span>' + friendlyDay(key) + '</span><span>' + (dayNet > 0 ? '+' : dayNet < 0 ? '−' : '') + formatMoney(dayNet) + '</span></div>';
+    groupMap[key].forEach(function(tx) {
+      var eff = getEffectiveTx(tx);
+      var name = eff.nickname || tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
+      var cat = normalizeCategory(eff.category);
+      var acctName = accountMap[tx.plaid_account_id] || (tx.plaid_account_id ? 'Account' : 'Cash');
+      var color = accountColor(tx.plaid_account_id);
+      var income = tx.amount < 0;
+      var tags = '';
+      if (tx.pending) tags += '<span class="act-tag">Pending</span>';
+      if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
+      if (eff.actionType === 'ignored') tags += '<span class="act-tag">Ignored</span>';
+      if (eff.isSplit) tags += '<span class="act-tag act-tag-accent">' + (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Your share') + '</span>';
+      // Store logo from Plaid when available; the first letter shows underneath as a fallback
+      var avatar = '<span class="act-avatar" data-i="' + esc(name.charAt(0).toUpperCase()) + '">' +
+        (tx.enriched_logo_url ? '<img src="' + esc(tx.enriched_logo_url) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
+      var amountMain = (income ? '+' : '−') + formatMoney(eff.isSplit && !eff.excluded ? eff.amount : tx.amount);
+      html += '<div class="tx-row act-row' + (eff.excluded ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
+        avatar +
+        '<span class="act-row-main"><span class="act-row-name">' + esc(name) + '</span>' +
+        '<span class="act-row-meta"><i style="background:' + color + '"></i>' + (showCardName ? esc(acctName) + ' · ' : '') + esc(cat) + '</span></span>' +
+        '<span class="act-row-right"><span class="act-row-amt' + (income ? ' is-in' : '') + '">' + amountMain + '</span>' +
+        (eff.isSplit && !eff.excluded ? '<span class="act-row-sub">of ' + formatMoney(tx.amount) + '</span>' : '') +
+        (tags ? '<span class="act-row-tags">' + tags + '</span>' : '') + '</span>' +
+      '</div>';
+    });
+    html += '</div>';
+  });
   breakdown.innerHTML = html;
+  var chip = $('#act-filter-chip');
+  if (chip) chip.addEventListener('click', function() { activeCategoryFilter = null; renderTransactionMonth(); });
+  renderAccountChips(cardId);
+  updateMonthButtons();
 }
+
+var MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function friendlyDay(dateStr) {
+  var p = dateStr.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]);
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var diff = Math.round((today - d) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+// Each account keeps the same color everywhere (chips, dots)
+var ACCOUNT_COLORS = ['#2F6FDB', '#0F8A95', '#7A4CC2', '#C27A1A', '#B0476A', '#3E8E5E', '#5E7FA3', '#9C5B3C'];
+function accountColor(plaidAccountId) {
+  if (!plaidAccountId || !cachedAccounts) return 'var(--track)';
+  var ids = cachedAccounts.map(function(a) { return a.plaid_account_id; }).filter(Boolean);
+  var i = ids.indexOf(plaidAccountId);
+  return i === -1 ? 'var(--track)' : ACCOUNT_COLORS[i % ACCOUNT_COLORS.length];
+}
+function renderAccountChips(current) {
+  var wrap = $('#act-chips');
+  if (!wrap || !cachedAccounts) return;
+  var used = {};
+  txData.forEach(function(t) { if (t.plaid_account_id) used[t.plaid_account_id] = true; });
+  var accts = cachedAccounts.filter(function(a) { return a.plaid_account_id && used[a.plaid_account_id]; });
+  wrap.innerHTML = '<button type="button" class="act-chip' + (current === 'all' ? ' on' : '') + '" data-acct="all">All</button>' +
+    accts.map(function(a) {
+      return '<button type="button" class="act-chip' + (current === a.plaid_account_id ? ' on' : '') + '" data-acct="' + esc(a.plaid_account_id) + '"><i style="background:' + accountColor(a.plaid_account_id) + '"></i>' + esc(a.nickname || a.name || 'Account') + '</button>';
+    }).join('');
+}
+function updateMonthButtons() {
+  var sel = $('#tx-month-filter');
+  if (!sel) return;
+  $('#act-month-prev').disabled = sel.selectedIndex >= sel.options.length - 1;
+  $('#act-month-next').disabled = sel.selectedIndex <= 0;
+}
+(function wireActivityControls() {
+  var chips = $('#act-chips');
+  if (chips) chips.addEventListener('click', function(e) {
+    var b = e.target.closest('.act-chip');
+    if (!b) return;
+    var sel = $('#tx-card-filter');
+    if (!Array.prototype.some.call(sel.options, function(o) { return o.value === b.dataset.acct; })) {
+      var o = document.createElement('option'); o.value = b.dataset.acct; sel.appendChild(o);
+    }
+    sel.value = b.dataset.acct;
+    renderTransactionMonth();
+  });
+  var step = function(dir) {
+    var sel = $('#tx-month-filter');
+    var i = sel.selectedIndex + dir;
+    if (i < 0 || i >= sel.options.length) return;
+    sel.selectedIndex = i;
+    activeCategoryFilter = null;
+    renderTransactionMonth();
+  };
+  var prev = $('#act-month-prev'), next = $('#act-month-next'), clear = $('#act-clear-cat');
+  if (prev) prev.addEventListener('click', function() { step(1); });
+  if (next) next.addEventListener('click', function() { step(-1); });
+  if (clear) clear.addEventListener('click', function() { activeCategoryFilter = null; renderTransactionMonth(); });
+  var list = $('#tx-breakdown');
+  if (list) list.addEventListener('keydown', function(e) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('tx-row')) { e.preventDefault(); e.target.click(); }
+  });
+})();
 
 window._clearCatFilter = function() {
   activeCategoryFilter = null;
@@ -3380,9 +3451,26 @@ function formatTxDate(dateStr, datetimeStr) {
   return datePart;
 }
 
+// Plaid's category codes in plain words (also maps older saved overrides
+// like "FOOD AND DRINK"). Your own custom category names pass through.
+var CATEGORY_NAMES = {
+  INCOME: 'Income', TRANSFER_IN: 'Transfers in', TRANSFER_OUT: 'Transfers out',
+  LOAN_PAYMENTS: 'Loan & card payments', BANK_FEES: 'Bank fees', ENTERTAINMENT: 'Entertainment',
+  FOOD_AND_DRINK: 'Food & drink', GENERAL_MERCHANDISE: 'Shopping', HOME_IMPROVEMENT: 'Home',
+  MEDICAL: 'Medical', PERSONAL_CARE: 'Personal care', GENERAL_SERVICES: 'Services',
+  GOVERNMENT_AND_NON_PROFIT: 'Government & charity', TRANSPORTATION: 'Transportation',
+  TRAVEL: 'Travel', RENT_AND_UTILITIES: 'Rent & utilities', OTHER: 'Other'
+};
 function normalizeCategory(cat) {
   if (!cat) return 'Other';
-  return cat.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  var key = String(cat).trim().toUpperCase().replace(/\s*&\s*/g, '_AND_').replace(/[\s-]+/g, '_');
+  if (CATEGORY_NAMES[key]) return CATEGORY_NAMES[key];
+  if (cat === cat.toUpperCase()) return cat.charAt(0) + cat.slice(1).toLowerCase().replace(/_/g, ' ');
+  return cat;
+}
+// Money moved between your own accounts or to pay a card isn't spending
+function isTransferCategory(name) {
+  return name === 'Transfers in' || name === 'Transfers out' || name === 'Loan & card payments';
 }
 
 // ============================================

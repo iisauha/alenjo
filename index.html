@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120223747';</script>
+  <script>var _v = '20261120225109';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120223747">
+  <link rel="stylesheet" href="style.css?v=20261120225109">
 </head>
 <body>
 
@@ -192,11 +192,10 @@
         </svg>
       </div>
 
-      <section id="home-spending" class="home-spending" hidden>
-        <div class="home-spending-head"><h2 id="home-spending-title">Spent this month</h2><span id="home-spending-total"></span></div>
-        <div id="home-spending-bar" class="home-spending-bar" role="img"></div>
-        <div id="home-spending-legend" class="home-spending-legend"></div>
-      </section>
+      <div id="home-split" class="home-split" hidden>
+        <div class="home-split-labels"><span>Assets <b id="home-assets"></b></span><span>Liabilities <b id="home-liabs"></b></span></div>
+        <div class="home-split-bar" aria-hidden="true"><span id="home-split-assets"></span><span id="home-split-liabs"></span></div>
+      </div>
 
       <div id="connect-cta" class="connect-cta">
         <p>Link your bank accounts to see your balances and spending</p>
@@ -247,35 +246,51 @@
         <p>Link an account to start tracking your spending</p>
       </div>
       <div id="tx-content" hidden>
-        <div class="tx-toolbar">
-          <input type="text" id="tx-search" class="app-input" placeholder="Search transactions...">
-          <div class="tx-filters">
-            <select id="tx-month-filter" class="app-select"></select>
-            <select id="tx-card-filter" class="app-select">
-              <option value="all">All Accounts</option>
-            </select>
+        <div class="act-head">
+          <h1 class="page-title">Activity</h1>
+          <div class="act-head-actions">
+            <button id="btn-export-csv" class="act-pill" type="button">Export</button>
+            <button id="btn-add-tx" class="act-pill act-pill-strong" type="button">+ Add</button>
           </div>
         </div>
-        <div class="tx-utility-row">
-          <button id="btn-toggle-ignored" class="btn-toggle-ignored">Show Ignored</button>
-          <span id="tx-updated" class="tx-updated"></span>
-          <button id="btn-add-tx" class="btn-export">+ Add</button>
-          <button id="btn-export-csv" class="btn-export">CSV</button>
-        </div>
-        <div class="tx-chart-wrap">
-          <canvas id="tx-pie-chart"></canvas>
-          <div id="tx-pie-center" class="tx-pie-center"></div>
-        </div>
-        <div class="tx-legend-section collapsed">
-          <button class="tx-legend-toggle" id="btn-toggle-legend">
-            <span>Categories</span>
-            <span class="settings-chevron"></span>
-          </button>
-          <div class="tx-legend-collapsible">
-            <div id="tx-category-legend"></div>
+        <div class="act-toolbar">
+          <label class="act-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+            <input type="search" id="tx-search" placeholder="Search" aria-label="Search transactions">
+          </label>
+          <div class="act-month">
+            <button type="button" id="act-month-prev" class="act-month-btn" aria-label="Previous month">‹</button>
+            <select id="tx-month-filter" class="act-month-select" aria-label="Month"></select>
+            <button type="button" id="act-month-next" class="act-month-btn" aria-label="Next month">›</button>
           </div>
+          <select id="tx-card-filter" class="visually-hidden" aria-hidden="true" tabindex="-1">
+            <option value="all">All Accounts</option>
+          </select>
+          <div id="act-chips" class="act-chips" role="group" aria-label="Filter by account"></div>
         </div>
-        <div id="tx-breakdown"></div>
+        <div class="act-layout">
+          <aside class="act-summary">
+            <div class="act-stats">
+              <div><span class="act-stat-label">Spent</span><span id="act-spent" class="act-stat-value"></span></div>
+              <div><span class="act-stat-label">Money in</span><span id="act-income" class="act-stat-value act-in"></span></div>
+              <div><span class="act-stat-label">Transfers</span><span id="act-transfers" class="act-stat-value act-muted"></span></div>
+            </div>
+            <div class="act-daily-wrap">
+              <div class="act-daily-head"><span>Spending by day</span><span id="act-daily-note"></span></div>
+              <svg id="act-daily" class="act-daily" viewBox="0 0 310 80" preserveAspectRatio="none" role="img" aria-label="Spending by day"></svg>
+              <div class="act-daily-axis"><span id="act-axis-start"></span><span id="act-axis-end"></span></div>
+            </div>
+            <div class="act-cats-head"><span>Categories</span><button type="button" id="act-clear-cat" class="signin-link" hidden>Show all</button></div>
+            <div id="tx-category-legend" class="act-cats"></div>
+          </aside>
+          <section class="act-list">
+            <div class="act-list-head">
+              <span id="tx-updated" class="tx-updated"></span>
+              <button id="btn-toggle-ignored" class="act-pill" type="button">Show ignored</button>
+            </div>
+            <div id="tx-breakdown"></div>
+          </section>
+        </div>
       </div>
     </section>
 
@@ -336,6 +351,12 @@
         </label>
       </div>
 
+      <h2 class="set-heading">Accounts</h2>
+      <div class="set-group">
+        <div id="account-order-list"></div>
+      </div>
+      <p class="set-footnote">Reorder or hide accounts here, or tap an account on Home to manage it.</p>
+
       <h2 class="set-heading" id="section-accounts">Banks</h2>
       <div class="set-group">
         <div id="accounts-list" class="accounts-manage-list"></div>
@@ -385,19 +406,29 @@
 
   <!-- Nickname Modal -->
   <div id="account-edit-modal" class="modal-overlay">
-    <div class="modal-card">
-      <h3>Edit Account</h3>
-      <label class="override-label">Nickname</label>
+    <div class="modal-card manage-card" role="dialog" aria-modal="true" aria-labelledby="manage-title">
+      <h3 id="manage-title">Manage account</h3>
+      <p id="manage-subtitle" class="manage-subtitle"></p>
+      <div class="manage-group">
+        <label class="set-row manage-row"><span class="set-row-text"><span>Hide account</span><span class="set-hint">Remove it from Home</span></span><input type="checkbox" id="edit-hide" class="set-switch" role="switch"></label>
+        <label class="set-row manage-row"><span class="set-row-text"><span>Exclude from balance</span><span class="set-hint">Leave it out of Available and Net worth</span></span><input type="checkbox" id="edit-exclude" class="set-switch" role="switch"></label>
+      </div>
+      <label class="override-label" for="nickname-input">Nickname</label>
       <input type="text" id="nickname-input" class="app-input" placeholder="Account nickname" maxlength="40">
+      <div id="apy-field">
+        <label class="override-label" for="apy-input">Interest rate (APY %)</label>
+        <input type="number" id="apy-input" class="app-input" inputmode="decimal" step="0.01" min="0" max="25" placeholder="e.g. 4.20">
+        <p class="set-hint">Banks don't share this through Plaid, so copy it from your bank's app.</p>
+      </div>
       <div id="card-design-picker-section">
-        <label class="override-label">Card Design</label>
+        <label class="override-label">Card design</label>
         <div id="card-design-picker" class="card-design-picker"></div>
       </div>
       <div class="modal-actions">
         <button id="account-edit-cancel" class="btn-secondary-sm">Cancel</button>
-        <button id="account-edit-save" class="btn-primary-sm">Save</button>
+        <button id="account-edit-save" class="btn-primary-sm">Done</button>
       </div>
-    </div>
+  </div>
   </div>
 
   <!-- Card Design Crop Modal -->
@@ -616,7 +647,6 @@
     };
   </script>
   <script src="/vendor/supabase-js-2.119.2.js"></script>
-  <script src="/vendor/chart-4.6.1.umd.min.js" async></script>
   <script>
     var s = document.createElement('script');
     s.src = 'app.js?v=' + _v;
