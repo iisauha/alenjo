@@ -2972,3 +2972,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
 .update-bar[hidden] { display: none; }
 .update-bar button { min-height: 36px; padding: 0 14px; border: none; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 600 0.875rem 'Inter', sans-serif; cursor: pointer; }
 @media (min-width: 900px) { .update-bar { left: auto; right: 24px; bottom: 24px; width: 380px; } }
+
+/* Lets the app notice browser autofill (Chrome/Safari fire this animation) */
+@keyframes onAutoFill { from { opacity: 1; } to { opacity: 1; } }
+#auth-password:-webkit-autofill { animation-name: onAutoFill; animation-duration: 0.01s; }

@@ -232,28 +232,32 @@ setupRememberedEmail();
 
 // Auto-submit on FaceID/password autofill
 // Wait for both fields, then give iOS a moment to commit the values before submitting
-var autofillPoller = null;
-var autofillReady = false;
-function startAutofillWatch() {
-  if (autofillPoller) return;
-  var checks = 0;
-  autofillPoller = setInterval(function() {
-    checks++;
-    if (authEmail.value && authPassword.value && !autofillReady) {
-      autofillReady = true;
-      clearInterval(autofillPoller);
-      autofillPoller = null;
-      document.activeElement.blur();
-      // Let iOS fully commit autofill values before reading them
-      setTimeout(function() {
-        if (!signingIn) authForm.requestSubmit();
-      }, 250);
-    }
-    if (checks > 50) { clearInterval(autofillPoller); autofillPoller = null; }
-  }, 30);
+// "Fill password" / Face ID autofill: sign in right away.
+// A fill drops the whole password in at once; typing adds one character at
+// a time, so typed passwords still wait for the Sign in button.
+var lastPwLen = 0;
+function submitAfterAutofill() {
+  if (signingIn || !authPassword.value || !authEmail.value) return;
+  try { document.activeElement.blur(); } catch (e) {}
+  // Give iOS a moment to finish writing both fields
+  setTimeout(function() {
+    if (!signingIn && authEmail.value && authPassword.value) authForm.requestSubmit();
+  }, 150);
 }
-authEmail.addEventListener('change', startAutofillWatch);
-authPassword.addEventListener('change', startAutofillWatch);
+authPassword.addEventListener('input', function(e) {
+  var len = authPassword.value.length;
+  var jumped = len - lastPwLen >= 2;
+  var replaced = e.inputType === 'insertReplacementText' || e.inputType === undefined || e.inputType === '';
+  lastPwLen = len;
+  if (len && (jumped || replaced)) submitAfterAutofill();
+});
+// Some browsers only report autofill as a change, or style the field first
+authPassword.addEventListener('change', function() {
+  if (authPassword.matches(':-webkit-autofill')) submitAfterAutofill();
+});
+authPassword.addEventListener('animationstart', function(e) {
+  if (e.animationName === 'onAutoFill') submitAfterAutofill();
+});
 
 // ============================================
 // AUTO-UPDATE
@@ -356,10 +360,7 @@ sb.auth.signOut().then(function() {
       if (wasSignedIn) {
         authPassword.value = '';
         setupRememberedEmail();
-        // After an explicit sign-out the user must tap Sign In, even if
-        // the browser refills the fields.
-        autofillReady = true;
-        if (autofillPoller) { clearInterval(autofillPoller); autofillPoller = null; }
+        lastPwLen = 0;
       }
       showScreen('login');
     }
