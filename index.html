@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120232611';</script>
+  <script>var _v = '20261120232901';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120232611">
+  <link rel="stylesheet" href="style.css?v=20261120232901">
 </head>
 <body>
 
@@ -587,6 +587,13 @@
           <span class="visually-hidden">Note</span>
           <textarea id="tx-note" rows="1" maxlength="500" placeholder="Add a note, like who it was for or why"></textarea>
         </label>
+        <div class="tx-month-move">
+          <span class="tx-month-move-text"><span id="tx-month-label"></span><span id="tx-month-sub" class="set-hint"></span></span>
+          <span class="tx-month-move-btns">
+            <button type="button" class="act-pill-sm" data-move-month="-1" id="tx-move-prev"></button>
+            <button type="button" class="act-pill-sm" data-move-month="1" id="tx-move-next"></button>
+          </span>
+        </div>
         <p class="action-group-label">Actions</p>
         <div class="action-toggles">
           <button class="action-toggle" data-toggle="split">Split</button>

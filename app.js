@@ -3321,6 +3321,7 @@ function renderTransactionMonth() {
       var income = tx.amount < 0;
       var tags = '';
       if (tx.pending) tags += '<span class="act-tag">Pending</span>';
+      if (eff.date !== tx.date) tags += '<span class="act-tag" title="Posted ' + esc(tx.date) + '">Moved</span>';
       if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
       if (eff.actionType === 'ignored') tags += '<span class="act-tag">Ignored</span>';
       if (eff.isSplit) tags += '<span class="act-tag act-tag-accent">' + (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Your share') + '</span>';
@@ -3535,7 +3536,7 @@ $('#btn-export-csv').addEventListener('click', function() {
   var cardId = $('#tx-card-filter').value;
 
   var filtered = txData.filter(function(tx) {
-    return tx.date.substring(0, 7) === month;
+    return getEffectiveTx(tx).date.substring(0, 7) === month;
   });
   if (cardId !== 'all') {
     filtered = filtered.filter(function(tx) { return tx.plaid_account_id === cardId; });
@@ -3737,6 +3738,7 @@ function openActionSheet(tx) {
   actionTxId = tx.id;
   actionTx = tx;
   var action = txActions[tx.id] || {};
+  renderMonthMove(tx);
   var noteEl = $('#tx-note');
   noteEl.value = action.note || '';
   noteEl._orig = noteEl.value;
@@ -3797,6 +3799,45 @@ function openActionSheet(tx) {
   actionSheet.classList.add('visible');
 }
 
+// Count a transaction in another month (e.g. rent paid on the 31st that posts on the 1st)
+var MONTH_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function shiftMonth(ym, delta) {
+  var p = ym.split('-'), d = new Date(+p[0], +p[1] - 1 + delta, 1);
+  return { y: d.getFullYear(), m: d.getMonth() + 1, key: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') };
+}
+function renderMonthMove(tx) {
+  var eff = getEffectiveTx(tx), ym = eff.date.substring(0, 7);
+  var cur = shiftMonth(ym, 0), prev = shiftMonth(ym, -1), next = shiftMonth(ym, 1);
+  var now = new Date(), nowKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  $('#tx-month-label').textContent = 'Counts in ' + MONTH_LONG[cur.m - 1];
+  var moved = eff.date !== tx.date;
+  $('#tx-month-sub').innerHTML = moved ? 'Moved from ' + esc(friendlyDay(tx.date)) + ' · <button type="button" class="signin-link" id="tx-move-undo">Undo</button>' : 'Posted ' + esc(friendlyDay(tx.date));
+  $('#tx-move-prev').textContent = '‹ ' + MONTH_SHORT[prev.m - 1];
+  $('#tx-move-prev').setAttribute('aria-label', 'Count in ' + MONTH_LONG[prev.m - 1]);
+  $('#tx-move-next').textContent = MONTH_SHORT[next.m - 1] + ' ›';
+  $('#tx-move-next').setAttribute('aria-label', 'Count in ' + MONTH_LONG[next.m - 1]);
+  $('#tx-move-next').hidden = next.key > nowKey;
+}
+(function() {
+  var box = document.querySelector('.tx-month-move');
+  if (!box) return;
+  box.addEventListener('click', function(e) {
+    if (!actionTx) return;
+    var tx = actionTx;
+    if (e.target.id === 'tx-move-undo') { saveTxNote(); saveMultiAction(tx.id, { date_override: null }); return; }
+    var b = e.target.closest('[data-move-month]');
+    if (!b) return;
+    var dir = +b.dataset.moveMonth;
+    var t = shiftMonth(getEffectiveTx(tx).date.substring(0, 7), dir);
+    // Land on the edge of the target month nearest the real date
+    var day = dir < 0 ? new Date(t.y, t.m, 0).getDate() : 1;
+    var target = t.key + '-' + String(day).padStart(2, '0');
+    if (target.substring(0, 7) === tx.date.substring(0, 7)) target = tx.date;
+    saveTxNote();
+    saveMultiAction(tx.id, { date_override: target === tx.date ? null : target });
+    showToast('Now counts in ' + MONTH_LONG[t.m - 1]);
+  });
+})();
 function saveTxNote() {
   var el = $('#tx-note');
   if (!el || !actionTxId) return;

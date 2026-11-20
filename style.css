@@ -3321,3 +3321,12 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .set-disclosure-end svg { transition: transform 0.2s; }
 .set-disclosure[open] .set-disclosure-end svg { transform: rotate(180deg); }
 .set-disclosure .card-designs-grid { padding: 4px 14px 14px; }
+
+/* Count in another month */
+.tx-month-move { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border); }
+.tx-month-move-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 0.875rem; font-weight: 500; }
+.tx-month-move-text .signin-link { font-size: inherit; min-height: 0; padding: 0; }
+.tx-month-move-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.act-pill-sm { min-height: 36px; min-width: 56px; padding: 0 10px; border: 1px solid var(--border); border-radius: 18px; background: transparent; color: var(--text); font: 600 0.8125rem 'Inter', sans-serif; cursor: pointer; }
+.act-pill-sm[hidden] { display: none; }
+.acct-badge-art { background-color: transparent; background-size: contain; box-shadow: none; border-radius: 0; }
