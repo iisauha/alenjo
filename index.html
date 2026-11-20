@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120230129';</script>
+  <script>var _v = '20261120230815';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120230129">
+  <link rel="stylesheet" href="style.css?v=20261120230815">
 </head>
 <body>
 
@@ -245,46 +245,43 @@
         <div class="act-head">
           <h1 class="page-title">Activity</h1>
           <div class="act-head-actions">
-            <button id="btn-export-csv" class="act-pill" type="button">Export</button>
-            <button id="btn-add-tx" class="act-pill act-pill-strong" type="button">+ Add</button>
+            <button id="btn-act-search" class="act-icon-btn" type="button" aria-label="Search" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+            <button id="btn-add-tx" class="act-icon-btn" type="button" aria-label="Add a transaction"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           </div>
         </div>
-        <div class="act-toolbar">
-          <label class="act-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-            <input type="search" id="tx-search" placeholder="Search" aria-label="Search transactions">
-          </label>
+        <label class="act-search" id="act-search" hidden>
+          <input type="search" id="tx-search" placeholder="Search transactions" aria-label="Search transactions" enterkeyhint="search">
+          <button type="button" id="act-search-cancel" class="signin-link">Cancel</button>
+        </label>
+        <div class="act-filters">
           <div class="act-month">
             <button type="button" id="act-month-prev" class="act-month-btn" aria-label="Previous month">‹</button>
             <select id="tx-month-filter" class="act-month-select" aria-label="Month"></select>
             <button type="button" id="act-month-next" class="act-month-btn" aria-label="Next month">›</button>
           </div>
-          <select id="tx-card-filter" class="visually-hidden" aria-hidden="true" tabindex="-1">
-            <option value="all">All Accounts</option>
-          </select>
-          <div id="act-chips" class="act-chips" role="group" aria-label="Filter by account"></div>
+          <label class="act-acct">
+            <select id="tx-card-filter" aria-label="Account"><option value="all">All accounts</option></select>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </label>
         </div>
         <div class="act-layout">
           <aside class="act-summary">
-            <div class="act-stats">
-              <div><span class="act-stat-label">Spent</span><span id="act-spent" class="act-stat-value"></span></div>
-              <div><span class="act-stat-label">Money in</span><span id="act-income" class="act-stat-value act-in"></span></div>
-              <div><span class="act-stat-label">Transfers</span><span id="act-transfers" class="act-stat-value act-muted"></span></div>
+            <div class="act-spent">
+              <span class="act-stat-label" id="act-spent-label">Spent</span>
+              <span id="act-spent" class="act-spent-value"></span>
+              <span class="act-sub"><span>In <b id="act-income" class="act-in"></b></span><span>Transfers <b id="act-transfers"></b></span></span>
             </div>
-            <div class="act-daily-wrap">
-              <div class="act-daily-head"><span>Spending by day</span><span id="act-daily-note"></span></div>
-              <svg id="act-daily" class="act-daily" viewBox="0 0 310 80" preserveAspectRatio="none" role="img" aria-label="Spending by day"></svg>
-              <div class="act-daily-axis"><span id="act-axis-start"></span><span id="act-axis-end"></span></div>
-            </div>
-            <div class="act-cats-head"><span>Categories</span><button type="button" id="act-clear-cat" class="signin-link" hidden>Show all</button></div>
-            <div id="tx-category-legend" class="act-cats"></div>
+            <svg id="act-daily" class="act-daily" viewBox="0 0 310 80" preserveAspectRatio="none" role="img" aria-label="Spending by day, colored by category"></svg>
+            <div class="act-daily-axis"><span id="act-axis-start"></span><span id="act-daily-note"></span><span id="act-axis-end"></span></div>
+            <div id="tx-category-legend" class="act-cats" role="group" aria-label="Filter by category"></div>
           </aside>
           <section class="act-list">
-            <div class="act-list-head">
-              <span id="tx-updated" class="tx-updated"></span>
-              <button id="btn-toggle-ignored" class="act-pill" type="button">Show ignored</button>
-            </div>
             <div id="tx-breakdown"></div>
+            <div class="act-list-foot">
+              <span id="tx-updated" class="tx-updated"></span>
+              <button id="btn-toggle-ignored" class="signin-link" type="button">Show ignored</button>
+              <button id="btn-export-csv" class="signin-link" type="button">Export as CSV</button>
+            </div>
           </section>
         </div>
       </div>

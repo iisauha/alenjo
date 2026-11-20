@@ -2487,6 +2487,7 @@ function accountCard(account, type) {
         '</div>';
       });
       holdingsHtml += '</div>';
+      holdingsHtml = moreSection(account.id + ':h', acctHoldings.length + (acctHoldings.length === 1 ? ' holding' : ' holdings'), holdingsHtml);
     }
   }
 
@@ -2534,9 +2535,11 @@ function accountCard(account, type) {
     if (liab && liab.last_statement_balance) details += '<div class="liab-detail"><span>Statement Bal</span><span>' + formatMoney(parseFloat(liab.last_statement_balance)) + '</span></div>';
     if (liab && liab.is_overdue && hasMinPayment) details += '<div class="liab-detail liab-urgent"><span>Status</span><span>OVERDUE</span></div>';
 
-    if (details) liabHtml += details;
-    if (!details) {
-      liabHtml += '<div class="liab-detail liab-unavailable"><span>This institution currently does not support card details.</span></div>';
+    if (details) {
+      var peek = [];
+      if (liab && liab.next_payment_due_date) peek.push('Due ' + formatLiabDate(liab.next_payment_due_date));
+      if (minPay) peek.push('Min ' + formatMoney(minPay));
+      liabHtml += moreSection(account.id + ':d', peek.join(' · ') || 'Card details', details);
     }
 
     var bonus = computeBonusProgress(account);
@@ -2642,7 +2645,7 @@ var editingAccountId = null;
 
 document.addEventListener('click', function(e) {
   var card = e.target.closest('.account-card[data-id]');
-  if (!card || e.target.closest('.amount-bonus-trigger, a, button, input')) return;
+  if (!card || e.target.closest('.amount-bonus-trigger, a, button, input, .card-more')) return;
   var nameEl = card.querySelector('.account-name');
   editingAccountId = card.dataset.id;
   nicknameInput.value = nameEl ? nameEl.textContent : '';
@@ -2938,10 +2941,12 @@ async function loadTransactions() {
 
   // Populate card filter using plaid_account_id for matching
   var cardFilter = $('#tx-card-filter');
-  cardFilter.innerHTML = '<option value="all">All Accounts</option>';
+  cardFilter.innerHTML = '<option value="all">All accounts</option>';
   if (cachedAccounts) {
+    var usedAcct = {};
+    txData.forEach(function(t) { if (t.plaid_account_id) usedAcct[t.plaid_account_id] = true; });
     cachedAccounts.forEach(function(a) {
-      if (a.plaid_account_id) {
+      if (a.plaid_account_id && usedAcct[a.plaid_account_id]) {
         cardFilter.innerHTML += '<option value="' + esc(a.plaid_account_id) + '">' + esc(a.nickname || a.name || 'Account') + '</option>';
       }
     });
@@ -2953,8 +2958,7 @@ async function loadTransactions() {
   // Set initial button state every load, but only bind listeners once
   var btnIgnored = $('#btn-toggle-ignored');
   btnIgnored.textContent = showIgnoredTx ? 'Hide ignored' : 'Show ignored';
-  btnIgnored.classList.toggle('active', showIgnoredTx);
-
+  
   if (!txListenersReady) {
     txListenersReady = true;
 
@@ -2972,7 +2976,6 @@ async function loadTransactions() {
       showIgnoredTx = !showIgnoredTx;
       localStorage.setItem('alenjo_show_ignored', showIgnoredTx ? 'true' : 'false');
       this.textContent = showIgnoredTx ? 'Hide ignored' : 'Show ignored';
-      this.classList.toggle('active', showIgnoredTx);
       renderTransactionMonth();
     });
   }
@@ -3101,50 +3104,64 @@ function renderTransactionMonth() {
       spent += eff.amount;
       byCategory[cat] = (byCategory[cat] || 0) + eff.amount;
       var day = parseInt(eff.date.substring(8, 10), 10);
-      byDay[day] = (byDay[day] || 0) + eff.amount;
+      byDay[day] = byDay[day] || {};
+      byDay[day][cat] = (byDay[day][cat] || 0) + eff.amount;
     } else {
       moneyIn += -eff.amount;
     }
   });
-  $('#act-spent').textContent = formatMoney(spent);
+  if (activeCategoryFilter && !byCategory[activeCategoryFilter]) activeCategoryFilter = null;
+  var shownSpent = activeCategoryFilter ? byCategory[activeCategoryFilter] : spent;
+  $('#act-spent-label').textContent = activeCategoryFilter ? activeCategoryFilter : 'Spent';
+  $('#act-spent').textContent = formatMoney(shownSpent);
   $('#act-income').textContent = (moneyIn > 0 ? '+' : '') + formatMoney(moneyIn);
   $('#act-transfers').textContent = formatMoney(transfers);
 
-  // ---- Daily bars for the month
+  // ---- One chart: spending by day, each bar stacked by category.
+  // The category chips under it are the legend and the filter.
+  var catEntries = Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  var categoryColorMap = {};
+  catEntries.forEach(function(e, i) { categoryColorMap[e[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
   var parts = month.split('-'), y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
   var daysInMonth = new Date(y, m, 0).getDate();
   var now = new Date();
   var isThisMonth = now.getFullYear() === y && now.getMonth() + 1 === m;
+  var dayTotal = function(d) {
+    var o = byDay[d] || {};
+    if (activeCategoryFilter) return o[activeCategoryFilter] || 0;
+    return Object.keys(o).reduce(function(s, k) { return s + o[k]; }, 0);
+  };
   var maxDay = 0;
-  for (var dd = 1; dd <= daysInMonth; dd++) maxDay = Math.max(maxDay, byDay[dd] || 0);
+  for (var dd = 1; dd <= daysInMonth; dd++) maxDay = Math.max(maxDay, dayTotal(dd));
   var bw = 310 / daysInMonth, bars = '';
   for (var d = 1; d <= daysInMonth; d++) {
-    var v = byDay[d] || 0;
-    // Square-root scale: one big bill (like rent) won't flatten every other day
-    var h = maxDay ? Math.max(v ? 4 : 0, Math.sqrt(v / maxDay) * 72) : 0;
-    var future = isThisMonth && d > now.getDate();
-    bars += '<rect x="' + ((d - 1) * bw + 1).toFixed(1) + '" y="' + (78 - h).toFixed(1) + '" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1.5" fill="' + (isThisMonth && d === now.getDate() ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 55%, transparent)') + '"' + (future ? ' opacity="0.25"' : '') + '><title>' + MONTH_SHORT[m - 1] + ' ' + d + ': ' + formatMoney(v) + '</title></rect>';
-    if (future) bars += '<rect x="' + ((d - 1) * bw + 1).toFixed(1) + '" y="76" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="2" rx="1" fill="var(--track)"/>';
+    var x = ((d - 1) * bw + 1).toFixed(1), w = Math.max(1, bw - 2).toFixed(1);
+    var total = dayTotal(d);
+    if (isThisMonth && d > now.getDate()) { bars += '<rect x="' + x + '" y="76" width="' + w + '" height="2" rx="1" fill="var(--track)"/>'; continue; }
+    if (!total) continue;
+    // Square-root scale so one big bill (like rent) doesn't flatten every other day
+    var h = Math.max(4, Math.sqrt(total / maxDay) * 72), top = 78 - h;
+    var segs = catEntries.filter(function(e) { return (byDay[d] || {})[e[0]] && (!activeCategoryFilter || activeCategoryFilter === e[0]); });
+    var yy = 78, tip = MONTH_SHORT[m - 1] + ' ' + d + ': ' + formatMoney(total);
+    bars += '<g><title>' + esc(tip) + '</title><clipPath id="dc' + d + '"><rect x="' + x + '" y="' + top.toFixed(1) + '" width="' + w + '" height="' + h.toFixed(1) + '" rx="1.5"/></clipPath><g clip-path="url(#dc' + d + ')">';
+    segs.forEach(function(e) {
+      var sh = byDay[d][e[0]] / total * h;
+      yy -= sh;
+      bars += '<rect x="' + x + '" y="' + yy.toFixed(1) + '" width="' + w + '" height="' + sh.toFixed(1) + '" fill="' + categoryColorMap[e[0]] + '"/>';
+    });
+    bars += '</g></g>';
   }
   $('#act-daily').innerHTML = '<line x1="0" y1="78.5" x2="310" y2="78.5" stroke="var(--border)" stroke-width="1"/>' + bars;
   $('#act-axis-start').textContent = MONTH_SHORT[m - 1] + ' 1';
   $('#act-axis-end').textContent = MONTH_SHORT[m - 1] + ' ' + daysInMonth;
   var daysSoFar = isThisMonth ? now.getDate() : daysInMonth;
-  $('#act-daily-note').textContent = spent ? 'about ' + formatMoney(spent / daysSoFar) + ' a day' : '';
+  $('#act-daily-note').textContent = shownSpent ? '~' + formatMoney(shownSpent / daysSoFar) + '/day' : '';
 
-  // ---- Categories as bars (tap to filter)
-  var catEntries = Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
-  var categoryColorMap = {};
-  catEntries.forEach(function(e, i) { categoryColorMap[e[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
-  var topAmt = catEntries.length ? catEntries[0][1] : 0;
+  // Category chips: one swipeable row, tap to filter, tap again to clear
   legend.innerHTML = catEntries.length ? catEntries.map(function(e) {
     var on = activeCategoryFilter === e[0];
-    var dim = activeCategoryFilter && !on;
-    return '<button type="button" class="act-cat' + (on ? ' active' : '') + (dim ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
-      '<span class="act-cat-top"><span class="act-cat-name"><i style="background:' + categoryColorMap[e[0]] + '"></i>' + esc(e[0]) + '</span>' +
-      '<span class="act-cat-amt">' + formatMoney(e[1]) + '<small>' + Math.round(e[1] / (spent || 1) * 100) + '%</small></span></span>' +
-      '<span class="act-cat-bar"><span style="width:' + (e[1] / (topAmt || 1) * 100).toFixed(1) + '%;background:' + categoryColorMap[e[0]] + '"></span></span>' +
-    '</button>';
+    return '<button type="button" class="act-cat' + (on ? ' on' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
+      '<i style="background:' + categoryColorMap[e[0]] + '"></i><span>' + esc(e[0]) + '</span><b>' + formatMoney(e[1]).replace(/\.\d\d$/, '') + '</b></button>';
   }).join('') : '<p class="act-empty-note">No spending this month yet.</p>';
   legend.querySelectorAll('.act-cat').forEach(function(el) {
     el.addEventListener('click', function() {
@@ -3152,7 +3169,6 @@ function renderTransactionMonth() {
       renderTransactionMonth();
     });
   });
-  $('#act-clear-cat').hidden = !activeCategoryFilter;
 
   // ---- Transactions grouped by day
   displayTx.sort(function(a, b) {
@@ -3161,9 +3177,6 @@ function renderTransactionMonth() {
     return (b.authorized_datetime || '') > (a.authorized_datetime || '') ? 1 : -1;
   });
   var html = '';
-  if (activeCategoryFilter) {
-    html += '<button type="button" class="act-filter-chip" id="act-filter-chip">' + esc(activeCategoryFilter) + ' <span aria-hidden="true">×</span><span class="visually-hidden">Clear filter</span></button>';
-  }
   if (!displayTx.length) {
     html += '<p class="act-empty-note">' + (searchVal ? 'Nothing matches “' + esc(searchVal) + '”.' : 'No transactions here yet.') + '</p>';
   }
@@ -3196,7 +3209,7 @@ function renderTransactionMonth() {
       html += '<div class="tx-row act-row' + (eff.excluded ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
         avatar +
         '<span class="act-row-main"><span class="act-row-name">' + esc(name) + '</span>' +
-        '<span class="act-row-meta"><i style="background:' + color + '"></i>' + (showCardName ? esc(acctName) + ' · ' : '') + esc(cat) + '</span></span>' +
+        '<span class="act-row-meta">' + (showCardName ? esc(acctName) + ' · ' : '') + esc(cat) + '</span></span>' +
         '<span class="act-row-right"><span class="act-row-amt' + (income ? ' is-in' : '') + '">' + amountMain + '</span>' +
         (eff.isSplit && !eff.excluded ? '<span class="act-row-sub">of ' + formatMoney(tx.amount) + '</span>' : '') +
         (tags ? '<span class="act-row-tags">' + tags + '</span>' : '') + '</span>' +
@@ -3205,11 +3218,20 @@ function renderTransactionMonth() {
     html += '</div>';
   });
   breakdown.innerHTML = html;
-  var chip = $('#act-filter-chip');
-  if (chip) chip.addEventListener('click', function() { activeCategoryFilter = null; renderTransactionMonth(); });
-  renderAccountChips(cardId);
   updateMonthButtons();
 }
+
+// Collapsible "more info" block on account cards; open state survives re-renders
+var openCardSections = {};
+function moreSection(key, summary, body) {
+  return '<details class="card-more" data-key="' + esc(key) + '"' + (openCardSections[key] ? ' open' : '') + '>' +
+    '<summary><span>' + esc(summary) + '</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>' +
+    '<div class="card-more-body">' + body + '</div></details>';
+}
+document.addEventListener('toggle', function(e) {
+  var d = e.target;
+  if (d.classList && d.classList.contains('card-more')) openCardSections[d.dataset.key] = d.open;
+}, true);
 
 var MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function friendlyDay(dateStr) {
@@ -3229,17 +3251,6 @@ function accountColor(plaidAccountId) {
   var i = ids.indexOf(plaidAccountId);
   return i === -1 ? 'var(--track)' : ACCOUNT_COLORS[i % ACCOUNT_COLORS.length];
 }
-function renderAccountChips(current) {
-  var wrap = $('#act-chips');
-  if (!wrap || !cachedAccounts) return;
-  var used = {};
-  txData.forEach(function(t) { if (t.plaid_account_id) used[t.plaid_account_id] = true; });
-  var accts = cachedAccounts.filter(function(a) { return a.plaid_account_id && used[a.plaid_account_id]; });
-  wrap.innerHTML = '<button type="button" class="act-chip' + (current === 'all' ? ' on' : '') + '" data-acct="all">All</button>' +
-    accts.map(function(a) {
-      return '<button type="button" class="act-chip' + (current === a.plaid_account_id ? ' on' : '') + '" data-acct="' + esc(a.plaid_account_id) + '"><i style="background:' + accountColor(a.plaid_account_id) + '"></i>' + esc(a.nickname || a.name || 'Account') + '</button>';
-    }).join('');
-}
 function updateMonthButtons() {
   var sel = $('#tx-month-filter');
   if (!sel) return;
@@ -3247,17 +3258,17 @@ function updateMonthButtons() {
   $('#act-month-next').disabled = sel.selectedIndex <= 0;
 }
 (function wireActivityControls() {
-  var chips = $('#act-chips');
-  if (chips) chips.addEventListener('click', function(e) {
-    var b = e.target.closest('.act-chip');
-    if (!b) return;
-    var sel = $('#tx-card-filter');
-    if (!Array.prototype.some.call(sel.options, function(o) { return o.value === b.dataset.acct; })) {
-      var o = document.createElement('option'); o.value = b.dataset.acct; sel.appendChild(o);
-    }
-    sel.value = b.dataset.acct;
-    renderTransactionMonth();
+  var searchBtn = $('#btn-act-search'), searchRow = $('#act-search'), searchIn = $('#tx-search');
+  var closeSearch = function() {
+    searchRow.hidden = true; searchBtn.setAttribute('aria-expanded', 'false');
+    if (searchIn.value) { searchIn.value = ''; renderTransactionMonth(); }
+  };
+  if (searchBtn) searchBtn.addEventListener('click', function() {
+    if (!searchRow.hidden) { closeSearch(); return; }
+    searchRow.hidden = false; searchBtn.setAttribute('aria-expanded', 'true'); searchIn.focus();
   });
+  var cancel = $('#act-search-cancel');
+  if (cancel) cancel.addEventListener('click', function(e) { e.preventDefault(); closeSearch(); });
   var step = function(dir) {
     var sel = $('#tx-month-filter');
     var i = sel.selectedIndex + dir;
@@ -3266,10 +3277,9 @@ function updateMonthButtons() {
     activeCategoryFilter = null;
     renderTransactionMonth();
   };
-  var prev = $('#act-month-prev'), next = $('#act-month-next'), clear = $('#act-clear-cat');
+  var prev = $('#act-month-prev'), next = $('#act-month-next');
   if (prev) prev.addEventListener('click', function() { step(1); });
   if (next) next.addEventListener('click', function() { step(-1); });
-  if (clear) clear.addEventListener('click', function() { activeCategoryFilter = null; renderTransactionMonth(); });
   var list = $('#tx-breakdown');
   if (list) list.addEventListener('keydown', function(e) {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('tx-row')) { e.preventDefault(); e.target.click(); }
@@ -3355,8 +3365,10 @@ $('#btn-add-tx').addEventListener('click', function() {
   var acctSelect = $('#add-tx-account');
   acctSelect.innerHTML = '<option value="cash" data-account-id="" data-plaid-item-id="">Cash</option>';
   if (cachedAccounts) {
+    var usedAcct = {};
+    txData.forEach(function(t) { if (t.plaid_account_id) usedAcct[t.plaid_account_id] = true; });
     cachedAccounts.forEach(function(a) {
-      if (a.plaid_account_id) {
+      if (a.plaid_account_id && usedAcct[a.plaid_account_id]) {
         var opt = document.createElement('option');
         opt.value = a.plaid_account_id;
         opt.textContent = a.nickname || a.name || 'Account';
