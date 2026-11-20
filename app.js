@@ -3084,6 +3084,8 @@ async function loadTransactions() {
 
 }
 
+// The day the card was used (Plaid's authorized_date); falls back to the posted date
+function swipeDate(tx) { return tx.authorized_date || tx.date; }
 function getEffectiveTx(tx) {
   var action = txActions[tx.id];
   var result = {
@@ -3092,7 +3094,7 @@ function getEffectiveTx(tx) {
     splitWays: action ? action.split_ways : null,
     splitPortion: action ? action.split_portion : null,
     reimbursement: 0,
-    nickname: null, note: null, date: tx.date,
+    nickname: null, note: null, date: swipeDate(tx),
     isRecurring: false, recurringGroup: null,
     isSplit: false, isRecategorized: false
   };
@@ -3328,7 +3330,7 @@ function renderTransactionMonth() {
       var income = tx.amount < 0;
       var tags = '';
       if (tx.pending) tags += '<span class="act-tag">Pending</span>';
-      if (eff.date !== tx.date) tags += '<span class="act-tag" title="Posted ' + esc(tx.date) + '">Moved</span>';
+      if (eff.date !== swipeDate(tx)) tags += '<span class="act-tag">Moved</span>';
       if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
       if (eff.actionType === 'ignored') tags += '<span class="act-tag">Ignored</span>';
       if (eff.isSplit) tags += '<span class="act-tag act-tag-accent">' + (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Your share') + '</span>';
@@ -3817,8 +3819,13 @@ function renderMonthMove(tx) {
   var cur = shiftMonth(ym, 0), prev = shiftMonth(ym, -1), next = shiftMonth(ym, 1);
   var now = new Date(), nowKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   $('#tx-month-label').textContent = 'Counts in ' + MONTH_LONG[cur.m - 1];
-  var moved = eff.date !== tx.date;
-  $('#tx-month-sub').innerHTML = moved ? 'Moved from ' + esc(friendlyDay(tx.date)) + ' · <button type="button" class="signin-link" id="tx-move-undo">Undo</button>' : 'Posted ' + esc(friendlyDay(tx.date));
+  var base = swipeDate(tx), moved = eff.date !== base;
+  var when = !tx.authorized_date
+    ? (tx.pending ? 'Pending ' : 'Posted ') + friendlyDay(tx.date) + ' · bank didn\'t share the swipe date'
+    : tx.pending ? 'Swiped ' + friendlyDay(base) + ' · not posted yet'
+    : base !== tx.date ? 'Swiped ' + friendlyDay(base) + ' · posted ' + friendlyDay(tx.date)
+    : 'Swiped and posted ' + friendlyDay(base);
+  $('#tx-month-sub').innerHTML = moved ? 'Moved from ' + esc(friendlyDay(base)) + ' · <button type="button" class="signin-link" id="tx-move-undo">Undo</button>' : esc(when);
   $('#tx-move-prev').textContent = '‹ ' + MONTH_SHORT[prev.m - 1];
   $('#tx-move-prev').setAttribute('aria-label', 'Count in ' + MONTH_LONG[prev.m - 1]);
   $('#tx-move-next').textContent = MONTH_SHORT[next.m - 1] + ' ›';
@@ -3839,9 +3846,10 @@ function renderMonthMove(tx) {
     // Land on the edge of the target month nearest the real date
     var day = dir < 0 ? new Date(t.y, t.m, 0).getDate() : 1;
     var target = t.key + '-' + String(day).padStart(2, '0');
-    if (target.substring(0, 7) === tx.date.substring(0, 7)) target = tx.date;
+    var base = swipeDate(tx);
+    if (target.substring(0, 7) === base.substring(0, 7)) target = base;
     saveTxNote();
-    saveMultiAction(tx.id, { date_override: target === tx.date ? null : target });
+    saveMultiAction(tx.id, { date_override: target === base ? null : target });
     showToast('Now counts in ' + MONTH_LONG[t.m - 1]);
   });
 })();
@@ -4110,14 +4118,14 @@ function showEditPicker() {
   showSubPicker('#edit-picker');
   var action = txActions[actionTxId];
   $('#edit-nickname').value = (action && action.nickname) || '';
-  $('#edit-date').value = (action && action.date_override) || actionTx.date;
+  $('#edit-date').value = (action && action.date_override) || swipeDate(actionTx);
 }
 
 $('#edit-save').addEventListener('click', async function() {
   if (!actionTxId) return;
   var nickname = $('#edit-nickname').value.trim() || null;
   var dateOverride = $('#edit-date').value || null;
-  if (dateOverride === actionTx.date) dateOverride = null;
+  if (dateOverride === swipeDate(actionTx)) dateOverride = null;
   saveMultiAction(actionTxId, { nickname: nickname, date_override: dateOverride });
 });
 

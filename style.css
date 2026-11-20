@@ -3344,3 +3344,5 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .act-acct .picker-wrap { width: 100%; }
 .act-acct select { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (min-width: 900px) { .act-acct { width: 200px; margin-left: 0; } }
+.hold-row + .hold-row { border-top: none; }
+.hold-list { gap: 2px; }
