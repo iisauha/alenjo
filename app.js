@@ -248,10 +248,9 @@ function startAutofillWatch() {
 authEmail.addEventListener('change', startAutofillWatch);
 authPassword.addEventListener('change', startAutofillWatch);
 
-// Hard-reload so iOS replays its AutoFill heuristics and pops the
-// native Face ID / password sheet, same as a fresh app open.
 authFaceId.addEventListener('click', function() {
-  location.reload();
+  var target = authEmail.value ? authPassword : authEmail;
+  try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
 });
 
 // Sign out any existing session on load so user must log in every time
@@ -384,13 +383,8 @@ function showScreen(name) {
     if (savedTab === 'investments' || savedTab === 'settings' || savedTab === 'budget') savedTab = 'snapshot';
     if (savedTab) switchTab(savedTab);
   }
-  if (name === 'login') {
-    // Nudge iOS to surface the saved-password / Face ID autofill prompt
-    setTimeout(function() {
-      var target = authEmail.value ? authPassword : authEmail;
-      try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
-    }, 150);
-  }
+  // The sign-in screen no longer focuses a field on its own, so iOS only
+  // offers Face ID / saved passwords after you tap the Face ID icon or a field.
 }
 
 function switchTab(tabName) {
@@ -452,6 +446,8 @@ function updateSettingsProfile() {
   var nameInput = $('#settings-name');
   var avatar = $('#settings-avatar');
   if (nameInput) nameInput.value = userProfile.display_name || '';
+  var emailEl = $('#settings-email');
+  if (emailEl && currentUser) emailEl.textContent = currentUser.email || '';
   if (avatar && userProfile.avatar_url) {
     avatar.style.backgroundImage = 'url(' + userProfile.avatar_url + ')';
   }
@@ -1372,6 +1368,11 @@ document.querySelectorAll('.hero-stat').forEach(function(btn) {
   });
 });
 
+var signOutBtn = $('#btn-sign-out');
+if (signOutBtn) signOutBtn.addEventListener('click', function() {
+  sb.auth.signOut();
+});
+
 var prefAfterPending = $('#pref-after-pending');
 if (prefAfterPending) {
   prefAfterPending.checked = !showAvailable;
@@ -1868,7 +1869,7 @@ function updateInvestmentTotals(savings, investments) {
 async function renderAccountsSettings() {
   var list = $('#accounts-list');
   if (!cachedAccounts || cachedAccounts.length === 0) {
-    list.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">No accounts linked yet.</p>';
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">No banks connected</p>';
     return;
   }
 
@@ -1883,30 +1884,18 @@ async function renderAccountsSettings() {
   var html = '';
   Object.keys(byItem).forEach(function(itemId) {
     var group = byItem[itemId];
-    var typeCounts = {};
-    group.accounts.forEach(function(a) {
-      var t = a.type === 'investment' ? 'investment' : a.type === 'credit' ? 'credit card' : a.subtype === 'savings' ? 'savings' : 'checking';
-      typeCounts[t] = (typeCounts[t] || 0) + 1;
-    });
-    var typeList = Object.keys(typeCounts).map(function(t) {
-      var n = typeCounts[t];
-      if (t === 'credit card') return n + ' credit card' + (n !== 1 ? 's' : '');
-      if (t === 'checking') return n + ' checking account' + (n !== 1 ? 's' : '');
-      if (t === 'savings') return n + ' savings account' + (n !== 1 ? 's' : '');
-      if (t === 'investment') return n + ' investment account' + (n !== 1 ? 's' : '');
-      return n + ' ' + t;
-    }).join(', ');
     var instLogoUrl = getLogoUrl(group.accounts[0]);
     html += '<div class="settings-institution">';
     html += '<div class="settings-inst-top">';
     html += (instLogoUrl ? '<div class="settings-inst-logo" style="background-image:url(' + instLogoUrl + ')"></div>' : '');
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
-    html += '<span class="settings-inst-detail">' + typeList + '</span>';
+    var n = group.accounts.length;
+    html += '<span class="settings-inst-detail">' + n + ' account' + (n !== 1 ? 's' : '') + '</span>';
     html += '</div>';
     html += '</div>';
     html += '<div class="settings-inst-actions">';
-    html += '<button class="btn-add-card-inst" data-item="' + esc(itemId) + '">Manage connected accounts</button>';
+    html += '<button class="btn-add-card-inst" data-item="' + esc(itemId) + '">Manage</button>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
     html += '</div>';

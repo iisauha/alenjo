@@ -2905,3 +2905,52 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
 .home-spending-legend span { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .home-spending-legend i { width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; }
 .home-spending-legend b { margin-left: auto; font-weight: 400; color: var(--text-muted); }
+
+/* Settings: grouped lists, nothing hidden behind collapsible headers */
+.page-title { font-family: var(--serif); font-size: 2rem; font-weight: 500; margin: 8px 4px 16px; color: var(--text); }
+.set-heading { margin: 24px 4px 8px; font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); }
+.set-group { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.set-group-pad { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 10px 16px; box-sizing: border-box; width: 100%; border: none; border-top: 1px solid var(--border); background: transparent; color: var(--text); font: 400 0.9375rem 'Inter', sans-serif; text-align: left; text-decoration: none; cursor: pointer; }
+.set-group > .set-row:first-child, .set-group > .accounts-manage-list:first-child + .set-row:empty { border-top: none; }
+.set-row-stack { display: block; }
+.set-row-text { display: flex; flex-direction: column; gap: 2px; }
+.set-row-action { color: var(--accent); font-weight: 600; }
+.set-row-link span { color: var(--text-muted); font-size: 1.125rem; }
+.set-hint { font-size: 0.8125rem; color: var(--text-muted); }
+.set-label { font-size: 0.8125rem; font-weight: 500; color: var(--text-muted); }
+.set-footnote { margin: 8px 4px 0; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.45; }
+.set-switch { appearance: none; -webkit-appearance: none; width: 46px; height: 28px; flex-shrink: 0; border-radius: 14px; background: var(--track); position: relative; cursor: pointer; transition: background 0.2s; }
+.set-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: transform 0.2s; }
+.set-switch:checked { background: var(--accent); }
+.set-switch:checked::after { transform: translateX(18px); }
+.set-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.set-profile { display: flex; gap: 16px; align-items: flex-start; padding: 16px; }
+.set-avatar-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; padding: 0; color: var(--accent); font: 500 0.8125rem 'Inter', sans-serif; cursor: pointer; }
+.set-avatar-btn .settings-avatar { width: 64px; height: 64px; border-radius: 50%; background-color: var(--bg-elevated); background-size: cover; background-position: center; }
+.set-profile-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.set-name-row { display: flex; gap: 8px; }
+.set-name-row .app-input { flex: 1; min-width: 0; }
+.set-signout { display: block; width: 100%; margin: 28px 0 24px; min-height: 52px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-card); color: var(--danger); font: 600 1rem 'Inter', sans-serif; cursor: pointer; }
+
+/* Banks: a plain vertical list instead of a swipe carousel */
+#tab-settings .accounts-manage-list { display: block; overflow: visible; padding: 0; scroll-snap-type: none; }
+#tab-settings .scroll-dots { display: none; }
+#tab-settings .settings-institution { display: flex; align-items: center; gap: 12px; width: auto; min-width: 0; margin: 0; padding: 12px 16px; border: none; border-top: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
+#tab-settings .settings-institution:first-child { border-top: none; }
+#tab-settings .settings-inst-top { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; margin: 0; }
+#tab-settings .settings-inst-logo { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; background-size: cover; background-color: var(--bg-elevated); }
+#tab-settings .settings-inst-name { font-size: 0.9375rem; font-weight: 600; color: var(--text); }
+#tab-settings .settings-inst-detail { font-size: 0.8125rem; color: var(--text-muted); }
+#tab-settings .settings-inst-actions { display: flex; gap: 6px; flex-shrink: 0; margin: 0; }
+#tab-settings .settings-inst-actions button { min-height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font: 500 0.8125rem 'Inter', sans-serif; width: auto; }
+#tab-settings .settings-inst-actions .btn-disconnect-inst { color: var(--danger); }
+#tab-settings .accounts-manage-list > p { padding: 14px 16px; margin: 0; }
+#tab-settings .settings-institution { flex-direction: row; justify-content: space-between; text-align: left; }
+#tab-settings .settings-inst-top { justify-content: flex-start; }
+#tab-settings .settings-inst-info { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; min-width: 0; }
+#tab-settings .card-designs-grid:empty { display: none; }
+#tab-settings { padding-bottom: 96px; }
+#tab-settings .settings-inst-top { overflow: hidden; }
+#tab-settings .settings-inst-info { flex: 1; overflow: hidden; }
+#tab-settings .settings-inst-name, #tab-settings .settings-inst-detail { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
