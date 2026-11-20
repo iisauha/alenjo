@@ -1741,7 +1741,7 @@ function applyTheme() {
   var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#1C1B17' : '#EEECE5');
+  if (meta) meta.setAttribute('content', dark ? '#1C1B17' : '#E6E2D8');
   document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
     b.setAttribute('aria-pressed', b.dataset.themeChoice === pref ? 'true' : 'false');
   });
@@ -3474,6 +3474,33 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
   });
 })();
 
+// Privacy / Security / FAQ open inside the app (no new browser window, no white flash,
+// and you stay signed in)
+(function wireInfoPanel() {
+  var panel = $('#info-panel'), frame = $('#info-frame');
+  if (!panel) return;
+  var lastFocus = null;
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest('a[data-info]');
+    if (!a) return;
+    e.preventDefault();
+    lastFocus = a;
+    frame.classList.remove('loaded');
+    frame.src = a.getAttribute('href').replace(/\.html$/, '') + '.html?embed=1';
+    panel.hidden = false;
+    requestAnimationFrame(function() { panel.classList.add('open'); });
+    $('#info-close').focus();
+  });
+  frame.addEventListener('load', function() { frame.classList.add('loaded'); });
+  var close = function() {
+    panel.classList.remove('open');
+    setTimeout(function() { panel.hidden = true; frame.src = 'about:blank'; }, 250);
+    if (lastFocus) lastFocus.focus({ preventScroll: true });
+  };
+  $('#info-close').addEventListener('click', close);
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !panel.hidden) close(); });
+})();
+
 var MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function friendlyDay(dateStr) {
   var p = dateStr.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]);
@@ -3815,42 +3842,40 @@ function shiftMonth(ym, delta) {
   return { y: d.getFullYear(), m: d.getMonth() + 1, key: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') };
 }
 function renderMonthMove(tx) {
-  var eff = getEffectiveTx(tx), ym = eff.date.substring(0, 7);
-  var cur = shiftMonth(ym, 0), prev = shiftMonth(ym, -1), next = shiftMonth(ym, 1);
-  var now = new Date(), nowKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  $('#tx-month-label').textContent = 'Counts in ' + MONTH_LONG[cur.m - 1];
-  var base = swipeDate(tx), moved = eff.date !== base;
-  var when = !tx.authorized_date
-    ? (tx.pending ? 'Pending ' : 'Posted ') + friendlyDay(tx.date) + ' · bank didn\'t share the swipe date'
-    : tx.pending ? 'Swiped ' + friendlyDay(base) + ' · not posted yet'
-    : base !== tx.date ? 'Swiped ' + friendlyDay(base) + ' · posted ' + friendlyDay(tx.date)
-    : 'Swiped and posted ' + friendlyDay(base);
-  $('#tx-month-sub').innerHTML = moved ? 'Moved from ' + esc(friendlyDay(base)) + ' · <button type="button" class="signin-link" id="tx-move-undo">Undo</button>' : esc(when);
-  $('#tx-move-prev').textContent = '‹ ' + MONTH_SHORT[prev.m - 1];
-  $('#tx-move-prev').setAttribute('aria-label', 'Count in ' + MONTH_LONG[prev.m - 1]);
-  $('#tx-move-next').textContent = MONTH_SHORT[next.m - 1] + ' ›';
-  $('#tx-move-next').setAttribute('aria-label', 'Count in ' + MONTH_LONG[next.m - 1]);
-  $('#tx-move-next').hidden = next.key > nowKey;
+  var eff = getEffectiveTx(tx), base = swipeDate(tx), moved = eff.date !== base;
+  var p = eff.date.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]);
+  $('#tx-date-value').textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+  $('#tx-date-input').value = eff.date;
+  $('#tx-date-reset').hidden = !moved;
+  var sub = moved ? 'Changed by you · bank says ' + friendlyDay(base)
+    : !tx.authorized_date ? (tx.pending ? 'Pending' : 'Posted ' + friendlyDay(tx.date)) + ' · bank didn\'t share the swipe date'
+    : tx.pending ? 'Swiped · not posted yet'
+    : base !== tx.date ? 'Swiped · posted ' + friendlyDay(tx.date)
+    : 'Swiped and posted the same day';
+  $('#tx-date-sub').textContent = sub;
 }
 (function() {
-  var box = document.querySelector('.tx-month-move');
-  if (!box) return;
-  box.addEventListener('click', function(e) {
-    if (!actionTx) return;
-    var tx = actionTx;
-    if (e.target.id === 'tx-move-undo') { saveTxNote(); saveMultiAction(tx.id, { date_override: null }); return; }
-    var b = e.target.closest('[data-move-month]');
-    if (!b) return;
-    var dir = +b.dataset.moveMonth;
-    var t = shiftMonth(getEffectiveTx(tx).date.substring(0, 7), dir);
-    // Land on the edge of the target month nearest the real date
-    var day = dir < 0 ? new Date(t.y, t.m, 0).getDate() : 1;
-    var target = t.key + '-' + String(day).padStart(2, '0');
-    var base = swipeDate(tx);
-    if (target.substring(0, 7) === base.substring(0, 7)) target = base;
+  var input = $('#tx-date-input');
+  if (!input) return;
+  // Open the calendar from anywhere on the date button
+  input.parentNode.addEventListener('click', function(e) {
+    if (e.target !== input && input.showPicker) { e.preventDefault(); try { input.showPicker(); } catch (err) { input.focus(); } }
+  });
+  input.addEventListener('change', function() {
+    if (!actionTx || !input.value) return;
+    var tx = actionTx, base = swipeDate(tx), v = input.value;
     saveTxNote();
-    saveMultiAction(tx.id, { date_override: target === base ? null : target });
-    showToast('Now counts in ' + MONTH_LONG[t.m - 1]);
+    saveMultiAction(tx.id, { date_override: v === base ? null : v }, { silent: true, quiet: true });
+    renderMonthMove(tx);
+    var p = v.split('-');
+    showToast('Date changed to ' + new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+  });
+  $('#tx-date-reset').addEventListener('click', function() {
+    if (!actionTx) return;
+    saveTxNote();
+    saveMultiAction(actionTx.id, { date_override: null }, { silent: true, quiet: true });
+    renderMonthMove(actionTx);
+    showToast('Date reset');
   });
 })();
 function saveTxNote() {
@@ -4118,15 +4143,12 @@ function showEditPicker() {
   showSubPicker('#edit-picker');
   var action = txActions[actionTxId];
   $('#edit-nickname').value = (action && action.nickname) || '';
-  $('#edit-date').value = (action && action.date_override) || swipeDate(actionTx);
 }
 
 $('#edit-save').addEventListener('click', async function() {
   if (!actionTxId) return;
   var nickname = $('#edit-nickname').value.trim() || null;
-  var dateOverride = $('#edit-date').value || null;
-  if (dateOverride === swipeDate(actionTx)) dateOverride = null;
-  saveMultiAction(actionTxId, { nickname: nickname, date_override: dateOverride });
+  saveMultiAction(actionTxId, { nickname: nickname });
 });
 
 // Unified save that merges updates with existing action state
@@ -4152,7 +4174,7 @@ async function saveMultiAction(txId, updates, opts) {
   };
   // Update local state and render immediately
   txActions[txId] = row;
-  showToast(opts.silent ? 'Note saved' : 'Saved');
+  if (!opts.quiet) showToast(opts.silent ? 'Note saved' : 'Saved');
   renderTransactionMonth();
   if (!opts.silent) closeActionSheet();
 

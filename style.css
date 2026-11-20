@@ -1,20 +1,20 @@
 /* Ledger theme: light by default, dark via system setting or data-theme */
 :root {
   color-scheme: light;
-  --bg: #EEECE5;
-  --bg-card: #F7F5EF;
-  --bg-input: #F7F5EF;
-  --bg-elevated: #E4E1D8;
-  --accent: #2A6E4D;
-  --accent-hover: #225A3F;
-  --accent-subtle: #DDE8DF;
-  --accent-glow: #DDE8DF;
-  --on-accent: #F7F5EF;
-  --text: #2B2A26;
-  --text-muted: #66625A;
-  --text-dim: #706C63;
-  --border: #DCD8CE;
-  --track: #DFDBD1;
+  --bg: #E6E2D8;
+  --bg-card: #EEEAE1;
+  --bg-input: #EEEAE1;
+  --bg-elevated: #DCD7CB;
+  --accent: #2E6B4D;
+  --accent-hover: #26593F;
+  --accent-subtle: #D5DFD2;
+  --accent-glow: #D5DFD2;
+  --on-accent: #F1EEE6;
+  --text: #33312C;
+  --text-muted: #67625A;
+  --text-dim: #6F6A61;
+  --border: #D2CCBF;
+  --track: #D6D0C4;
   --danger: #A23A26;
   --success: #2A6E4D;
   --warning: #9A6A12;
@@ -3347,3 +3347,26 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .hold-row + .hold-row { border-top: none; }
 .hold-list { gap: 2px; }
 .card-more { border-top: none; margin-top: 6px; }
+
+/* In-app viewer for Privacy / Security / FAQ */
+.info-panel { position: fixed; inset: 0; z-index: 2500; display: flex; flex-direction: column; background: var(--bg); transform: translateX(100%); transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+.info-panel.open { transform: none; }
+.info-panel[hidden] { display: none; }
+.info-bar { display: flex; align-items: center; min-height: 52px; padding: env(safe-area-inset-top) 8px 0; border-bottom: 1px solid var(--border); background: var(--bg); }
+.info-back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 10px 0 4px; border: none; background: transparent; color: var(--accent); font: 500 1rem 'Inter', sans-serif; cursor: pointer; }
+#info-frame { flex: 1; width: 100%; border: 0; background: var(--bg); opacity: 0; transition: opacity 0.15s; }
+#info-frame.loaded { opacity: 1; }
+@media (min-width: 900px) {
+  .info-panel { left: auto; width: min(720px, 100%); border-left: 1px solid var(--border); box-shadow: -12px 0 40px rgba(0,0,0,0.18); }
+}
+
+/* Change date (opens the calendar) */
+.tx-date-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 8px 8px 14px; margin-bottom: 12px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border); }
+.tx-date-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tx-date-label { font-size: 0.9375rem; font-weight: 500; }
+.tx-date-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.tx-date-actions .signin-link { font-size: 0.8125rem; min-height: 36px; }
+.tx-date-btn { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--bg-elevated); color: var(--text); font: 600 0.875rem 'Inter', sans-serif; cursor: pointer; overflow: hidden; }
+.tx-date-btn svg { color: var(--accent); }
+.tx-date-btn input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; cursor: pointer; font-size: 16px; }
+.tx-date-btn input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }

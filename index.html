@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#EEECE5">
+  <meta name="theme-color" content="#E6E2D8">
   <style id="antiframe">html{display:none}</style>
   <script>
     // Don't let other sites show Alenjo inside a frame (clickjacking)
@@ -20,7 +20,7 @@
       var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       var m = document.querySelector('meta[name="theme-color"]');
-      if (m) m.setAttribute('content', dark ? '#1C1B17' : '#EEECE5');
+      if (m) m.setAttribute('content', dark ? '#1C1B17' : '#E6E2D8');
     })();
   </script>
   <title>Alenjo</title>
@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120234216';</script>
+  <script>var _v = '20261120235128';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120234216">
+  <link rel="stylesheet" href="style.css?v=20261120235128">
 </head>
 <body>
 
@@ -123,7 +123,7 @@
         </form>
       </div>
       <footer class="signin-footer">
-        <div class="signin-footer-links"><a href="/privacy">Privacy</a><a href="/security">Security</a></div>
+        <div class="signin-footer-links"><a href="/privacy" data-info>Privacy</a><a href="/security" data-info>Security</a></div>
         <p>Bank data is read-only via Plaid. Alenjo locks itself when you step away.</p>
       </footer>
     </div>
@@ -389,9 +389,9 @@
 
       <h2 class="set-heading">About</h2>
       <div class="set-group">
-        <a href="/privacy" target="_blank" rel="noopener" class="set-row set-row-link">Privacy policy<span aria-hidden="true">›</span></a>
-        <a href="/security" target="_blank" rel="noopener" class="set-row set-row-link">Security<span aria-hidden="true">›</span></a>
-        <a href="/faq" target="_blank" rel="noopener" class="set-row set-row-link">FAQs<span aria-hidden="true">›</span></a>
+        <a href="/privacy" data-info class="set-row set-row-link">Privacy policy<span aria-hidden="true">›</span></a>
+        <a href="/security" data-info class="set-row set-row-link">Security<span aria-hidden="true">›</span></a>
+        <a href="/faq" data-info class="set-row set-row-link">FAQs<span aria-hidden="true">›</span></a>
       </div>
 
       <button type="button" id="btn-sign-out" class="set-signout">Sign out</button>
@@ -564,6 +564,13 @@
   </div>
 
   <!-- Transaction Action Sheet -->
+  <div id="info-panel" class="info-panel" hidden>
+    <div class="info-bar">
+      <button type="button" id="info-close" class="info-back" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
+    </div>
+    <iframe id="info-frame" title="Info" tabindex="0"></iframe>
+  </div>
+
   <div id="picker-sheet" class="action-sheet-overlay picker-overlay" aria-hidden="true">
     <div class="action-sheet picker-sheet" role="dialog" aria-modal="true" aria-labelledby="picker-title">
       <div class="action-sheet-header"><span id="picker-title" class="action-sheet-title"></span></div>
@@ -584,18 +591,22 @@
           <span class="visually-hidden">Note</span>
           <textarea id="tx-note" rows="1" maxlength="500" placeholder="Add a note, like who it was for or why"></textarea>
         </label>
-        <div class="tx-month-move">
-          <span class="tx-month-move-text"><span id="tx-month-label"></span><span id="tx-month-sub" class="set-hint"></span></span>
-          <span class="tx-month-move-btns">
-            <button type="button" class="act-pill-sm" data-move-month="-1" id="tx-move-prev"></button>
-            <button type="button" class="act-pill-sm" data-move-month="1" id="tx-move-next"></button>
+        <div class="tx-date-row">
+          <span class="tx-date-text"><span class="tx-date-label">Date</span><span id="tx-date-sub" class="set-hint"></span></span>
+          <span class="tx-date-actions">
+            <button type="button" id="tx-date-reset" class="signin-link" hidden>Reset</button>
+            <label class="tx-date-btn">
+              <span id="tx-date-value"></span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+              <input type="date" id="tx-date-input" aria-label="Change the date this transaction counts on">
+            </label>
           </span>
         </div>
         <p class="action-group-label">Actions</p>
         <div class="action-toggles">
           <button class="action-toggle" data-toggle="split">Split</button>
           <button class="action-toggle" data-toggle="recategorized">Change Category</button>
-          <button class="action-toggle" data-toggle="edit">Edit</button>
+          <button class="action-toggle" data-toggle="edit">Rename</button>
         </div>
         <p class="action-group-label" style="margin-top:0.6rem">Mark as</p>
         <div class="action-toggles">
@@ -636,14 +647,10 @@
       </div>
       <div id="edit-picker" class="action-sheet-sub" hidden>
         <button class="sub-picker-back" id="edit-back">Back</button>
-        <p class="action-sub-title">Edit Transaction</p>
+        <p class="action-sub-title">Rename</p>
         <div class="edit-field">
           <label for="edit-nickname">Name</label>
           <input type="text" id="edit-nickname" class="app-input" placeholder="Custom name...">
-        </div>
-        <div class="edit-field">
-          <label for="edit-date">Date</label>
-          <input type="date" id="edit-date" class="app-input">
         </div>
         <button id="edit-save" class="btn-primary" style="width:100%;margin-top:0.5rem">Save</button>
       </div>
