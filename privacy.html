@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#F3F2EC">
   <script>
     (function() {
@@ -14,238 +14,122 @@
       if (m) m.setAttribute('content', dark ? '#15140F' : '#F3F2EC');
     })();
   </script>
-  <title>Privacy Policy - Alenjo</title>
+  <title>Privacy · Alenjo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico?v=3" sizes="48x48">
   <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png?v=3">
-  <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png?v=3">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
   <style>
-    :root {
-      color-scheme: light;
-      --bg: #F3F2EC;
-      --bg-card: #FBFAF6;
-      --text: #1C1B19;
-      --text-muted: #5E5A52;
-      --text-dim: #6E6A61;
-      --accent: #1F6B47;
-      --border: #DEDACF;
+    :root { color-scheme: light; --bg: #F3F2EC; --card: #FBFAF6; --text: #1C1B19; --muted: #5E5A52; --accent: #1F6B47; --border: #DEDACF; --serif: 'Newsreader', Georgia, serif; }
+    :root[data-theme="dark"] { color-scheme: dark; --bg: #15140F; --card: #1D1B16; --text: #EDE8DD; --muted: #A39C8E; --accent: #7FC9A0; --border: #33302A; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.65 'Inter', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); }
+    .topbar { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 94%, transparent); border-bottom: 1px solid var(--border); padding: max(10px, env(safe-area-inset-top)) 20px 10px; }
+    .topbar-inner { max-width: 1040px; margin: 0 auto; display: flex; align-items: center; gap: 16px; min-height: 44px; }
+    .brand { display: flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; font-family: var(--serif); font-size: 1.25rem; font-weight: 500; margin-right: auto; }
+    .brand img { width: 18px; height: 24px; }
+    .topnav { display: flex; gap: 4px; }
+    .topnav a { padding: 8px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 0.875rem; font-weight: 500; }
+    .topnav a[aria-current="page"] { color: var(--text); background: var(--card); }
+    .layout { max-width: 1040px; margin: 0 auto; padding: 28px 20px 64px; }
+    .toc { display: none; }
+    h1 { font-family: var(--serif); font-weight: 500; font-size: 2.25rem; line-height: 1.15; letter-spacing: -0.01em; margin: 0 0 6px; }
+    .updated { margin: 0 0 24px; font-size: 0.875rem; color: var(--muted); }
+    .lead { font-size: 1.0625rem; }
+    h2 { font-size: 1.125rem; font-weight: 700; margin: 36px 0 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+    p, ul { margin: 0 0 14px; }
+    ul { padding-left: 1.2em; }
+    li { margin-bottom: 6px; }
+    .muted { color: var(--muted); }
+    details { border-bottom: 1px solid var(--border); }
+    summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 16px; align-items: center; min-height: 52px; padding: 10px 0; font-weight: 600; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: '+'; color: var(--muted); font-weight: 400; font-size: 1.25rem; flex-shrink: 0; }
+    details[open] summary::after { content: '−'; }
+    details > div { padding: 0 0 14px; color: var(--text); }
+    .faq-group h2 { margin-bottom: 0; }
+    .faq-group + .faq-group h2 { border-top: none; }
+    .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 0.875rem; color: var(--muted); }
+    @media (max-width: 599px) {
+      .topnav { display: none; }
+      h1 { font-size: 1.9rem; }
     }
-    :root[data-theme="dark"] {
-      color-scheme: dark;
-      --bg: #15140F;
-      --bg-card: #1D1B16;
-      --text: #EDE8DD;
-      --text-muted: #A39C8E;
-      --text-dim: #948D80;
-      --accent: #7FC9A0;
-      --border: #33302A;
-    }
-    h1 { font-family: 'Newsreader', Georgia, serif !important; font-weight: 500 !important; letter-spacing: -0.01em !important; }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-      line-height: 1.7;
-      letter-spacing: -0.01em;
-    }
-
-    .page {
-      max-width: 640px;
-      margin: 0 auto;
-      padding: 3rem 1.25rem 4rem;
-    }
-
-    .page-nav {
-      margin-bottom: 2.5rem;
-    }
-
-    .page-nav a {
-      color: var(--accent);
-      text-decoration: none;
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
-
-    .page-nav a:hover { text-decoration: underline; }
-
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      margin-bottom: 0.25rem;
-    }
-
-    .last-updated {
-      font-size: 0.8125rem;
-      color: var(--text-dim);
-      margin-bottom: 2.5rem;
-    }
-
-    h2 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      margin-top: 2.25rem;
-      margin-bottom: 0.75rem;
-    }
-
-    p, li {
-      font-size: 0.9375rem;
-      color: var(--text-muted);
-      margin-bottom: 1rem;
-    }
-
-    ul {
-      list-style: none;
-      padding-left: 0;
-    }
-
-    ul li {
-      position: relative;
-      padding-left: 1.25rem;
-      margin-bottom: 0.5rem;
-    }
-
-    ul li::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0.6em;
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--text-dim);
-    }
-
-    strong { color: var(--text); font-weight: 600; }
-
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    .section-divider {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 2.25rem 0;
-    }
-
-    .footer-links {
-      margin-top: 3rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border);
-      display: flex;
-      gap: 1.5rem;
-      font-size: 0.8125rem;
+    @media (min-width: 900px) {
+      .layout { display: grid; grid-template-columns: 200px minmax(0, 680px); gap: 64px; padding-top: 48px; }
+      .toc { display: block; position: sticky; top: 96px; align-self: start; font-size: 0.875rem; }
+      .toc p { margin: 0 0 8px; font-weight: 600; color: var(--muted); font-size: 0.8125rem; }
+      .toc a { display: block; padding: 5px 0; color: var(--muted); text-decoration: none; line-height: 1.35; }
+      .toc a:hover { color: var(--text); }
+      h1 { font-size: 2.75rem; }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <nav class="page-nav">
-      <a href="/">&larr; Back to Alenjo</a>
-    </nav>
-
-    <h1>Privacy Policy</h1>
-    <p class="last-updated">Last updated April 14, 2026</p>
-
-    <p>Alenjo is a personal finance app that helps you see your money in one place. To do that, we connect to your bank accounts, pull in your transactions, and show you what matters. This policy explains exactly what data we collect, how we use it, and who else is involved.</p>
-
-    <p>We want to be straightforward here. No legal fog, no buried clauses. If something is unclear, reach out and we will explain it.</p>
-
-    <h2>What We Collect</h2>
-
-    <p>When you use Alenjo, we store the following:</p>
-
-    <ul>
-      <li><strong>Your profile.</strong> A display name and a photo, if you add one. That is it for personal info. We do not ask for your phone number, address, or date of birth.</li>
-      <li><strong>Bank account metadata.</strong> Account names, types (checking, savings, credit card, investment), current balances, and the institution they belong to. This comes from Plaid, not from you typing it in.</li>
-      <li><strong>Transactions.</strong> Merchant names, amounts, dates, and categories for your recent transactions. We store up to several months of history so you can review your spending.</li>
-      <li><strong>Investment holdings.</strong> Ticker symbols, quantities, values, and cost basis for your brokerage accounts.</li>
-      <li><strong>Credit card details.</strong> APR, minimum payment, due dates, and statement balances, when your bank provides them through Plaid.</li>
-      <li><strong>Recurring bills.</strong> The bills you set up manually in the Plan tab, including name, amount, frequency, and due dates.</li>
-      <li><strong>Your preferences.</strong> Things like which tab you last viewed, whether you are showing ignored transactions, and any nicknames or category changes you have made to transactions. These are small UI settings, not sensitive data.</li>
-    </ul>
-
-    <h2>What We Do Not Collect</h2>
-
-    <ul>
-      <li>We do not track your behavior. No analytics, no page views, no click tracking, no session recordings.</li>
-      <li>We do not use cookies.</li>
-      <li>We do not serve ads or share data with advertisers.</li>
-      <li>We never see, handle, or store your bank login credentials. Those go directly to Plaid.</li>
-    </ul>
-
-    <h2>How We Get Your Financial Data</h2>
-
-    <p>We use <a href="https://plaid.com" target="_blank" rel="noopener">Plaid</a> to connect to your bank. When you tap "Connect Account," Plaid opens a secure widget where you log in to your bank directly. Plaid handles the authentication and sends us read-only access to your account data.</p>
-
-    <p>Your bank username and password never touch our servers. They stay between you, your bank, and Plaid. We receive an access token from Plaid that lets us request your balances and transactions, but that token cannot be used to move money or make changes to your accounts.</p>
-
-    <p>Plaid is used by thousands of financial apps and is regularly audited for security. You can read <a href="https://plaid.com/legal/#end-user-privacy-policy" target="_blank" rel="noopener">Plaid's privacy policy</a> for full details on how they handle your data.</p>
-
-    <h2>Where Your Data Lives</h2>
-
-    <p>Your data is stored in <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a>, an open-source database platform built on PostgreSQL. Supabase hosts your profile, accounts, transactions, and everything else Alenjo needs to work.</p>
-
-    <ul>
-      <li>All data is encrypted in transit (HTTPS/TLS) and at rest.</li>
-      <li>Every database query is scoped to your user account through row-level security. Even if someone had access to the database connection, they could not read another user's data.</li>
-      <li>Authentication is handled by Supabase Auth using email and password with short-lived session tokens.</li>
-    </ul>
-
-    <p>Your profile photo, if you upload one, is stored in a Supabase storage bucket. The image is accessible via a URL tied to your account.</p>
-
-    <h2>Third-Party Services</h2>
-
-    <p>Here is every external service Alenjo talks to and why:</p>
-
-    <ul>
-      <li><strong>Plaid.</strong> Connects to your bank and provides account data, transactions, investment holdings, and credit card details. This is the core of how Alenjo works.</li>
-      <li><strong>Supabase.</strong> Hosts our database, handles authentication, stores your data, and runs our server-side functions.</li>
-      <li><strong>Google Fonts.</strong> Delivers the Figtree typeface. Google may log basic request data (your IP address) when loading the font. No cookies are set.</li>
-      <li><strong>logo.dev.</strong> Provides bank and institution logos. We send the institution's domain name to get a logo image. No user data is shared.</li>
-      <li><strong>GitHub Pages.</strong> Hosts the Alenjo website itself. GitHub may log access requests. No user data is sent to GitHub beyond standard web traffic.</li>
-    </ul>
-
-    <p>That is the complete list. We do not use any analytics services, advertising networks, or data brokers.</p>
-
-    <h2>Data Stored on Your Device</h2>
-
-    <p>Alenjo stores a few small preferences in your browser's local storage, like which tab you were last on and your display settings. This is not sensitive data, and none of it leaves your device. We do not use cookies at all.</p>
-
-    <h2>How Long We Keep Your Data</h2>
-
-    <p>Your data stays in our database for as long as your account is active. When you disconnect a bank in Settings, we delete all accounts and transaction history associated with that connection immediately.</p>
-
-    <p>If you want all of your data removed entirely, contact us and we will delete your account and everything associated with it.</p>
-
-    <h2>Data We Share</h2>
-
-    <p>We do not sell, rent, or share your data with anyone for marketing or advertising purposes. The only parties that interact with your financial data are Plaid (to fetch it from your bank) and Supabase (to store it). Both are necessary for the app to function.</p>
-
-    <h2>Children</h2>
-
-    <p>Alenjo is not designed for children under 18. We do not knowingly collect data from minors.</p>
-
-    <h2>Changes to This Policy</h2>
-
-    <p>If we make meaningful changes to this policy, we will update the date at the top. We will not reduce your privacy protections without notice.</p>
-
-    <h2>Contact</h2>
-
-    <p>Questions about your data or this policy? Email <strong>isaiahaaguilar1@gmail.com</strong>.</p>
-
-    <div class="footer-links">
-      <a href="/security">Security</a>
-      <a href="/faq">FAQs</a>
-      <a href="/">Home</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="/" class="brand"><img src="/alenjo-mark.png?v=1" alt="">Alenjo</a>
+      <nav class="topnav" aria-label="Info pages">
+        <a href="/privacy" aria-current="page">Privacy</a>
+        <a href="/security" >Security</a>
+        <a href="/faq" >FAQ</a>
+      </nav>
     </div>
+  </header>
+  <div class="layout">
+    <nav class="toc" aria-label="On this page"><p>On this page</p><a href="#what-alenjo-stores">What Alenjo stores</a><a href="#what-alenjo-does-not-collect">What Alenjo does not collect</a><a href="#where-your-data-lives">Where your data lives</a><a href="#on-your-device">On your device</a><a href="#services-alenjo-uses">Services Alenjo uses</a><a href="#keeping-and-deleting-data">Keeping and deleting data</a><a href="#changes">Changes</a></nav>
+    <main>
+
+      <h1>Privacy</h1>
+      <p class="updated">Last updated November 20, 2026</p>
+      <p class="lead">Alenjo is a private, personal finance app. It connects to your bank through Plaid so you can see balances and spending in one place. This page lists exactly what it stores, where, and who else is involved.</p>
+
+      <h2 id="what-alenjo-stores">What Alenjo stores</h2>
+      <ul>
+        <li><strong>Profile:</strong> your display name and, if you add one, a profile photo.</li>
+        <li><strong>Accounts:</strong> names, types, last four digits and balances for the accounts you connect.</li>
+        <li><strong>Transactions:</strong> merchant, amount, date and category, plus your own edits (splits, new categories, renamed or ignored transactions, manual transactions).</li>
+        <li><strong>Investments:</strong> holdings such as ticker, shares and value, when your brokerage shares them.</li>
+        <li><strong>Credit cards:</strong> APR, minimum payment, due date and statement balance, when your bank shares them, plus any sign-up bonus goal you set.</li>
+        <li><strong>Card designs:</strong> card images you upload to personalize your accounts.</li>
+      </ul>
+
+      <h2 id="what-alenjo-does-not-collect">What Alenjo does not collect</h2>
+      <ul>
+        <li>Your bank username or password. You enter those in Plaid's window, never in Alenjo.</li>
+        <li>Analytics, page views, click tracking or session recordings. There are none.</li>
+        <li>Advertising data. There are no ads and nothing is sold or shared for marketing.</li>
+        <li>Cookies. Alenjo does not set any.</li>
+        <li>Face ID data. Face ID is handled by your device's password manager; Alenjo never receives it.</li>
+      </ul>
+
+      <h2 id="where-your-data-lives">Where your data lives</h2>
+      <p>Your data is stored in <a href="https://supabase.com">Supabase</a> (a PostgreSQL database). Every table uses row-level security, so each signed-in user can only read their own rows. Account names, balances and bank connection keys are also encrypted inside the database. Profile photos and card designs are kept in Supabase storage.</p>
+
+      <h2 id="on-your-device">On your device</h2>
+      <p>Alenjo keeps a few settings in your browser's local storage: your theme, whether to include pending charges, whether to ask for Face ID on open, the screen you last used, and your email and first name so the sign-in screen can greet you. Tap <strong>Not you?</strong> on the sign-in screen to clear your email and name. No balances or transactions are stored on your device.</p>
+
+      <h2 id="services-alenjo-uses">Services Alenjo uses</h2>
+      <ul>
+        <li><strong>Plaid:</strong> connects to your bank and provides balances, transactions, investments and card details (read-only).</li>
+        <li><strong>Supabase:</strong> database, sign-in and the server functions that talk to Plaid.</li>
+        <li><strong>GitHub Pages:</strong> hosts the app's files.</li>
+        <li><strong>logo.dev:</strong> bank logos. Only the bank's web address is sent.</li>
+        <li><strong>Google Fonts:</strong> the Inter and Newsreader typefaces. Google may see your IP address when they load.</li>
+        <li><strong>jsDelivr:</strong> only when you upload a card design, it serves an image-safety model that runs on your device. Your image is not uploaded anywhere for that check.</li>
+      </ul>
+
+      <h2 id="keeping-and-deleting-data">Keeping and deleting data</h2>
+      <p>Your data stays while your account exists. Disconnecting a bank in <strong>Settings → Banks</strong> deletes that bank's accounts, transactions and your edits to them, and asks Plaid to revoke access. To delete your whole account, email the address below.</p>
+
+      <h2 id="changes">Changes</h2>
+      <p>If this page changes in a meaningful way, the date at the top will change too.</p>
+
+      <p class="footer">Questions? Email <a href="mailto:isaiahaaguilar1@gmail.com">isaiahaaguilar1@gmail.com</a>. <a href="/">Back to Alenjo</a></p>
+    </main>
   </div>
 </body>
 </html>
