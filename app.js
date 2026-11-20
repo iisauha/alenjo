@@ -156,9 +156,18 @@ signupForm.addEventListener('submit', async function(e) {
 // ============================================
 // AUTH (sign-in only, no new signups)
 // ============================================
+var signingIn = false;
+function setSigningIn(on) {
+  signingIn = on;
+  authSubmit.disabled = on;
+  authSubmit.textContent = on ? 'Signing in…' : 'Sign in';
+  authForm.classList.toggle('is-busy', on);
+}
+
 authForm.addEventListener('submit', async function(e) {
   e.preventDefault();
-  authSubmit.disabled = true;
+  if (signingIn) return;
+  setSigningIn(true);
   authError.hidden = true;
 
   var email = authEmail.value.trim();
@@ -169,14 +178,13 @@ authForm.addEventListener('submit', async function(e) {
   if (result.error) {
     authError.textContent = result.error.message;
     authError.hidden = false;
-    authSubmit.disabled = false;
-    authSubmit.textContent = 'Sign in';
+    setSigningIn(false);
     return;
   }
 
+  // Stay in "Signing in…" until your accounts have loaded and Home is
+  // showing (showScreen('app') resets it), so it never looks stuck.
   try { localStorage.setItem('alenjo_last_email', email); } catch (e) {}
-  authSubmit.textContent = 'Sign in';
-  authSubmit.disabled = false;
 });
 
 // Remembered email: show it masked with a "Not you?" escape hatch.
@@ -235,11 +243,7 @@ function startAutofillWatch() {
       document.activeElement.blur();
       // Let iOS fully commit autofill values before reading them
       setTimeout(function() {
-        if (!authSubmit.disabled) {
-          authSubmit.disabled = true;
-          authSubmit.textContent = 'Signing in...';
-          authForm.requestSubmit();
-        }
+        if (!signingIn) authForm.requestSubmit();
       }, 250);
     }
     if (checks > 50) { clearInterval(autofillPoller); autofillPoller = null; }
@@ -376,6 +380,7 @@ setInterval(function() {
 // SCREENS & TABS
 // ============================================
 function showScreen(name) {
+  if (name === 'app' || name === 'login') setSigningIn(false);
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   $('#screen-' + name).classList.add('active');
   if (name === 'app') {

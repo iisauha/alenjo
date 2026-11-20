@@ -30,14 +30,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Bump the version (here and on the stylesheet link) when deploying CSS/JS changes so browsers pick up the new files -->
-  <script>var _v = '20261120g';</script>
+  <script>var _v = '20261120h';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120g">
+  <link rel="stylesheet" href="style.css?v=20261120h">
 </head>
 <body>
 
@@ -115,6 +115,28 @@
       </footer>
     </div>
   </div>
+
+  <script>
+    // Fill in the greeting and remembered email before the first paint so the
+    // sign-in screen doesn't jump when the main script loads.
+    (function() {
+      try {
+        var name = localStorage.getItem('alenjo_last_name') || '';
+        var since = localStorage.getItem('alenjo_since') || '';
+        var email = localStorage.getItem('alenjo_last_email') || '';
+        var h = new Date().getHours();
+        if (name) document.getElementById('login-greeting').textContent = (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', ' + name.split(' ')[0];
+        if (name && since) document.getElementById('login-subtitle').textContent = 'Using Alenjo since ' + since;
+        if (email) {
+          var at = email.indexOf('@');
+          document.getElementById('remembered-email').textContent = at > 0 ? email.slice(0, Math.min(2, at)) + '\u2022\u2022\u2022\u2022\u2022' + email.slice(at) : email;
+          document.getElementById('remembered-row').hidden = false;
+          document.getElementById('email-row').classList.add('visually-hidden');
+          document.getElementById('auth-email').value = email;
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- APP SHELL (shared header + nav for all app screens) -->
   <div id="screen-app" class="screen">
