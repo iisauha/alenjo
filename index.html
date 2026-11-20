@@ -18,9 +18,15 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <script>var _v = Date.now();</script>
-  <link rel="stylesheet" id="app-css">
-  <script>document.getElementById('app-css').href = 'style.css?v=' + _v;</script>
+  <!-- Bump the version (here and on the stylesheet link) when deploying CSS/JS changes so browsers pick up the new files -->
+  <script>var _v = '20261120a';</script>
+  <style>
+    /* Paint the background and hide every screen until style.css arrives,
+       so the raw page never flashes on load */
+    html, body { background: #060B14; margin: 0; }
+    .screen { display: none; }
+  </style>
+  <link rel="stylesheet" href="style.css?v=20261120a">
 </head>
 <body>
 
