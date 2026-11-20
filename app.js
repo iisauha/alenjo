@@ -317,7 +317,6 @@ async function signInWithFaceId(fromUserTap) {
     setSigningIn(false);
     var cancelled = /NotAllowed|abort|cancel/i.test((res.error.name || '') + ' ' + (res.error.message || ''));
     if (!cancelled) {
-      setPasskeyMode(false);
       authError.textContent = hasPasskeyHere()
         ? 'Face ID sign-in failed. Use your password instead.'
         : 'Face ID isn\u2019t set up yet. Sign in with your password, then go to Settings → Security.';
@@ -329,17 +328,16 @@ async function signInWithFaceId(fromUserTap) {
 }
 
 authFaceId.addEventListener('click', function() { signInWithFaceId(true); });
-function setPasskeyMode(on) {
-  authForm.classList.toggle('passkey-mode', on);
-  var cta = $('#login-faceid-cta');
-  if (cta) cta.hidden = !on;
-}
-var usePasswordBtn = $('#btn-use-password');
-if (usePasswordBtn) usePasswordBtn.addEventListener('click', function() {
-  setPasskeyMode(false);
-  authError.hidden = true;
-  var target = authEmail.value ? authPassword : authEmail;
-  try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+// The Face ID icon lives in the password box. Fields stay read-only until
+// you tap them, so iOS doesn't pop its saved-password sheet at the same
+// time as the Face ID (passkey) prompt. Tapping a field unlocks it right
+// away, and "Fill password" still works there.
+[authEmail, authPassword].forEach(function(inp) {
+  var unlock = function() { inp.removeAttribute('readonly'); };
+  inp.addEventListener('pointerdown', unlock);
+  inp.addEventListener('touchstart', unlock, { passive: true });
+  inp.addEventListener('focus', unlock);
+  inp.addEventListener('keydown', unlock);
 });
 var faceIdCta = $('#login-faceid-cta');
 if (faceIdCta) faceIdCta.addEventListener('click', function() { signInWithFaceId(true); });
@@ -351,6 +349,12 @@ sb.auth.signOut().then(function() {
 
   sb.auth.onAuthStateChange(function(event, session) {
     if (event === 'SIGNED_IN' && session && session.user) {
+      // Unlocking a locked app: same person, so keep everything as it was
+      if (appLocked && currentUser && session.user.id === currentUser.id) {
+        currentUser = session.user;
+        unlockApp();
+        return;
+      }
       currentUser = session.user;
       try {
         if (currentUser.created_at) localStorage.setItem('alenjo_since', new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
@@ -411,10 +415,9 @@ document.addEventListener('visibilitychange', function() {
     lastHiddenAt = Date.now();
     return;
   }
-  // Backgrounded past the inactivity threshold - full reload so iOS
-  // re-runs its AutoFill heuristics and pops the Face ID sheet.
-  if (currentUser && !plaidLinkOpen() && Date.now() - lastActivityAt > INACTIVITY_MS) {
-    location.reload();
+  // Away longer than the auto-lock time: lock (Face ID) or sign out
+  if (currentUser && !appLocked && !plaidLinkOpen() && Date.now() - lastActivityAt > getLockMs()) {
+    lockOrSignOut();
     return;
   }
   // Short glances at another app don't need a refresh
@@ -431,8 +434,58 @@ window.addEventListener('pageshow', function(e) {
 // ============================================
 // AUTO LOGOUT
 // ============================================
-var INACTIVITY_MS = 60 * 1000;
 var lastActivityAt = Date.now();
+function getLockMs() {
+  var m = 5;
+  try { m = parseInt(localStorage.getItem('alenjo_lock_minutes') || '5', 10) || 5; } catch (e) {}
+  return m * 60 * 1000;
+}
+
+// With Face ID (a passkey) on this device, time-outs lock the app instead of
+// signing out: your screen stays where it was and one Face ID check opens it.
+// Without a passkey, time-outs sign you out like before.
+var appLocked = false;
+var unlocking = false;
+function canLock() {
+  return !!(currentUser && window.PublicKeyCredential && hasPasskeyHere());
+}
+function lockOrSignOut() {
+  if (canLock()) lockApp();
+  else location.reload();
+}
+function lockApp() {
+  appLocked = true;
+  var lock = $('#lock-screen');
+  if (lock) lock.hidden = false;
+  $('#screen-app').setAttribute('inert', '');
+  $('#lock-error').hidden = true;
+  if (document.activeElement) try { document.activeElement.blur(); } catch (e) {}
+}
+function unlockApp() {
+  appLocked = false;
+  unlocking = false;
+  var lock = $('#lock-screen');
+  if (lock) lock.hidden = true;
+  $('#screen-app').removeAttribute('inert');
+  markActivity();
+  refreshOnResume();
+}
+async function tryUnlock() {
+  if (unlocking) return;
+  unlocking = true;
+  var res = await sb.auth.signInWithPasskey();
+  if (res.error) {
+    unlocking = false;
+    var cancelled = /NotAllowed|abort|cancel/i.test((res.error.name || '') + ' ' + (res.error.message || ''));
+    if (!cancelled) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
+    return;
+  }
+  // The SIGNED_IN handler sees `unlocking` and just removes the lock
+}
+var unlockBtn = $('#btn-unlock');
+if (unlockBtn) unlockBtn.addEventListener('click', tryUnlock);
+var lockSignOut = $('#btn-lock-signout');
+if (lockSignOut) lockSignOut.addEventListener('click', function() { location.reload(); });
 
 function markActivity() {
   lastActivityAt = Date.now();
@@ -455,8 +508,8 @@ function plaidLinkOpen() {
 setInterval(function() {
   if (!currentUser) return;
   if (plaidLinkOpen()) { markActivity(); return; }
-  if (Date.now() - lastActivityAt > INACTIVITY_MS) {
-    location.reload();
+  if (!appLocked && Date.now() - lastActivityAt > getLockMs()) {
+    lockOrSignOut();
   }
 }, 5000);
 
@@ -473,7 +526,7 @@ function showScreen(name) {
     if (savedTab) switchTab(savedTab);
   }
   if (name === 'login') {
-    setPasskeyMode(!!(hasPasskeyHere() && window.PublicKeyCredential));
+    authEmail.setAttribute('readonly', ''); authPassword.setAttribute('readonly', '');
     // "Ask for Face ID on open": start the native Face ID prompt right away.
     // If the browser insists on a tap first, the big Face ID button stays up.
     if (autoFaceIdEnabled() && hasPasskeyHere()) setTimeout(function() { signInWithFaceId(false); }, 300);
@@ -1495,11 +1548,19 @@ if (setupFaceIdBtn) setupFaceIdBtn.addEventListener('click', async function() {
     return;
   }
   try { localStorage.setItem('alenjo_has_passkey', 'true'); } catch (e) {}
-  setPasskeyMode(true);
   updateFaceIdSetting();
   showToast('Face ID is set up on this device');
 });
 updateFaceIdSetting();
+
+var lockSelect = $('#pref-lock-minutes');
+if (lockSelect) {
+  lockSelect.value = String(getLockMs() / 60000);
+  lockSelect.addEventListener('change', function() {
+    try { localStorage.setItem('alenjo_lock_minutes', this.value); } catch (e) {}
+    markActivity();
+  });
+}
 
 var prefAutoFaceId = $('#pref-auto-faceid');
 if (prefAutoFaceId) {

@@ -2977,12 +2977,14 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
 @keyframes onAutoFill { from { opacity: 1; } to { opacity: 1; } }
 #auth-password:-webkit-autofill { animation-name: onAutoFill; animation-duration: 0.01s; }
 
-/* Face ID set up on this device: only the Face ID button, no password field,
-   so iOS doesn't also offer a saved password */
-.signin-use-password { display: none; align-self: center; margin-top: 4px; }
-.signin-card.passkey-mode .signin-use-password { display: block; }
-.signin-card.passkey-mode #email-row,
-.signin-card.passkey-mode .signin-field:has(#auth-password),
-.signin-card.passkey-mode #auth-submit,
-.signin-card.passkey-mode .signin-forgot { display: none; }
-.signin-card.passkey-mode .signin-faceid-cta { margin-top: 20px; min-height: 52px; background: var(--accent); color: var(--on-accent); border: none; font-size: 1.0625rem; }
+
+/* Lock screen: covers the app, one Face ID check to come back */
+.lock-screen { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; background-color: var(--bg);
+  background-image:
+    repeating-radial-gradient(circle at 50% 120%, transparent 0 13px, color-mix(in srgb, var(--accent) 7%, transparent) 13px 14px),
+    repeating-radial-gradient(circle at 0% 0%, transparent 0 21px, color-mix(in srgb, var(--accent) 7%, transparent) 21px 22px); }
+.lock-screen[hidden] { display: none; }
+.lock-screen .login-title { font-size: 1.75rem; margin: 6px 0 0; }
+.lock-screen .login-subtitle { margin: 0 0 20px; }
+.lock-unlock { max-width: 320px; min-height: 52px; }
+.set-select { min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font: 500 0.875rem 'Inter', sans-serif; }

@@ -30,14 +30,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120222726';</script>
+  <script>var _v = '20261120223013';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120222726">
+  <link rel="stylesheet" href="style.css?v=20261120223013">
 </head>
 <body>
 
@@ -96,24 +96,23 @@
             <button type="button" id="btn-not-you" class="signin-link">Not you?</button>
           </div>
           <div class="signin-field" id="email-row">
-            <input type="email" id="auth-email" placeholder="Email" aria-label="Email" required autocomplete="username email">
+            <input type="email" id="auth-email" placeholder="Email" aria-label="Email" required autocomplete="username email" readonly>
           </div>
           <div class="signin-field">
-            <input type="password" id="auth-password" placeholder="Password" aria-label="Password" required autocomplete="current-password">
+            <input type="password" id="auth-password" placeholder="Password" aria-label="Password" required autocomplete="current-password" readonly>
             <button type="button" id="auth-faceid" class="signin-faceid" aria-label="Sign in with Face ID">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1.5M15 9v1.5M12 9v4.5h-1M9.5 16a4 4 0 0 0 5 0"/></svg>
             </button>
           </div>
           <button type="submit" id="auth-submit" class="btn-primary">Sign in</button>
           <button type="button" id="login-faceid-cta" class="signin-faceid-cta" hidden>Sign in with Face ID</button>
-          <button type="button" id="btn-use-password" class="signin-link signin-use-password">Use password instead</button>
           <button type="button" id="btn-forgot" class="signin-link signin-forgot">Forgot password?</button>
           <button type="button" id="btn-goto-beta" class="btn-link" hidden>Sign up</button>
         </form>
       </div>
       <footer class="signin-footer">
         <div class="signin-footer-links"><a href="/privacy">Privacy</a><a href="/security">Security</a></div>
-        <p>Bank data is read-only via Plaid. Signed out after 1 minute away.</p>
+        <p>Bank data is read-only via Plaid. Alenjo locks itself when you step away.</p>
       </footer>
     </div>
   </div>
@@ -129,10 +128,6 @@
         var h = new Date().getHours();
         if (name) document.getElementById('login-greeting').textContent = (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', ' + name.split(' ')[0];
         if (name && since) document.getElementById('login-subtitle').textContent = 'Using Alenjo since ' + since;
-        if (localStorage.getItem('alenjo_has_passkey') === 'true' && window.PublicKeyCredential) {
-          document.getElementById('auth-form').classList.add('passkey-mode');
-          document.getElementById('login-faceid-cta').hidden = false;
-        }
         if (email) {
           var at = email.indexOf('@');
           document.getElementById('remembered-email').textContent = at > 0 ? email.slice(0, Math.min(2, at)) + '\u2022\u2022\u2022\u2022\u2022' + email.slice(at) : email;
@@ -143,6 +138,16 @@
       } catch (e) {}
     })();
   </script>
+
+  <!-- LOCK SCREEN (Face ID) -->
+  <div id="lock-screen" class="lock-screen" role="dialog" aria-modal="true" aria-labelledby="lock-title" hidden>
+    <img src="alenjo-mark.png?v=1" alt="" class="signin-logo">
+    <h1 id="lock-title" class="login-title">Alenjo is locked</h1>
+    <p class="login-subtitle">Use Face ID to pick up where you left off</p>
+    <button type="button" id="btn-unlock" class="btn-primary lock-unlock">Unlock with Face ID</button>
+    <p id="lock-error" class="auth-error" hidden></p>
+    <button type="button" id="btn-lock-signout" class="signin-link">Sign out</button>
+  </div>
 
   <!-- APP SHELL (shared header + nav for all app screens) -->
   <div id="screen-app" class="screen">
@@ -305,6 +310,14 @@
           <span class="set-row-text"><span>Face ID sign-in</span><span class="set-hint" id="faceid-status">Not set up on this device</span></span>
           <button type="button" id="btn-setup-faceid" class="btn-secondary-sm">Set up</button>
         </div>
+        <label class="set-row">
+          <span class="set-row-text"><span>Auto-lock</span><span class="set-hint">With Face ID set up, the app locks instead of signing you out</span></span>
+          <select id="pref-lock-minutes" class="set-select" aria-label="Auto-lock after">
+            <option value="1">1 minute</option>
+            <option value="5">5 minutes</option>
+            <option value="15">15 minutes</option>
+          </select>
+        </label>
         <label class="set-row">
           <span class="set-row-text"><span>Ask for Face ID on open</span><span class="set-hint">Start Face ID as soon as the app opens</span></span>
           <input type="checkbox" id="pref-auto-faceid" class="set-switch" role="switch">
