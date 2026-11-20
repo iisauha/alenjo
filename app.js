@@ -317,6 +317,7 @@ async function signInWithFaceId(fromUserTap) {
     setSigningIn(false);
     var cancelled = /NotAllowed|abort|cancel/i.test((res.error.name || '') + ' ' + (res.error.message || ''));
     if (!cancelled) {
+      setPasskeyMode(false);
       authError.textContent = hasPasskeyHere()
         ? 'Face ID sign-in failed. Use your password instead.'
         : 'Face ID isn\u2019t set up yet. Sign in with your password, then go to Settings → Security.';
@@ -328,6 +329,18 @@ async function signInWithFaceId(fromUserTap) {
 }
 
 authFaceId.addEventListener('click', function() { signInWithFaceId(true); });
+function setPasskeyMode(on) {
+  authForm.classList.toggle('passkey-mode', on);
+  var cta = $('#login-faceid-cta');
+  if (cta) cta.hidden = !on;
+}
+var usePasswordBtn = $('#btn-use-password');
+if (usePasswordBtn) usePasswordBtn.addEventListener('click', function() {
+  setPasskeyMode(false);
+  authError.hidden = true;
+  var target = authEmail.value ? authPassword : authEmail;
+  try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+});
 var faceIdCta = $('#login-faceid-cta');
 if (faceIdCta) faceIdCta.addEventListener('click', function() { signInWithFaceId(true); });
 
@@ -460,8 +473,7 @@ function showScreen(name) {
     if (savedTab) switchTab(savedTab);
   }
   if (name === 'login') {
-    var cta = $('#login-faceid-cta');
-    if (cta) cta.hidden = !(hasPasskeyHere() && window.PublicKeyCredential);
+    setPasskeyMode(!!(hasPasskeyHere() && window.PublicKeyCredential));
     // "Ask for Face ID on open": start the native Face ID prompt right away.
     // If the browser insists on a tap first, the big Face ID button stays up.
     if (autoFaceIdEnabled() && hasPasskeyHere()) setTimeout(function() { signInWithFaceId(false); }, 300);
@@ -1483,6 +1495,7 @@ if (setupFaceIdBtn) setupFaceIdBtn.addEventListener('click', async function() {
     return;
   }
   try { localStorage.setItem('alenjo_has_passkey', 'true'); } catch (e) {}
+  setPasskeyMode(true);
   updateFaceIdSetting();
   showToast('Face ID is set up on this device');
 });

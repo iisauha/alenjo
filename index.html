@@ -30,14 +30,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120222637';</script>
+  <script>var _v = '20261120222726';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120222637">
+  <link rel="stylesheet" href="style.css?v=20261120222726">
 </head>
 <body>
 
@@ -106,6 +106,7 @@
           </div>
           <button type="submit" id="auth-submit" class="btn-primary">Sign in</button>
           <button type="button" id="login-faceid-cta" class="signin-faceid-cta" hidden>Sign in with Face ID</button>
+          <button type="button" id="btn-use-password" class="signin-link signin-use-password">Use password instead</button>
           <button type="button" id="btn-forgot" class="signin-link signin-forgot">Forgot password?</button>
           <button type="button" id="btn-goto-beta" class="btn-link" hidden>Sign up</button>
         </form>
@@ -128,6 +129,10 @@
         var h = new Date().getHours();
         if (name) document.getElementById('login-greeting').textContent = (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', ' + name.split(' ')[0];
         if (name && since) document.getElementById('login-subtitle').textContent = 'Using Alenjo since ' + since;
+        if (localStorage.getItem('alenjo_has_passkey') === 'true' && window.PublicKeyCredential) {
+          document.getElementById('auth-form').classList.add('passkey-mode');
+          document.getElementById('login-faceid-cta').hidden = false;
+        }
         if (email) {
           var at = email.indexOf('@');
           document.getElementById('remembered-email').textContent = at > 0 ? email.slice(0, Math.min(2, at)) + '\u2022\u2022\u2022\u2022\u2022' + email.slice(at) : email;

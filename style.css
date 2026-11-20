@@ -2976,3 +2976,13 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
 /* Lets the app notice browser autofill (Chrome/Safari fire this animation) */
 @keyframes onAutoFill { from { opacity: 1; } to { opacity: 1; } }
 #auth-password:-webkit-autofill { animation-name: onAutoFill; animation-duration: 0.01s; }
+
+/* Face ID set up on this device: only the Face ID button, no password field,
+   so iOS doesn't also offer a saved password */
+.signin-use-password { display: none; align-self: center; margin-top: 4px; }
+.signin-card.passkey-mode .signin-use-password { display: block; }
+.signin-card.passkey-mode #email-row,
+.signin-card.passkey-mode .signin-field:has(#auth-password),
+.signin-card.passkey-mode #auth-submit,
+.signin-card.passkey-mode .signin-forgot { display: none; }
+.signin-card.passkey-mode .signin-faceid-cta { margin-top: 20px; min-height: 52px; background: var(--accent); color: var(--on-accent); border: none; font-size: 1.0625rem; }
