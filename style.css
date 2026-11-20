@@ -3370,3 +3370,10 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .tx-date-btn svg { color: var(--accent); }
 .tx-date-btn input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; cursor: pointer; font-size: 16px; }
 .tx-date-btn input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+/* Amount colors: out = red, in = green, pending = orange until it posts */
+:root { --pending: #B5582F; }
+:root[data-theme="dark"] { --pending: #D97757; }
+.act-row-amt.is-out { color: var(--danger); }
+.act-row-amt.is-in { color: var(--success); }
+.act-row-amt.is-pending { color: var(--pending); }
+.act-tag-pending { background: color-mix(in srgb, var(--pending) 16%, transparent); color: var(--pending); }

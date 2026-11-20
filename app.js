@@ -1950,10 +1950,8 @@ async function backgroundSync() {
       var fcResult = await sb.rpc('get_first_connection_date');
       if (fcResult.data) {
         var fc = new Date(fcResult.data);
-        dataStartDate = new Date(fc.getFullYear(), fc.getMonth(), 1);
+        dataStartDate = new Date(fc.getFullYear(), fc.getMonth() - 1, 1);
       }
-      var cap = new Date(now.getFullYear(), now.getMonth() - 24, 1);
-      if (dataStartDate < cap) dataStartDate = cap;
       var dataStartStr = dataStartDate.toISOString().split('T')[0];
       var txResult = await fetchAllRows(function() { return sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false }).order('id'); });
       if (!txResult.error && txResult.data) {
@@ -2001,6 +1999,21 @@ async function resolveLogos() {
   } catch (e) {
     console.error('Logo resolve error:', e);
   }
+}
+
+// Store logo for a transaction: Plaid's logo first, then logo.dev by the store's
+// website, then logo.dev by the store's name (your rename or Plaid's merchant name).
+// Transfers and deposits with no store behind them keep the letter.
+function txLogoUrl(tx, eff) {
+  if (tx.enriched_logo_url) return tx.enriched_logo_url;
+  var q = '?token=' + LOGO_KEY + '&size=64&retina=true&format=png&fallback=404';
+  var site = (tx.enriched_website || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[\/?#]/)[0];
+  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(site)) return 'https://img.logo.dev/' + encodeURIComponent(site) + q;
+  // Your rename, Plaid's merchant name, or the bank's description cleaned up ("To DISCOVER" → "DISCOVER")
+  var name = (eff.nickname || tx.merchant_name || (tx.name || '').replace(/^(to|from)\s+/i, '')).trim();
+  // Skip things that aren't a store: moves between your own accounts, interest, numbered addresses
+  if (!name || /^\d/.test(name) || /\b(personal|joint|savings|checking|brokerage|interest|payment|deposit|transfer|cash back)\b/i.test(name)) return null;
+  return 'https://img.logo.dev/name/' + encodeURIComponent(name) + q;
 }
 
 function getLogoUrl(account) {
@@ -2918,10 +2931,8 @@ async function loadTransactions() {
   var fcResult = await sb.rpc('get_first_connection_date');
   if (fcResult.data) {
     var fc = new Date(fcResult.data);
-    dataStartDate = new Date(fc.getFullYear(), fc.getMonth(), 1);
+    dataStartDate = new Date(fc.getFullYear(), fc.getMonth() - 1, 1);
   }
-  var cap = new Date(now.getFullYear(), now.getMonth() - 24, 1);
-  if (dataStartDate < cap) dataStartDate = cap;
   var dataStartStr = dataStartDate.toISOString().split('T')[0];
 
   // Fetch transactions within data window
@@ -3329,21 +3340,22 @@ function renderTransactionMonth() {
       var color = accountColor(tx.plaid_account_id);
       var income = tx.amount < 0;
       var tags = '';
-      if (tx.pending) tags += '<span class="act-tag">Pending</span>';
+      if (tx.pending) tags += '<span class="act-tag act-tag-pending">Pending</span>';
       if (eff.date !== swipeDate(tx)) tags += '<span class="act-tag">Moved</span>';
       if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
       if (eff.actionType === 'ignored') tags += '<span class="act-tag">Ignored</span>';
       if (eff.isSplit) tags += '<span class="act-tag act-tag-accent">' + (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Your share') + '</span>';
-      // Store logo from Plaid when available; the first letter shows underneath as a fallback
+      // Store logo (see txLogoUrl); the first letter shows underneath as a fallback
+      var logoSrc = txLogoUrl(tx, eff);
       var avatar = '<span class="act-avatar" data-i="' + esc(name.charAt(0).toUpperCase()) + '">' +
-        (tx.enriched_logo_url ? '<img src="' + esc(tx.enriched_logo_url) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
+        (logoSrc ? '<img src="' + esc(logoSrc) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
       var amountMain = (income ? '+' : '−') + formatMoney(eff.isSplit && !eff.excluded ? eff.amount : tx.amount);
       html += '<div class="tx-row act-row' + (eff.excluded ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
         avatar +
         '<span class="act-row-main"><span class="act-row-name">' + esc(name) + '</span>' +
         '<span class="act-row-meta">' + (showCardName ? esc(acctName) + ' · ' : '') + esc(cat) + '</span>' +
         (eff.note ? '<span class="act-row-note">' + esc(eff.note) + '</span>' : '') + '</span>' +
-        '<span class="act-row-right"><span class="act-row-amt' + (income ? ' is-in' : '') + '">' + amountMain + '</span>' +
+        '<span class="act-row-right"><span class="act-row-amt ' + (tx.pending ? 'is-pending' : income ? 'is-in' : 'is-out') + '">' + amountMain + '</span>' +
         (eff.isSplit && !eff.excluded ? '<span class="act-row-sub">of ' + formatMoney(tx.amount) + '</span>' : '') +
         (tags ? '<span class="act-row-tags">' + tags + '</span>' : '') + '</span>' +
       '</div>';
