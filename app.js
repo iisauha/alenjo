@@ -170,13 +170,54 @@ authForm.addEventListener('submit', async function(e) {
     authError.textContent = result.error.message;
     authError.hidden = false;
     authSubmit.disabled = false;
-    authSubmit.textContent = 'Sign In';
+    authSubmit.textContent = 'Sign in';
     return;
   }
 
-  authSubmit.textContent = 'Sign In';
+  try { localStorage.setItem('alenjo_last_email', email); } catch (e) {}
+  authSubmit.textContent = 'Sign in';
   authSubmit.disabled = false;
 });
+
+// Remembered email: show it masked with a "Not you?" escape hatch.
+// The real email input stays in the form (just out of view) so iOS
+// password AutoFill and Face ID keep working.
+function maskEmail(e) {
+  var at = e.indexOf('@');
+  if (at < 1) return e;
+  return e.slice(0, Math.min(2, at)) + '•••••' + e.slice(at);
+}
+function setupRememberedEmail() {
+  var saved = '';
+  try { saved = localStorage.getItem('alenjo_last_email') || ''; } catch (e) {}
+  var row = $('#remembered-row'), emailRow = $('#email-row');
+  if (saved) {
+    authEmail.value = saved;
+    $('#remembered-email').textContent = maskEmail(saved);
+    row.hidden = false;
+    emailRow.classList.add('visually-hidden');
+  } else {
+    row.hidden = true;
+    emailRow.classList.remove('visually-hidden');
+  }
+}
+$('#btn-not-you').addEventListener('click', function() {
+  try { localStorage.removeItem('alenjo_last_email'); localStorage.removeItem('alenjo_last_name'); } catch (e) {}
+  authEmail.value = '';
+  setupRememberedEmail();
+  $('#login-greeting').textContent = 'Welcome back';
+  authEmail.focus();
+});
+$('#btn-forgot').addEventListener('click', async function() {
+  var email = authEmail.value.trim();
+  if (!email) { authError.textContent = 'Enter your email first.'; authError.hidden = false; authEmail.focus(); return; }
+  this.disabled = true;
+  var res = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  this.disabled = false;
+  authError.hidden = false;
+  authError.textContent = res.error ? res.error.message : 'Check ' + email + ' for a reset link.';
+});
+setupRememberedEmail();
 
 // Auto-submit on FaceID/password autofill
 // Wait for both fields, then give iOS a moment to commit the values before submitting
@@ -221,6 +262,9 @@ sb.auth.signOut().then(function() {
   sb.auth.onAuthStateChange(function(event, session) {
     if (event === 'SIGNED_IN' && session && session.user) {
       currentUser = session.user;
+      try {
+        if (currentUser.created_at) localStorage.setItem('alenjo_since', new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+      } catch (e) {}
       firstSync = true;
       lastActivityAt = Date.now();
       Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
@@ -235,8 +279,8 @@ sb.auth.signOut().then(function() {
       var wasSignedIn = currentUser !== null;
       currentUser = null;
       if (wasSignedIn) {
-        authEmail.value = '';
         authPassword.value = '';
+        setupRememberedEmail();
         // After an explicit sign-out the user must tap Sign In, even if
         // the browser refills the fields.
         autofillReady = true;
@@ -282,7 +326,7 @@ document.addEventListener('visibilitychange', function() {
   }
   // Backgrounded past the inactivity threshold - full reload so iOS
   // re-runs its AutoFill heuristics and pops the Face ID sheet.
-  if (currentUser && Date.now() - lastActivityAt > INACTIVITY_MS) {
+  if (currentUser && !plaidLinkOpen() && Date.now() - lastActivityAt > INACTIVITY_MS) {
     location.reload();
     return;
   }
@@ -307,12 +351,23 @@ function markActivity() {
   lastActivityAt = Date.now();
 }
 
+// Plaid Link runs in a cross-origin iframe, so taps inside it never reach this
+// page. Treat an open Plaid window as activity so we don't reload mid-connection.
+function plaidLinkOpen() {
+  var frames = document.querySelectorAll('iframe[id^="plaid-link-iframe"]');
+  for (var i = 0; i < frames.length; i++) {
+    if (frames[i].offsetParent !== null || frames[i].style.display !== 'none') return true;
+  }
+  return false;
+}
+
 ['pointerdown', 'touchstart', 'keydown', 'scroll'].forEach(function(ev) {
   document.addEventListener(ev, markActivity, { passive: true, capture: true });
 });
 
 setInterval(function() {
   if (!currentUser) return;
+  if (plaidLinkOpen()) { markActivity(); return; }
   if (Date.now() - lastActivityAt > INACTIVITY_MS) {
     location.reload();
   }
@@ -332,7 +387,8 @@ function showScreen(name) {
   if (name === 'login') {
     // Nudge iOS to surface the saved-password / Face ID autofill prompt
     setTimeout(function() {
-      try { authEmail.focus({ preventScroll: true }); } catch (e) { authEmail.focus(); }
+      var target = authEmail.value ? authPassword : authEmail;
+      try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
     }, 150);
   }
 }
@@ -378,6 +434,7 @@ async function loadProfile() {
     return;
   }
   userProfile = result.data;
+  try { if (userProfile && userProfile.display_name) localStorage.setItem('alenjo_last_name', userProfile.display_name); } catch (e) {}
   updateHeaderProfile();
   updateSettingsProfile();
 }
@@ -1309,9 +1366,66 @@ document.querySelectorAll('.hero-stat').forEach(function(btn) {
   btn.addEventListener('click', function() {
     showAvailable = !showAvailable;
     localStorage.setItem('alenjo_show_available', showAvailable ? 'true' : 'false');
+    var pref = $('#pref-after-pending');
+    if (pref) pref.checked = !showAvailable;
     if (cachedAccounts) renderAccounts(cachedAccounts);
   });
 });
+
+var prefAfterPending = $('#pref-after-pending');
+if (prefAfterPending) {
+  prefAfterPending.checked = !showAvailable;
+  prefAfterPending.addEventListener('change', function() {
+    showAvailable = !this.checked;
+    localStorage.setItem('alenjo_show_available', showAvailable ? 'true' : 'false');
+    if (cachedAccounts) renderAccounts(cachedAccounts);
+  });
+}
+
+// ============================================
+// APPEARANCE (system / light / dark)
+// ============================================
+function getThemePref() {
+  try { return localStorage.getItem('alenjo_theme') || 'system'; } catch (e) { return 'system'; }
+}
+function applyTheme() {
+  var pref = getThemePref();
+  var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#15140F' : '#F3F2EC');
+  document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
+    b.setAttribute('aria-pressed', b.dataset.themeChoice === pref ? 'true' : 'false');
+  });
+  if (typeof txPieChart !== 'undefined' && txPieChart && typeof renderTransactionMonth === 'function' && txData.length) renderTransactionMonth();
+}
+document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
+  b.addEventListener('click', function() {
+    try { localStorage.setItem('alenjo_theme', b.dataset.themeChoice); } catch (e) {}
+    applyTheme();
+  });
+});
+if (window.matchMedia) {
+  var darkQuery = matchMedia('(prefers-color-scheme: dark)');
+  var onSystemTheme = function() { if (getThemePref() === 'system') applyTheme(); };
+  if (darkQuery.addEventListener) darkQuery.addEventListener('change', onSystemTheme);
+  else if (darkQuery.addListener) darkQuery.addListener(onSystemTheme);
+}
+applyTheme();
+
+// Personal greeting on the sign-in screen
+(function() {
+  var name = '';
+  try { name = localStorage.getItem('alenjo_last_name') || ''; } catch (e) {}
+  var h = new Date().getHours();
+  var part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  var g = document.getElementById('login-greeting');
+  if (g) g.textContent = name ? part + ', ' + name.split(' ')[0] : 'Welcome back';
+  var sub = document.getElementById('login-subtitle');
+  var since = '';
+  try { since = localStorage.getItem('alenjo_since') || ''; } catch (e) {}
+  if (sub && name && since) sub.textContent = 'Using Alenjo since ' + since;
+})();
 
 // ============================================
 // PLAID LINK
@@ -1472,10 +1586,12 @@ async function backgroundSync() {
       }
     });
 
-    // Reload accounts with fresh balances
+    // Reload accounts with fresh balances (and fresh card/investment details)
     var result = await sb.rpc('get_user_accounts');
     if (!result.error) {
       cachedAccounts = result.data || [];
+      cachedHoldings = null;
+      cachedLiabilities = null;
       renderAccounts(cachedAccounts);
     }
 
@@ -1594,7 +1710,7 @@ function renderAccounts(accounts) {
 
   renderSection(listBanks, banks, 'bank');
   var bankSum = banks.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
-  banksTotal.textContent = formatMoney(bankSum);
+  banksTotal.textContent = formatSigned(bankSum);
   banksTotal.className = 'section-total ' + (bankSum >= 0 ? 'balance-positive' : 'balance-negative');
 
   renderSection(listCredit, credits, 'credit');
@@ -1602,7 +1718,7 @@ function renderAccounts(accounts) {
   creditTotal.textContent = (creditSum < 0 ? '-' : '') + formatMoney(Math.abs(creditSum));
   creditTotal.className = 'section-total ' + (creditSum >= 0 ? 'balance-negative' : 'balance-positive');
 
-  if (credits.length > 0 || accounts.length > 0) {
+  if (credits.length > 0 && cachedLiabilities === null) {
     loadLiabilities().then(function() {
       renderSection(listCredit, credits, 'credit');
     });
@@ -1612,7 +1728,7 @@ function renderAccounts(accounts) {
   renderSection($('#list-inv-investments'), investments, 'bank');
   updateInvestmentTotals(savings, investments);
 
-  if (investments.length > 0) {
+  if (investments.length > 0 && cachedHoldings === null) {
     loadHoldings().then(function() {
       renderSection($('#list-inv-investments'), investments, 'bank');
       updateInvestmentTotals(savings, investments);
@@ -1624,8 +1740,9 @@ function renderAccounts(accounts) {
   if (hasAnyAccounts) {
     var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
     var investSum = 0;
-    investments.forEach(function(a) { investSum += getDisplayBalance(a, 'bank').amount; });
+    investments.forEach(function(a) { investSum += getInvestmentValue(a); });
     var availableCash = bankSum - creditSum;
+    lastAvailableCash = availableCash;
     var netWorth = bankSum - creditSum + savingsSum + investSum;
     netCashEl.hidden = false;
 
@@ -1644,11 +1761,91 @@ function renderAccounts(accounts) {
   }
 
   renderAccountsSettings();
+  renderHomeInsights();
+}
+
+// ============================================
+// HOME INSIGHTS (30-day trend + this month's spending)
+// ============================================
+var lastAvailableCash = null;
+function renderHomeInsights() {
+  var label = $('#home-trend-label'), svgEl = $('#home-trend'), spend = $('#home-spending');
+  if (!label || !svgEl || !spend) return;
+  if (!txData || !txData.length || lastAvailableCash === null || !cachedAccounts) {
+    label.hidden = true; svgEl.hidden = true; spend.hidden = true;
+    return;
+  }
+
+  // Trend: walk back from today's available cash. A charge (positive Plaid
+  // amount) lowered available cash, so before it, cash was higher by that amount.
+  var cashAcct = {};
+  cachedAccounts.forEach(function(a) {
+    if (a.plaid_account_id && ((a.type === 'depository' && a.subtype !== 'savings') || a.type === 'credit')) cashAcct[a.plaid_account_id] = true;
+  });
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var dayKey = function(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  var byDay = {};
+  txData.forEach(function(tx) {
+    if (!cashAcct[tx.plaid_account_id] || tx.pending) return;
+    byDay[tx.date] = (byDay[tx.date] || 0) + parseFloat(tx.amount || 0);
+  });
+  var points = [], value = lastAvailableCash;
+  for (var i = 0; i <= 30; i++) {
+    var d = new Date(today); d.setDate(d.getDate() - i);
+    points.unshift(value);
+    value += byDay[dayKey(d)] || 0;
+  }
+  var min = Math.min.apply(null, points), max = Math.max.apply(null, points), range = (max - min) || 1;
+  var path = points.map(function(v, idx) {
+    var x = (idx / 30) * 300, y = 44 - ((v - min) / range) * 40;
+    return (idx ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  $('#home-trend-path').setAttribute('d', path);
+  var change = points[points.length - 1] - points[0];
+  label.innerHTML = '<strong class="' + (change < 0 ? 'down' : '') + '">' + (change < 0 ? '↓ ' : '↑ ') + formatMoney(change) + '</strong> in the last 30 days';
+  label.hidden = false; svgEl.hidden = false;
+
+  // Spending this month, by category (same rules as the Activity chart)
+  var month = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  var byCat = {};
+  txData.forEach(function(tx) {
+    var eff = getEffectiveTx(tx);
+    if (eff.excluded || eff.amount <= 0 || eff.date.substring(0, 7) !== month) return;
+    var cat = normalizeCategory(eff.category);
+    byCat[cat] = (byCat[cat] || 0) + eff.amount;
+  });
+  var cats = Object.keys(byCat).map(function(k) { return [k, byCat[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  var total = cats.reduce(function(sum, c) { return sum + c[1]; }, 0);
+  if (!total) { spend.hidden = true; return; }
+  var top = cats.slice(0, 3), rest = cats.slice(3).reduce(function(sum, c) { return sum + c[1]; }, 0);
+  if (rest > 0) top.push(['Other', rest]);
+  var colors = CATEGORY_COLORS.slice(0, 3).concat(['var(--track)']);
+  $('#home-spending-title').textContent = 'Spent in ' + today.toLocaleDateString('en-US', { month: 'long' });
+  $('#home-spending-total').textContent = formatMoney(total);
+  $('#home-spending-bar').innerHTML = top.map(function(c, idx) {
+    return '<span style="width:' + (c[1] / total * 100).toFixed(1) + '%;background:' + colors[idx] + '"></span>';
+  }).join('');
+  $('#home-spending-bar').setAttribute('aria-label', top.map(function(c) { return c[0] + ' ' + Math.round(c[1] / total * 100) + '%'; }).join(', '));
+  $('#home-spending-legend').innerHTML = top.map(function(c, idx) {
+    return '<span><i style="background:' + colors[idx] + '"></i>' + esc(c[0]) + '<b>' + formatMoney(c[1]) + '</b></span>';
+  }).join('');
+  spend.hidden = false;
+}
+
+function getInvestmentValue(a) {
+  if (cachedHoldings) {
+    var holdingsVal = 0;
+    cachedHoldings.forEach(function(h) {
+      if (h.account_id === a.id) holdingsVal += h.institution_value || (h.quantity * (h.institution_price || h.close_price || 0));
+    });
+    if (holdingsVal > 0) return holdingsVal;
+  }
+  return getDisplayBalance(a, 'bank').amount;
 }
 
 function updateInvestmentTotals(savings, investments) {
   var savingsSum = savings.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
-  $('#inv-savings-total').textContent = formatMoney(savingsSum);
+  $('#inv-savings-total').textContent = formatSigned(savingsSum);
   $('#inv-savings-total').className = 'section-total ' + (savingsSum >= 0 ? 'balance-positive' : 'balance-negative');
 
   var investSum = 0;
@@ -1663,8 +1860,8 @@ function updateInvestmentTotals(savings, investments) {
       investSum += getDisplayBalance(a, 'bank').amount;
     }
   });
-  $('#inv-investments-total').textContent = formatMoney(investSum);
-  $('#inv-investments-total').className = 'section-total balance-positive';
+  $('#inv-investments-total').textContent = formatSigned(investSum);
+  $('#inv-investments-total').className = 'section-total ' + (investSum >= 0 ? 'balance-positive' : 'balance-negative');
 }
 
 
@@ -1733,7 +1930,8 @@ async function renderAccountsSettings() {
     }
     wrap.appendChild(dots);
     var ticking = false;
-    list.addEventListener('scroll', function() {
+    if (list._dotsScroll) list.removeEventListener('scroll', list._dotsScroll);
+    list._dotsScroll = function() {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(function() {
@@ -1744,7 +1942,8 @@ async function renderAccountsSettings() {
         });
         ticking = false;
       });
-    }, { passive: true });
+    };
+    list.addEventListener('scroll', list._dotsScroll, { passive: true });
   }
 }
 
@@ -1773,6 +1972,14 @@ document.addEventListener('click', async function(e) {
     var data = await res.json();
     if (data.removed) {
       cachedAccounts = cachedAccounts.filter(function(a) { return a.plaid_item_id !== itemId; });
+      if (txData.length) {
+        txData = txData.filter(function(t) { return t.plaid_item_id !== itemId; });
+        var cf = $('#tx-card-filter');
+        if (cf) Array.prototype.slice.call(cf.options).forEach(function(o) {
+          if (o.value !== 'all' && !cachedAccounts.some(function(a) { return a.plaid_account_id === o.value; })) o.remove();
+        });
+        if ($('#tx-month-filter').value) renderTransactionMonth();
+      }
       cachedHoldings = null;
       cachedLiabilities = null;
       renderAccounts(cachedAccounts);
@@ -2409,6 +2616,7 @@ async function loadTransactions() {
   }
 
   renderTransactionMonth();
+  renderHomeInsights();
 
   // Set initial button state every load, but only bind listeners once
   var btnIgnored = $('#btn-toggle-ignored');
@@ -2500,9 +2708,9 @@ function updatePieCenter(label, amount, pct) {
 }
 
 var CATEGORY_COLORS = [
-  '#3C82F6', '#4DE88F', '#E84D4D', '#F59E0B', '#8B5CF6',
-  '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1',
-  '#14B8A6', '#EF4444', '#A855F7', '#22D3EE', '#FB923C'
+  '#2E8B57', '#4F6BD8', '#D98A2B', '#8A5CC2', '#C2524A',
+  '#2A9AA8', '#7A8B2E', '#B0679A', '#5E7FA3', '#A6782E',
+  '#3E8E7E', '#9C5B3C', '#6D6AC9', '#4D8F3F', '#B5873A'
 ];
 
 function buildAccountMap() {
@@ -2820,7 +3028,7 @@ $('#btn-export-csv').addEventListener('click', function() {
     var splitInfo = eff.isSplit ? (eff.splitWays ? eff.splitWays + '-way' : 'Custom') : '';
     var reimbursed = eff.actionType === 'reimbursed' ? 'Yes' : '';
     csvRows.push(
-      '"' + cat + '",' + tx.date + ',"' + merchant + '",' +
+      '"' + cat + '",' + eff.date + ',"' + merchant + '",' +
       tx.amount.toFixed(2) + ',' + eff.amount.toFixed(2) + ',' +
       type + ',' + splitInfo + ',' + reimbursed
     );
@@ -3198,7 +3406,10 @@ if (splitPortionBtn) splitPortionBtn.addEventListener('click', function() {
 var splitPortionApply = $('#split-portion-apply');
 if (splitPortionApply) splitPortionApply.addEventListener('click', function() {
   var portion = parseFloat($('#split-portion-amount').value);
-  if (!portion || portion <= 0 || portion >= Math.abs(actionTx.amount)) return;
+  if (!portion || portion <= 0 || portion >= Math.abs(actionTx.amount)) {
+    showToast('Enter an amount between $0 and ' + formatMoney(actionTx.amount));
+    return;
+  }
   var reimburse = Math.abs(actionTx.amount) - portion;
   $('#split-preview').textContent = 'You pay ' + formatMoney(portion) + ', get back ' + formatMoney(reimburse);
   var existing = txActions[actionTxId] || {};
@@ -3355,6 +3566,10 @@ function formatTimestamp(ts) {
   if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
     d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatSigned(amount) {
+  return (amount < 0 ? '−' : '') + formatMoney(amount);
 }
 
 function formatMoney(amount) {
