@@ -57,6 +57,8 @@ $('#btn-goto-beta').addEventListener('click', function() { showScreen('beta'); }
 $('#btn-back-to-login').addEventListener('click', function() { showScreen('login'); });
 $('#btn-back-to-login-from-signup').addEventListener('click', function() { showScreen('login'); });
 
+var validatedBetaCode = '';
+
 betaForm.addEventListener('submit', async function(e) {
   e.preventDefault();
   betaSubmit.disabled = true;
@@ -71,6 +73,7 @@ betaForm.addEventListener('submit', async function(e) {
     });
     var data = await res.json();
     if (data.valid) {
+      validatedBetaCode = betaCode.value.trim();
       betaCode.value = '';
       showScreen('signup');
     } else {
@@ -96,6 +99,23 @@ signupForm.addEventListener('submit', async function(e) {
   var name = signupName.value.trim();
   var email = signupEmail.value.trim();
   var password = signupPassword.value;
+
+  // Ask the server for a one-time sign-up ticket for this email
+  try {
+    var ticketRes = await fetch(SUPABASE_URL + '/functions/v1/validate-beta-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: validatedBetaCode, email: email })
+    });
+    var ticket = await ticketRes.json();
+    if (!ticket.valid) throw new Error('invalid');
+  } catch (err) {
+    signupError.textContent = 'Your beta code expired. Go back and enter it again.';
+    signupError.hidden = false;
+    signupSubmit.disabled = false;
+    signupSubmit.textContent = 'Create Account';
+    return;
+  }
 
   var result = await sb.auth.signUp({
     email: email,
