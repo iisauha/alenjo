@@ -333,7 +333,7 @@ function showScreen(name) {
   $('#screen-' + name).classList.add('active');
   if (name === 'app') {
     var savedTab = localStorage.getItem('alenjo_active_tab');
-    if (savedTab === 'investments' || savedTab === 'settings') savedTab = 'snapshot';
+    if (savedTab === 'investments' || savedTab === 'settings' || savedTab === 'budget') savedTab = 'snapshot';
     if (savedTab) switchTab(savedTab);
   }
   if (name === 'login') {
@@ -413,7 +413,7 @@ function applyTabOrder() {
   var nav = document.getElementById('bottom-nav');
   var order = userProfile.tab_order;
   // Remove old tabs that no longer exist
-  var validTabs = ['snapshot', 'transactions', 'recurring', 'budget'];
+  var validTabs = ['snapshot', 'transactions', 'recurring'];
   order = order.filter(function(t) { return validTabs.indexOf(t) !== -1; });
   // Ensure all valid tabs are present
   validTabs.forEach(function(t) {
@@ -4647,180 +4647,6 @@ function flashSaved(btn) {
     btn.disabled = false;
   }, 1200);
 }
-
-// ============================================
-// BUDGET TAB
-// ============================================
-(function() {
-  var STORAGE_KEY = 'alenjo_budget';
-
-  function loadBudgetData() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { income: '', expenses: [] }; }
-    catch (e) { return { income: '', expenses: [] }; }
-  }
-  function saveBudgetData(data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }
-
-  var budgetData = loadBudgetData();
-
-  var incomeInput   = document.getElementById('budget-income-input');
-  var expenseList   = document.getElementById('budget-expense-list');
-  var discretionary = document.getElementById('budget-discretionary');
-  var discPct       = document.getElementById('budget-discretionary-pct');
-  var addBtn        = document.getElementById('btn-add-budget-expense');
-  var addSheet      = document.getElementById('budget-add-sheet');
-  var sheetTitle    = document.getElementById('budget-sheet-title');
-  var expName       = document.getElementById('budget-exp-name');
-  var expAmount     = document.getElementById('budget-exp-amount');
-  var expSave       = document.getElementById('budget-exp-save');
-  var expCancel     = document.getElementById('budget-exp-cancel');
-  var expTotalsEl   = document.getElementById('budget-expense-totals');
-  var expTotalAmt   = document.getElementById('budget-total-amt');
-
-  var editingIndex = -1;
-
-  function fmt(n) {
-    var abs = Math.abs(n);
-    var hasDecimals = abs % 1 !== 0;
-    return '$' + abs.toLocaleString('en-US', {
-      minimumFractionDigits: hasDecimals ? 2 : 0,
-      maximumFractionDigits: 2
-    });
-  }
-
-  // ---- Expense list ----
-  function renderExpenses() {
-    var income = parseFloat(budgetData.income) || 0;
-
-    if (!budgetData.expenses.length) {
-      expenseList.innerHTML = '<p class="budget-empty-hint">No expenses added yet</p>';
-      expTotalsEl.hidden = true;
-      return;
-    }
-
-    expenseList.innerHTML = budgetData.expenses.map(function(exp, i) {
-      var pct = income > 0 ? Math.min(Math.round((exp.amount / income) * 100), 100) : 0;
-      var pctLabel = income > 0 ? pct + '% of income' : '';
-      return '<div class="budget-expense-row" data-index="' + i + '">' +
-        '<div class="budget-expense-info">' +
-          '<span class="budget-expense-name">' + esc(exp.name) + '</span>' +
-          '<div class="budget-expense-bar-wrap">' +
-            '<div class="budget-expense-bar" style="width:' + pct + '%"></div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="budget-expense-right">' +
-          '<span class="budget-expense-amt">' + fmt(exp.amount) + '/mo</span>' +
-          (pctLabel ? '<span class="budget-expense-pct">' + pctLabel + '</span>' : '') +
-        '</div>' +
-        '<button class="budget-expense-delete" data-index="' + i + '" aria-label="Remove">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-        '</button>' +
-      '</div>';
-    }).join('');
-
-    var total = budgetData.expenses.reduce(function(s, e) { return s + e.amount; }, 0);
-    expTotalAmt.textContent = fmt(total) + '/mo';
-    expTotalsEl.hidden = false;
-  }
-
-  // ---- Result ----
-  function renderResult() {
-    var income   = parseFloat(budgetData.income) || 0;
-    var totalExp = budgetData.expenses.reduce(function(s, e) { return s + e.amount; }, 0);
-    var disc     = income - totalExp;
-
-    if (!income) {
-      discretionary.textContent = '--';
-      discretionary.className   = 'budget-discretionary';
-      discPct.textContent       = '';
-    } else {
-      discretionary.textContent = (disc < 0 ? '-' : '') + fmt(disc);
-      discretionary.className   = 'budget-discretionary ' + (disc >= 0 ? 'positive' : 'negative');
-      var pct = Math.round((disc / income) * 100);
-      discPct.textContent = pct + '% of income remaining';
-    }
-  }
-
-  // ---- Full render ----
-  function render() {
-    renderExpenses();
-    renderResult();
-  }
-
-  // ---- Sheet ----
-  function openSheet(isEdit, exp) {
-    if (isEdit && exp) {
-      sheetTitle.textContent = 'Edit Expense';
-      expSave.textContent    = 'Save';
-      expName.value          = exp.name;
-      expAmount.value        = exp.amount;
-    } else {
-      sheetTitle.textContent = 'Add Expense';
-      expSave.textContent    = 'Add';
-      expName.value          = '';
-      expAmount.value        = '';
-    }
-    addSheet.classList.add('visible');
-    setTimeout(function() { expName.focus(); }, 80);
-  }
-  function closeSheet() { addSheet.classList.remove('visible'); }
-
-  // ---- Listeners ----
-  if (budgetData.income) incomeInput.value = budgetData.income;
-
-  incomeInput.addEventListener('input', function() {
-    budgetData.income = this.value;
-    saveBudgetData(budgetData);
-    render();
-  });
-
-  expenseList.addEventListener('click', function(e) {
-    var del = e.target.closest('.budget-expense-delete');
-    if (del) {
-      budgetData.expenses.splice(parseInt(del.dataset.index, 10), 1);
-      saveBudgetData(budgetData);
-      render();
-      return;
-    }
-    var row = e.target.closest('.budget-expense-row');
-    if (row) {
-      editingIndex = parseInt(row.dataset.index, 10);
-      openSheet(true, budgetData.expenses[editingIndex]);
-    }
-  });
-
-  addBtn.addEventListener('click', function() {
-    editingIndex = -1;
-    openSheet(false);
-  });
-
-  expCancel.addEventListener('click', closeSheet);
-  addSheet.addEventListener('click', function(e) { if (e.target === addSheet) closeSheet(); });
-
-  expSave.addEventListener('click', function() {
-    var name   = expName.value.trim();
-    var amount = parseFloat(expAmount.value);
-    if (!name || isNaN(amount) || amount <= 0) {
-      if (!name) expName.focus(); else expAmount.focus();
-      return;
-    }
-    if (editingIndex >= 0) {
-      budgetData.expenses[editingIndex] = { name: name, amount: amount };
-    } else {
-      budgetData.expenses.push({ name: name, amount: amount });
-    }
-    saveBudgetData(budgetData);
-    render();
-    closeSheet();
-  });
-
-  [expName, expAmount].forEach(function(inp) {
-    inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') expSave.click(); });
-  });
-
-  render();
-})();
 
 // ============================================
 // SERVICE WORKER CLEANUP

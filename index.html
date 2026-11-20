@@ -19,14 +19,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Bump the version (here and on the stylesheet link) when deploying CSS/JS changes so browsers pick up the new files -->
-  <script>var _v = '20261120a';</script>
+  <script>var _v = '20261120b';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120a">
+  <link rel="stylesheet" href="style.css?v=20261120b">
 </head>
 <body>
 
@@ -318,63 +318,6 @@
       </div>
     </div>
 
-    <!-- BUDGET TAB -->
-    <section id="tab-budget" class="tab-content">
-      <div class="budget-wrap">
-
-        <!-- Hero stats row: Income + Discretionary -->
-        <div class="budget-hero">
-          <div class="budget-hero-stat">
-            <span class="budget-hero-label">Monthly Income</span>
-            <div class="budget-income-row">
-              <span class="budget-currency-symbol">$</span>
-              <input type="number" id="budget-income-input" class="budget-income-input" inputmode="decimal" placeholder="0" min="0" step="0.01">
-            </div>
-            <span class="budget-hero-sub">after tax</span>
-          </div>
-          <div class="budget-hero-divider"></div>
-          <div class="budget-hero-stat">
-            <span class="budget-hero-label">Discretionary</span>
-            <div id="budget-discretionary" class="budget-discretionary">--</div>
-            <div id="budget-discretionary-pct" class="budget-discretionary-pct"></div>
-          </div>
-        </div>
-
-        <!-- Expenses card -->
-        <div class="budget-expenses-card">
-          <div class="budget-expenses-header">
-            <span class="budget-section-label">Recurring Expenses</span>
-            <button id="btn-add-budget-expense" class="budget-add-btn">+ Add</button>
-          </div>
-          <div id="budget-expense-list" class="budget-expense-list">
-            <p class="budget-empty-hint">No expenses added yet</p>
-          </div>
-          <div id="budget-expense-totals" class="budget-expense-totals" hidden>
-            <div class="budget-totals-row">
-              <span class="budget-totals-label">Total expenses</span>
-              <span id="budget-total-amt" class="budget-totals-value"></span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Budget Add Expense Sheet -->
-    <div id="budget-add-sheet" class="action-sheet-overlay">
-      <div class="action-sheet">
-        <div class="action-sheet-header">
-          <span class="action-sheet-title" id="budget-sheet-title">Add Expense</span>
-        </div>
-        <p class="action-sub-title" id="budget-sheet-subtitle">Name this expense</p>
-        <input type="text" id="budget-exp-name" class="app-input" placeholder="e.g. Rent, Netflix, Gym" maxlength="40" autocomplete="off">
-        <p class="action-sub-title" style="margin-top:0.75rem">Monthly amount</p>
-        <input type="number" id="budget-exp-amount" class="app-input" inputmode="decimal" placeholder="0" min="0" step="0.01">
-        <button id="budget-exp-save" class="btn-primary" style="width:100%;margin-top:1.25rem">Add</button>
-        <button class="action-sheet-cancel" id="budget-exp-cancel">Cancel</button>
-      </div>
-    </div>
-
     <!-- SETTINGS TAB -->
     <section id="tab-settings" class="tab-content">
       <div class="settings-card">
@@ -446,12 +389,6 @@
           <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
         </svg>
         <span>Transactions</span>
-      </button>
-      <button class="nav-item" data-tab="budget">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-        </svg>
-        <span>Budget</span>
       </button>
     </nav>
   </div>
