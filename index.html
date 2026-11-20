@@ -19,14 +19,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Bump the version (here and on the stylesheet link) when deploying CSS/JS changes so browsers pick up the new files -->
-  <script>var _v = '20261120b';</script>
+  <script>var _v = '20261120c';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120b">
+  <link rel="stylesheet" href="style.css?v=20261120c">
 </head>
 <body>
 
@@ -205,118 +205,6 @@
         <div id="tx-breakdown"></div>
       </div>
     </section>
-
-    <!-- RECURRING TAB -->
-    <section id="tab-recurring" class="tab-content">
-      <div id="rec-loading" class="tx-loading">
-        <div class="spinner"></div>
-        <p>Loading recurring bills...</p>
-      </div>
-      <div id="rec-empty" class="connect-cta" hidden>
-        <p class="rec-onboard-title">Track your recurring bills</p>
-        <p class="rec-onboard-desc">Find subscriptions, rent, utilities, or any regular charge in your transactions. Alenjo tracks when each bill is due and alerts you if it goes overdue.</p>
-        <button id="btn-add-recurring-empty" class="btn-primary">Add Your First Bill</button>
-      </div>
-      <div id="rec-content" hidden>
-        <div class="rec-horizon-label">Next 31 days</div>
-        <div id="rec-summary"></div>
-        <div id="rec-list"></div>
-        <button id="btn-add-recurring" class="btn-secondary" style="width:100%;margin-top:1rem">+ Add Recurring</button>
-      </div>
-    </section>
-
-    <!-- Recurring Add Sheet -->
-    <div id="rec-add-sheet" class="action-sheet-overlay">
-      <div class="action-sheet">
-        <div class="action-sheet-header">
-          <span class="action-sheet-title">Add Recurring</span>
-        </div>
-
-        <!-- Step 1: Search -->
-        <div id="rec-step-search" class="rec-step">
-          <p class="action-sub-title">Search your transactions</p>
-          <input type="text" id="rec-search-input" class="app-input" placeholder="Name or amount...">
-          <div id="rec-search-results" class="rec-search-results"></div>
-        </div>
-
-        <!-- Step 2: Amount -->
-        <div id="rec-step-amount" class="rec-step" hidden>
-          <p class="action-sub-title">Set the amount</p>
-          <div id="rec-amount-info" class="rec-amount-info"></div>
-          <div class="recurring-date-options" id="rec-amount-modes"></div>
-          <div id="rec-custom-amount-row" class="rec-custom-row" hidden>
-            <span style="color:var(--text-muted);font-size:1rem;font-weight:500;">$</span>
-            <input type="number" id="rec-custom-amount" class="app-input" inputmode="decimal" step="0.01" min="0" placeholder="Enter amount">
-          </div>
-          <div class="rec-selected-amount" id="rec-selected-amount"></div>
-          <div class="rec-step-nav">
-            <button class="btn-secondary-sm" id="rec-amount-back">Back</button>
-            <button class="btn-primary-sm" id="rec-amount-next">Next</button>
-          </div>
-        </div>
-
-        <!-- Step 3: Frequency -->
-        <div id="rec-step-freq" class="rec-step" hidden>
-          <p class="action-sub-title">How often?</p>
-          <div class="recurring-date-options" id="rec-freq-options">
-            <button class="recurring-date-btn" data-freq="biweekly">Every 2 Weeks</button>
-            <button class="recurring-date-btn" data-freq="monthly">Monthly</button>
-            <button class="recurring-date-btn" data-freq="quarterly">Every 3 Months</button>
-            <button class="recurring-date-btn" data-freq="semiannual">Every 6 Months</button>
-            <button class="recurring-date-btn" data-freq="annual">Yearly</button>
-            <button class="recurring-date-btn" data-freq="custom">Custom</button>
-          </div>
-          <div id="rec-custom-freq-row" class="rec-custom-row" hidden>
-            <label style="color:var(--text-muted);font-size:var(--text-sm)">Every</label>
-            <input type="number" id="rec-custom-freq-days" class="app-input" inputmode="numeric" min="1" max="730" placeholder="# days" style="width:5rem">
-            <label style="color:var(--text-muted);font-size:var(--text-sm)">days</label>
-          </div>
-          <p class="action-sub-title" style="margin-top:1rem" id="rec-freq-date-label">Next date</p>
-          <input type="date" id="rec-anchor-date" class="app-input rec-date-input">
-          <div class="rec-step-nav">
-            <button class="btn-secondary-sm" id="rec-freq-back">Back</button>
-            <button class="btn-primary-sm" id="rec-freq-save">Save</button>
-          </div>
-        </div>
-
-        <!-- Step 4: Income toggle -->
-        <div id="rec-step-type" class="rec-step" hidden>
-          <div class="rec-type-toggle">
-            <button class="recurring-date-btn active" data-type="expense" id="rec-type-expense">Expense</button>
-            <button class="recurring-date-btn" data-type="income" id="rec-type-income">Income</button>
-          </div>
-        </div>
-
-        <button class="action-sheet-cancel" id="rec-add-cancel">Cancel</button>
-      </div>
-    </div>
-
-    <!-- Recurring Confirm Modal -->
-    <div id="rec-confirm-modal" class="modal-overlay">
-      <div class="modal-card">
-        <h3>Mark as Paid</h3>
-        <p id="rec-confirm-text" class="rec-confirm-text"></p>
-        <p class="rec-confirm-hint">You can undo this by editing the bill and changing the next date.</p>
-        <div class="modal-actions">
-          <button id="rec-confirm-no" class="btn-secondary-sm">Cancel</button>
-          <button id="rec-confirm-yes" class="btn-primary-sm">Mark Paid</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Recurring Bill Detail Sheet -->
-    <div id="rec-detail-sheet" class="action-sheet-overlay">
-      <div class="action-sheet">
-        <div class="action-sheet-header">
-          <span id="rec-detail-name" class="action-sheet-title"></span>
-          <span id="rec-detail-amount" class="action-sheet-subtitle"></span>
-        </div>
-        <div id="rec-detail-status" class="rec-detail-status"></div>
-        <div id="rec-detail-info" class="rec-detail-info"></div>
-        <div id="rec-detail-actions" class="action-sheet-options"></div>
-        <button class="action-sheet-cancel" id="rec-detail-cancel">Cancel</button>
-      </div>
-    </div>
 
     <!-- SETTINGS TAB -->
     <section id="tab-settings" class="tab-content">

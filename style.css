@@ -43,7 +43,14 @@
   display: none;
 }
 
-button, select, input, .nav-item, .action-option, .action-toggle, .cat-legend-item, .tx-row, .rec-row {
+button,
+select,
+input,
+.nav-item,
+.action-option,
+.action-toggle,
+.cat-legend-item,
+.tx-row {
   transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
@@ -116,7 +123,6 @@ body {
   position: relative;
   z-index: 1;
 }
-
 
 .login-logo {
   width: 64px;
@@ -282,8 +288,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 .btn-faceid svg {
   flex-shrink: 0;
 }
-
-
 
 .auth-error {
   width: 100%;
@@ -571,8 +575,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 .net-cash-card[hidden] {
   display: none;
 }
-
-
 
 .connect-cta {
   text-align: center;
@@ -980,7 +982,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: none;
 }
 
-
 .card-refine-tools {
   display: flex;
   gap: 0.5rem;
@@ -1105,24 +1106,10 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 /* ================================
    EMPTY STATE
    ================================ */
-.empty-state {
-  text-align: center;
-  padding: 1.5rem;
-  color: var(--text-dim);
-  font-size: var(--text-base);
-}
 
 /* ================================
    SHARED UI
    ================================ */
-.section-label {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.6rem;
-}
 
 .app-input {
   width: 100%;
@@ -1193,24 +1180,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--text);
 }
 
-.btn-danger {
-  width: 100%;
-  padding: 0.8rem;
-  background: rgba(255, 80, 0, 0.08);
-  color: var(--danger);
-  border: 1px solid rgba(255, 80, 0, 0.2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-base);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-danger:hover {
-  background: rgba(255, 80, 0, 0.15);
-}
-
 /* ================================
    SETTINGS
    ================================ */
@@ -1271,10 +1240,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   overflow: hidden;
 }
 
-.settings-section {
-  margin-bottom: 1.5rem;
-}
-
 .settings-avatar-row {
   display: flex;
   align-items: center;
@@ -1307,88 +1272,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* Billing */
-.sync-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.sync-info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.45rem 0;
-  font-size: var(--text-base);
-}
-
-.sync-info-row span:first-child {
-  color: var(--text-muted);
-}
-
-.sync-info-row span:last-child {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.sync-info-total {
-  padding-top: 0.75rem;
-  margin-top: 0.25rem;
-}
-
-.sync-info-total span:last-child {
-  color: var(--text);
-  font-size: var(--text-lg);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.billing-section {
-  margin-bottom: 1rem;
-}
-
-.billing-section:last-child {
-  margin-bottom: 0;
-}
-
-.billing-intro {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  line-height: 1.6;
-  margin-bottom: 0.5rem;
-}
-
-.billing-intro strong {
-  color: var(--text);
-}
-
-.billing-section-title {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-bottom: 0.4rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.billing-explain {
-  font-size: var(--text-sm);
-  color: var(--text-dim);
-  line-height: 1.6;
-  margin-bottom: 0.4rem;
-}
-
-.billing-detail {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  padding: 0 0 0.3rem;
-  line-height: 1.5;
-}
-
-.settings-hint {
-  color: var(--text-dim);
-  font-size: var(--text-sm);
-  margin-bottom: 0.5rem;
-}
 
 .settings-links {
   display: flex;
@@ -1406,55 +1289,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 
 .settings-link:hover, .settings-link:active {
   color: var(--accent);
-}
-
-.tab-order-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.tab-order-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.85rem;
-  background: var(--bg-elevated);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-base);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-}
-
-.tab-order-item:active {
-  cursor: grabbing;
-  background: rgba(255,255,255,0.08);
-}
-
-.tab-order-arrows {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.tab-order-arrows button {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: var(--text-lg);
-  cursor: pointer;
-  padding: 0.2rem;
-  transition: color 0.15s;
-}
-
-.tab-order-arrows button:not(:disabled):hover {
-  color: var(--accent);
-}
-
-.tab-order-arrows button:disabled {
-  opacity: 0.25;
-  cursor: default;
 }
 
 /* In-card holdings */
@@ -1752,18 +1586,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   padding: 0.55rem 0.7rem;
 }
 
-.card-designs-steps {
-  margin: 0 0 0.85rem;
-  padding-left: 1.1rem;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.card-designs-steps li {
-  margin-bottom: 0.3rem;
-}
-
 .card-designs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -2027,46 +1849,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   transform: scale(1.35);
 }
 
-.settings-tokens-section {
-  margin-top: 0.75rem;
-  border-top: 1px solid var(--border);
-  padding-top: 0.5rem;
-}
-
-.settings-tokens-header {
-  display: block;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
-}
-
-.settings-token-row {
-  padding: 0.3rem 0;
-}
-
-.settings-token-removed {
-  opacity: 0.4;
-}
-
-.settings-token-id {
-  font-size: var(--text-xs);
-  color: var(--text);
-  font-family: monospace;
-  word-break: break-all;
-  line-height: 1.3;
-  display: block;
-}
-
-.settings-token-meta {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  display: block;
-  margin-top: 0.1rem;
-}
-
 .btn-disconnect-inst {
   background: none;
   border: 1px solid rgba(244, 80, 48, 0.2);
@@ -2129,7 +1911,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--text);
   font-weight: 600;
 }
-
 
 /* ================================
    TRANSACTIONS TAB
@@ -2291,69 +2072,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* Recurring inline summary */
-.rec-summary-inline {
-  margin-bottom: var(--space-md);
-}
-
-.rec-summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-xs);
-}
-
-.rec-summary-title {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.btn-toggle-recurring {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  padding: 0.25rem 0;
-}
-
-.rec-summary-chips {
-  display: flex;
-  gap: var(--space-xs);
-}
-
-.rec-summary-chip {
-  flex: 1;
-  min-width: 0;
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.65rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  overflow: hidden;
-}
-
-.rec-chip-label {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-}
-
-.rec-chip-value {
-  font-size: var(--text-base);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.rec-detail-inline {
-  margin-top: var(--space-sm);
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-xs);
-}
 
 .tx-pie-center {
   position: absolute;
@@ -2459,58 +2177,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   margin-bottom: 0.5rem;
 }
 
-.tx-month-summary {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-.tx-summary-item {
-  flex: 1;
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
-  padding: 0.75rem 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.tx-summary-label {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.tx-summary-value {
-  font-weight: 700;
-  font-size: var(--text-lg);
-  font-variant-numeric: tabular-nums;
-}
-
-.tx-account-group {
-  margin-bottom: 1rem;
-}
-
-.tx-account-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 0.4rem;
-  margin-bottom: 0.3rem;
-}
-
-.tx-account-name {
-  font-weight: 600;
-  font-size: var(--text-base);
-}
-
-.tx-account-total {
-  font-size: var(--text-base);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Transaction rows */
 .tx-row {
   display: flex;
@@ -2544,12 +2210,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.tx-category {
-  font-size: var(--text-sm);
-  color: var(--text-dim);
-  text-transform: capitalize;
 }
 
 .tx-cat-chip {
@@ -2664,8 +2324,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 .tx-excluded {
   opacity: 0.35;
 }
-
-
 
 /* ================================
    ACTION SHEET
@@ -3074,653 +2732,22 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 /* ================================
    RECURRING TAB
    ================================ */
-.rec-section {
-  margin-bottom: 1.5rem;
-}
-
-.rec-section-title {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.6rem;
-  padding-bottom: 0.4rem;
-  color: var(--text-muted);
-}
 
 /* Horizon label */
-.rec-horizon-label {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.75rem;
-}
 
 /* Confirm modal text */
-.rec-confirm-text {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  line-height: 1.65;
-  margin-bottom: 0.5rem;
-  max-width: 55ch;
-}
-
-.rec-confirm-hint {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  line-height: 1.6;
-  margin-bottom: 1rem;
-}
-
-.rec-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.7rem 0;
-  cursor: pointer;
-}
-
-.rec-row-overdue {
-  border-left: 3px solid var(--danger);
-  padding-left: 0.6rem;
-  margin-left: -0.6rem;
-}
-
-
-.rec-row-paused {
-  opacity: 0.4;
-}
-
-.rec-paused-label {
-  font-size: var(--text-xs);
-  color: var(--warning);
-  font-weight: 500;
-  margin-left: 0.3rem;
-}
-
-.rec-varies {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  font-style: italic;
-}
-
-.rec-actions {
-  width: 100%;
-  display: flex;
-  gap: var(--space-xs);
-  padding-top: var(--space-xs);
-}
-
-.rec-action-btn {
-  flex: 1;
-  padding: 0.4rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.rec-action-confirm {
-  color: var(--success);
-  border-color: rgba(46, 204, 113, 0.25);
-  background: rgba(46, 204, 113, 0.06);
-}
-
-.rec-action-delete {
-  color: var(--danger);
-  border-color: rgba(244, 80, 48, 0.2);
-}
-
-.rec-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.rec-merchant {
-  font-weight: 500;
-  font-size: var(--text-base);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rec-freq {
-  font-size: var(--text-sm);
-  color: var(--text-dim);
-}
-
-.rec-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.1rem;
-  flex-shrink: 0;
-  margin-left: 0.5rem;
-}
-
-.rec-amount {
-  font-weight: 600;
-  font-size: var(--text-base);
-  font-variant-numeric: tabular-nums;
-}
-
-.rec-avg {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-}
-
-.rec-expected {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.rec-due-soon {
-  font-size: var(--text-xs);
-  color: var(--warning);
-  font-weight: 500;
-}
-
-.rec-overdue {
-  font-size: var(--text-xs);
-  color: var(--danger);
-  font-weight: 500;
-}
 
 /* Recurring add sheet */
-.rec-step {
-  padding: 0.5rem 0;
-}
-
-.rec-search-results {
-  max-height: 280px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  margin-top: 0.5rem;
-}
-
-.rec-search-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 0.65rem 0.5rem;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  gap: 0.6rem;
-}
-
-.rec-search-item:active {
-  background: var(--accent-subtle);
-}
-
-.rec-search-item-selected {
-  background: rgba(60, 130, 246, 0.06);
-}
-
-.rec-search-item-check {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rec-check-off {
-  display: block;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  border: 1.5px solid var(--text-dim);
-}
-
-.rec-check-on {
-  display: block;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  background: var(--accent);
-  position: relative;
-}
-
-.rec-check-on::after {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 2px;
-  width: 5px;
-  height: 9px;
-  border: solid #fff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-.rec-search-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.rec-search-item-name {
-  font-weight: 500;
-  font-size: var(--text-base);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rec-search-item-meta {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-}
-
-.rec-search-item-amount {
-  font-weight: 600;
-  font-size: var(--text-base);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  margin-left: 0.5rem;
-}
-
-.rec-search-empty {
-  padding: 1.5rem;
-  text-align: center;
-  color: var(--text-dim);
-  font-size: var(--text-sm);
-}
-
-.rec-amount-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  margin-bottom: 0.75rem;
-}
-
-.rec-amount-name {
-  font-weight: 600;
-  font-size: var(--text-lg);
-}
-
-.rec-amount-meta {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-}
-
-.rec-custom-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.rec-custom-row .app-input {
-  margin: 0;
-}
-
-.rec-date-input {
-  max-width: 100%;
-  width: 100%;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.rec-selected-amount {
-  margin-top: 0.75rem;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.rec-step-nav {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  justify-content: flex-end;
-}
-
-.rec-type-toggle {
-  display: flex;
-  gap: 0.35rem;
-  margin-bottom: 0.5rem;
-}
-
-.recurring-date-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.recurring-date-btn {
-  flex: 1;
-  min-width: calc(50% - 0.2rem);
-  padding: 0.55rem;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-size: var(--text-base);
-  font-family: inherit;
-  cursor: pointer;
-  text-align: center;
-}
-
-.recurring-date-btn.active,
-.recurring-mode-btn.active {
-  border-color: rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.08);
-  color: var(--text);
-}
-
-.recurring-mode-btn {
-  flex: 1;
-  min-width: calc(50% - 0.2rem);
-  padding: 0.55rem 0.4rem;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  cursor: pointer;
-  text-align: center;
-  line-height: 1.4;
-}
-
-.recurring-mode-btn strong {
-  font-variant-numeric: tabular-nums;
-}
 
 /* Recurring onboarding */
-.rec-onboard-title {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  margin-bottom: 0.4rem;
-}
-
-.rec-onboard-desc {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  line-height: 1.6;
-  margin-bottom: 1rem;
-  max-width: 55ch;
-}
 
 /* Recurring detail sheet */
-.rec-detail-status {
-  margin-bottom: 0.75rem;
-}
-
-.rec-detail-info {
-  margin-bottom: 1rem;
-}
-
-.rec-detail-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.45rem 0;
-  border-bottom: 1px solid var(--border);
-  font-size: var(--text-sm);
-}
-
-.rec-detail-label {
-  color: var(--text-dim);
-}
 
 /* Transaction detail in search */
-.rec-tx-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
-}
-
-.rec-tx-detail-back {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: var(--text-lg);
-  padding: 0.25rem;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.rec-tx-detail-name {
-  font-weight: 600;
-  font-size: var(--text-base);
-}
-
-.rec-tx-detail-summary {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  margin-bottom: 0.5rem;
-}
-
-.rec-tx-detail-list {
-  max-height: 220px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.rec-tx-detail-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.rec-tx-detail-date {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.rec-tx-detail-amt {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.rec-tx-detail-item-left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.rec-tx-detail-merchant {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-}
-
-.rec-tx-detail-tag {
-  font-size: var(--text-xs);
-  color: var(--success);
-  font-weight: 500;
-  margin-left: 0.25rem;
-}
-
-.rec-tx-detail-more {
-  padding: 0.4rem 0;
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  text-align: center;
-}
 
 /* Search footer - selected merchants bar */
-.rec-search-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.65rem 0;
-  margin-top: 0.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.rec-search-footer-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.rec-search-footer-label {
-  font-weight: 600;
-  font-size: var(--text-sm);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* Budget projection card */
-.rec-projection {
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
-  padding: 0.75rem 0.85rem;
-  margin-bottom: 1.25rem;
-}
-
-.rec-projection-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 0.3rem;
-}
-
-.rec-projection-title {
-  font-weight: 600;
-  font-size: var(--text-sm);
-}
-
-.rec-projection-warn .rec-projection-title {
-  color: var(--danger);
-}
-
-.rec-projection-ok .rec-projection-title {
-  color: var(--success);
-}
-
-.rec-projection-shortfall {
-  font-weight: 700;
-  font-size: var(--text-base);
-  color: var(--danger);
-  font-variant-numeric: tabular-nums;
-}
-
-.rec-projection-surplus {
-  font-weight: 700;
-  font-size: var(--text-base);
-  color: var(--success);
-  font-variant-numeric: tabular-nums;
-}
-
-.rec-projection-body {
-  font-size: var(--text-sm);
-  font-family: inherit;
-  color: var(--text-muted);
-  line-height: 1.5;
-  max-width: 65ch;
-}
-
-.rec-projection-suggest {
-  font-size: var(--text-xs);
-  font-family: inherit;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-top: 0.6rem;
-  margin-bottom: 0.3rem;
-}
-
-.rec-projection-accounts {
-  display: flex;
-  flex-direction: column;
-}
-
-.rec-projection-account {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: var(--text-sm);
-  font-family: inherit;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--border);
-  font-variant-numeric: tabular-nums;
-}
-
-.rec-projection-account:last-child {
-  border-bottom: none;
-}
-
-.rec-projection-account > span {
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.rec-projection-account-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  min-width: 0;
-}
-
-.rec-projection-account-name {
-  font-weight: 500;
-}
-
-.rec-projection-inst {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-}
-
-.rec-edit-current {
-  padding: 0.75rem;
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
-  margin-bottom: 0.5rem;
-}
-
-.rec-edit-current-header {
-  font-size: var(--text-base);
-  margin-bottom: 0.2rem;
-}
-
-.rec-edit-current-detail {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.rec-edit-hint {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  margin-top: 0.5rem;
-  line-height: 1.5;
-}
-
-.rec-search-footer-names {
-  font-size: var(--text-xs);
-  color: var(--text-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
