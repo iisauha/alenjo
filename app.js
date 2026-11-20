@@ -7,6 +7,20 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Supabase returns at most 1000 rows per request. Page through so large
+// tables (transactions, transaction actions) are never silently cut off.
+async function fetchAllRows(buildQuery) {
+  var PAGE = 1000;
+  var all = [];
+  for (var from = 0; ; from += PAGE) {
+    var r = await buildQuery().range(from, from + PAGE - 1);
+    if (r.error) return { data: all.length ? all : null, error: r.error };
+    all = all.concat(r.data || []);
+    if (!r.data || r.data.length < PAGE) break;
+  }
+  return { data: all, error: null };
+}
+
 // ============================================
 // DOM REFS
 // ============================================
@@ -1579,7 +1593,7 @@ async function backgroundSync() {
       var cap = new Date(now.getFullYear(), now.getMonth() - 24, 1);
       if (dataStartDate < cap) dataStartDate = cap;
       var dataStartStr = dataStartDate.toISOString().split('T')[0];
-      var txResult = await sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false });
+      var txResult = await fetchAllRows(function() { return sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false }).order('id'); });
       if (!txResult.error && txResult.data) {
         txData = txResult.data;
         renderAccounts(cachedAccounts);
@@ -2436,11 +2450,9 @@ async function loadTransactions() {
   var dataStartStr = dataStartDate.toISOString().split('T')[0];
 
   // Fetch transactions within data window
-  var result = await sb
-    .from('synced_transactions')
-    .select('*')
-    .gte('date', dataStartStr)
-    .order('date', { ascending: false });
+  var result = await fetchAllRows(function() {
+    return sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false }).order('id');
+  });
 
   if (result.error || !result.data || result.data.length === 0) {
     // No cached data — need to sync first
@@ -2486,7 +2498,7 @@ async function loadTransactions() {
   }
 
   // Load user actions and ignore rules
-  var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted');
+  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted').order('transaction_id'); });
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
@@ -3458,8 +3470,14 @@ async function saveMultiAction(txId, updates) {
   closeActionSheet();
 
   // Save to DB in background
+  var previous = txActions.hasOwnProperty(txId) && existing !== row ? existing : null;
   sb.from('transaction_actions').upsert(row, { onConflict: 'user_id,transaction_id' }).then(function(result) {
-    if (result.error) console.error('Failed to save action:', result.error);
+    if (result.error) {
+      console.error('Failed to save action:', result.error);
+      if (previous && Object.keys(previous).length) txActions[txId] = previous; else delete txActions[txId];
+      renderTransactionMonth();
+      showToast("Couldn't save. Check your connection and try again.");
+    }
   });
   // After re-render the list may be shorter — clamp scroll so content stays visible
   var tabEl = document.getElementById('tab-transactions');
@@ -3564,10 +3582,10 @@ async function loadRecurringBills() {
 
   // Load transaction data if needed (for search later)
   if (txData.length === 0) {
-    var result = await sb.from('synced_transactions').select('*').order('date', { ascending: false }).limit(5000);
+    var result = await fetchAllRows(function() { return sb.from('synced_transactions').select('*').order('date', { ascending: false }).order('id'); });
     if (result.data && result.data.length > 0) txData = result.data;
     if (Object.keys(txActions).length === 0) {
-      var actionsResult = await sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted');
+      var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted').order('transaction_id'); });
       if (actionsResult.data) actionsResult.data.forEach(function(row) { txActions[row.transaction_id] = row; });
     }
   }
