@@ -445,7 +445,12 @@ $('#btn-change-avatar').addEventListener('click', function() {
 
 $('#avatar-upload').addEventListener('change', async function(e) {
   var file = e.target.files[0];
+  e.target.value = '';
   if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('Photo is too large. Use one under 2 MB.');
+    return;
+  }
   showLoading(true);
 
   var path = currentUser.id + '/avatar.' + file.name.split('.').pop();
@@ -454,6 +459,7 @@ $('#avatar-upload').addEventListener('change', async function(e) {
   if (uploadResult.error) {
     console.error('Upload error:', uploadResult.error);
     showLoading(false);
+    showToast("Couldn't upload photo. Use a PNG, JPG or WebP image.");
     return;
   }
 
