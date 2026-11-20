@@ -2992,14 +2992,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
   .account-section .scroll-dots { display: none; }
 }
 /* Settings → Accounts */
-.acct-order-kind { padding: 12px 16px 4px; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); border-top: 1px solid var(--border); }
-#account-order-list .acct-order-kind:first-child { border-top: none; }
-.acct-order-row { display: flex; align-items: center; gap: 6px; min-height: 54px; padding: 6px 12px 6px 16px; }
-.acct-order-row.is-hidden .acct-order-name { opacity: 0.5; }
-.acct-order-name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 0.9375rem; }
-.acct-order-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.acct-order-btn { min-width: 36px; height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font: 600 0.875rem 'Inter', sans-serif; cursor: pointer; }
-.acct-order-btn:disabled { opacity: 0.3; cursor: default; }
 .acct-eye { min-width: 52px; }
 .set-empty { padding: 14px 16px; margin: 0; color: var(--text-muted); font-size: 0.875rem; }
 .modal-switch-row { padding: 10px 0; border-top: 1px solid var(--border); }
@@ -3298,3 +3290,34 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .act-list-foot { flex-direction: column; justify-content: center; text-align: center; gap: 2px; padding: 22px 0 12px; }
 .act-list-foot .tx-updated { flex-basis: auto; }
 .act-list-foot > div { display: flex; justify-content: center; gap: 20px; }
+
+/* Transaction note */
+.tx-note-field { display: block; margin: 0 0 12px; }
+.tx-note-field textarea { width: 100%; box-sizing: border-box; min-height: 44px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); color: var(--text); font: 400 max(16px, 1rem)/1.35 'Inter', sans-serif; resize: none; outline: none; }
+.tx-note-field textarea:focus { border-color: var(--accent); }
+.act-row-note { font-size: 0.75rem; color: var(--text-muted); font-style: italic; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Account order: eye + drag handle */
+.acct-order-group { position: relative; }
+.acct-order-row { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 6px 0 4px; background: var(--bg-card); border-top: 1px solid var(--border); position: relative; transition: box-shadow 0.15s, background 0.15s; }
+.acct-order-group .acct-order-row:first-child { border-top: none; }
+.acct-order-row.is-hidden .acct-order-name > span:first-child { color: var(--text-muted); }
+.acct-order-row.dragging { z-index: 2; background: var(--bg-elevated); box-shadow: 0 8px 24px rgba(0,0,0,0.25); border-radius: 10px; transition: none; }
+.acct-order-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.acct-order-name > span:first-child { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct-eye { flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 22px; background: transparent; color: var(--accent); cursor: pointer; }
+.acct-order-row.is-hidden .acct-eye { color: var(--text-muted); }
+.acct-handle { flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: grab; touch-action: none; border-radius: 10px; }
+.acct-handle:active { cursor: grabbing; }
+.acct-handle:focus-visible { outline: 2px solid var(--accent); }
+.acct-order-kind { padding: 12px 14px 4px; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+
+/* Card designs: compact disclosure */
+.set-disclosure { border-top: 1px solid var(--border); }
+.set-disclosure[hidden] { display: none; }
+.set-disclosure > summary { list-style: none; cursor: pointer; }
+.set-disclosure > summary::-webkit-details-marker { display: none; }
+.set-disclosure-end { display: flex; align-items: center; gap: 8px; color: var(--text-muted); margin-left: auto; }
+.set-disclosure-end svg { transition: transform 0.2s; }
+.set-disclosure[open] .set-disclosure-end svg { transform: rotate(180deg); }
+.set-disclosure .card-designs-grid { padding: 4px 14px 14px; }

@@ -720,10 +720,10 @@ function getCardDesignById(id) {
 function renderCardDesignsSettings() {
   var list = $('#card-designs-list');
   if (!list) return;
-  if (!cachedCardDesigns.length) {
-    list.innerHTML = '<div class="card-designs-empty">No designs yet. Tap Upload Design to add one.</div>';
-    return;
-  }
+  var countEl = $('#card-designs-count'), det = $('#card-designs-details');
+  if (countEl) countEl.textContent = String(cachedCardDesigns.length);
+  if (det) det.hidden = !cachedCardDesigns.length;
+  if (!cachedCardDesigns.length) { list.innerHTML = ''; return; }
   list.innerHTML = cachedCardDesigns.map(function(d) {
     return '<div class="card-design-tile">' +
       '<div class="card-design-tile-img" style="background-image:url(' + esc(d.url) + ')"></div>' +
@@ -1612,6 +1612,8 @@ function accountKind(a) {
   if (a.subtype === 'savings') return 'Savings';
   return 'Banks';
 }
+var EYE_ON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+var EYE_OFF = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.5-.6 4.9-1.4M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
 function renderAccountOrderList() {
   var list = $('#account-order-list');
   if (!list) return;
@@ -1625,48 +1627,85 @@ function renderAccountOrderList() {
       return ox - oy || Math.abs(getDisplayBalance(y, 'bank').amount) - Math.abs(getDisplayBalance(x, 'bank').amount);
     });
     if (!items.length) return;
-    html += '<div class="acct-order-kind">' + kind + '</div>';
-    items.forEach(function(a, i) {
-      var name = a.nickname || a.name || 'Account';
+    html += '<div class="acct-order-kind">' + kind + '</div><div class="acct-order-group" data-kind="' + kind + '">';
+    items.forEach(function(a) {
+      var name = (a.nickname || a.name || 'Account').replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
       html += '<div class="acct-order-row' + (a.is_hidden ? ' is-hidden' : '') + '" data-id="' + esc(a.id) + '">' +
-        '<span class="acct-order-name"><span>' + esc(name) + '</span><span class="set-hint">' + esc(a.institution || '') + (a.mask ? ' ••' + esc(a.mask) : '') + (a.exclude_from_totals ? ' · not in totals' : '') + '</span></span>' +
-        '<button type="button" class="acct-order-btn" data-move="-1" aria-label="Move ' + esc(name) + ' up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
-        '<button type="button" class="acct-order-btn" data-move="1" aria-label="Move ' + esc(name) + ' down"' + (i === items.length - 1 ? ' disabled' : '') + '>↓</button>' +
-        '<button type="button" class="acct-order-btn acct-eye" data-toggle-hide aria-pressed="' + (a.is_hidden ? 'false' : 'true') + '" aria-label="' + (a.is_hidden ? 'Show ' : 'Hide ') + esc(name) + '">' + (a.is_hidden ? 'Show' : 'Hide') + '</button>' +
+        '<button type="button" class="acct-eye" data-toggle-hide aria-pressed="' + !a.is_hidden + '" aria-label="' + (a.is_hidden ? 'Show ' : 'Hide ') + esc(name) + '">' + (a.is_hidden ? EYE_OFF : EYE_ON) + '</button>' +
+        '<span class="acct-order-name"><span>' + esc(name) + '</span><span class="set-hint">' + esc(a.institution || '') + (a.mask ? ' ••' + esc(a.mask) : '') + (a.is_hidden ? ' · hidden' : a.exclude_from_totals ? ' · not in totals' : '') + '</span></span>' +
+        (items.length > 1 ? '<span class="acct-handle" role="button" tabindex="0" aria-label="Reorder ' + esc(name) + '. Use arrow keys to move."><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 12h16M4 16h16"/></svg></span>' : '') +
       '</div>';
     });
+    html += '</div>';
   });
   list.innerHTML = html;
 }
+function saveGroupOrder(group) {
+  Array.prototype.forEach.call(group.querySelectorAll('.acct-order-row'), function(r, i) {
+    var a = cachedAccounts.find(function(x) { return x.id === r.dataset.id; });
+    if (a && a.sort_order !== i) {
+      a.sort_order = i;
+      sb.from('accounts').update({ sort_order: i }).eq('id', a.id).then(function(res) { if (res.error) showToast('Could not save order'); });
+    }
+  });
+  renderAccounts(cachedAccounts);
+}
 var accountOrderList = $('#account-order-list');
-if (accountOrderList) accountOrderList.addEventListener('click', function(e) {
-  var btn = e.target.closest('button');
-  if (!btn || btn.disabled) return;
-  var row = btn.closest('.acct-order-row');
-  var acct = cachedAccounts.find(function(a) { return a.id === row.dataset.id; });
-  if (!acct) return;
-  if (btn.hasAttribute('data-toggle-hide')) {
+if (accountOrderList) {
+  accountOrderList.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-toggle-hide]');
+    if (!btn) return;
+    var acct = cachedAccounts.find(function(a) { return a.id === btn.closest('.acct-order-row').dataset.id; });
+    if (!acct) return;
     acct.is_hidden = !acct.is_hidden;
     sb.from('accounts').update({ is_hidden: acct.is_hidden }).eq('id', acct.id).then(function(r) { if (r.error) showToast('Could not save'); });
-  } else {
-    // Renumber this group in its current order, then swap with the neighbour
-    var kind = accountKind(acct);
-    var rows = Array.prototype.slice.call(accountOrderList.querySelectorAll('.acct-order-row'))
-      .map(function(r) { return cachedAccounts.find(function(a) { return a.id === r.dataset.id; }); })
-      .filter(function(a) { return a && accountKind(a) === kind; });
-    var idx = rows.indexOf(acct), to = idx + parseInt(btn.dataset.move, 10);
-    if (to < 0 || to >= rows.length) return;
-    rows.splice(to, 0, rows.splice(idx, 1)[0]);
-    rows.forEach(function(a, i) {
-      if (a.sort_order !== i) {
-        a.sort_order = i;
-        sb.from('accounts').update({ sort_order: i }).eq('id', a.id).then(function(r) { if (r.error) showToast('Could not save order'); });
-      }
-    });
-  }
-  renderAccountOrderList();
-  renderAccounts(cachedAccounts);
-});
+    renderAccountOrderList();
+    renderAccounts(cachedAccounts);
+  });
+  // Drag the handle to reorder within its group (iOS-style)
+  var drag = null;
+  accountOrderList.addEventListener('pointerdown', function(e) {
+    var handle = e.target.closest('.acct-handle');
+    if (!handle) return;
+    e.preventDefault();
+    var row = handle.closest('.acct-order-row'), group = row.parentNode;
+    var r = row.getBoundingClientRect();
+    drag = { row: row, group: group, startY: e.clientY, offset: 0, h: r.height, moved: false };
+    row.classList.add('dragging');
+    handle.setPointerCapture(e.pointerId);
+  });
+  accountOrderList.addEventListener('pointermove', function(e) {
+    if (!drag) return;
+    var dy = e.clientY - drag.startY;
+    var row = drag.row;
+    // Swap with a neighbour once we pass half its height
+    var prev = row.previousElementSibling, next = row.nextElementSibling;
+    if (dy > drag.h / 2 && next) { drag.group.insertBefore(next, row); drag.startY += drag.h; dy -= drag.h; drag.moved = true; }
+    else if (dy < -drag.h / 2 && prev) { drag.group.insertBefore(row, prev); drag.startY -= drag.h; dy += drag.h; drag.moved = true; }
+    row.style.transform = 'translateY(' + dy + 'px)';
+  });
+  var endDrag = function() {
+    if (!drag) return;
+    drag.row.classList.remove('dragging');
+    drag.row.style.transform = '';
+    if (drag.moved) saveGroupOrder(drag.group);
+    drag = null;
+  };
+  accountOrderList.addEventListener('pointerup', endDrag);
+  accountOrderList.addEventListener('pointercancel', endDrag);
+  // Keyboard: arrow keys on the handle
+  accountOrderList.addEventListener('keydown', function(e) {
+    var handle = e.target.closest('.acct-handle');
+    if (!handle || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    var row = handle.closest('.acct-order-row'), group = row.parentNode;
+    if (e.key === 'ArrowUp' && row.previousElementSibling) group.insertBefore(row, row.previousElementSibling);
+    else if (e.key === 'ArrowDown' && row.nextElementSibling) group.insertBefore(row.nextElementSibling, row);
+    else return;
+    handle.focus();
+    saveGroupOrder(group);
+  });
+}
 
 var prefAutoFaceId = $('#pref-auto-faceid');
 if (prefAutoFaceId) {
@@ -2928,7 +2967,7 @@ async function loadTransactions() {
   }
 
   // Load user actions and ignore rules
-  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted').order('transaction_id'); });
+  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, note, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted').order('transaction_id'); });
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
@@ -3045,12 +3084,13 @@ function getEffectiveTx(tx) {
     splitWays: action ? action.split_ways : null,
     splitPortion: action ? action.split_portion : null,
     reimbursement: 0,
-    nickname: null, date: tx.date,
+    nickname: null, note: null, date: tx.date,
     isRecurring: false, recurringGroup: null,
     isSplit: false, isRecategorized: false
   };
   if (!action) return result;
   if (action.nickname) result.nickname = action.nickname;
+  if (action.note) result.note = action.note;
   if (action.date_override) result.date = action.date_override;
   if (action.is_recurring) {
     result.isRecurring = true;
@@ -3129,6 +3169,7 @@ function renderTransactionMonth() {
       var enriched = (tx.enriched_merchant_name || '').toLowerCase();
       var merchant = (tx.merchant_name || '').toLowerCase();
       var name = (tx.name || '').toLowerCase();
+      if ((eff.note || '').toLowerCase().indexOf(searchVal) !== -1) return true;
       return nick.indexOf(searchVal) !== -1 || enriched.indexOf(searchVal) !== -1 || merchant.indexOf(searchVal) !== -1 || name.indexOf(searchVal) !== -1;
     });
   }
@@ -3290,7 +3331,8 @@ function renderTransactionMonth() {
       html += '<div class="tx-row act-row' + (eff.excluded ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
         avatar +
         '<span class="act-row-main"><span class="act-row-name">' + esc(name) + '</span>' +
-        '<span class="act-row-meta">' + (showCardName ? esc(acctName) + ' · ' : '') + esc(cat) + '</span></span>' +
+        '<span class="act-row-meta">' + (showCardName ? esc(acctName) + ' · ' : '') + esc(cat) + '</span>' +
+        (eff.note ? '<span class="act-row-note">' + esc(eff.note) + '</span>' : '') + '</span>' +
         '<span class="act-row-right"><span class="act-row-amt' + (income ? ' is-in' : '') + '">' + amountMain + '</span>' +
         (eff.isSplit && !eff.excluded ? '<span class="act-row-sub">of ' + formatMoney(tx.amount) + '</span>' : '') +
         (tags ? '<span class="act-row-tags">' + tags + '</span>' : '') + '</span>' +
@@ -3521,7 +3563,7 @@ $('#btn-export-csv').addEventListener('click', function() {
     return a.date > b.date ? 1 : a.date < b.date ? -1 : 0;
   });
 
-  var csvRows = ['Category,Date,Merchant,Amount,Your Share,Type,Split,Reimbursed'];
+  var csvRows = ['Category,Date,Merchant,Amount,Your Share,Type,Split,Reimbursed,Note'];
   filtered.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
     var cat = normalizeCategory(eff.category).replace(/"/g, '""');
@@ -3532,7 +3574,7 @@ $('#btn-export-csv').addEventListener('click', function() {
     csvRows.push(
       '"' + cat + '",' + eff.date + ',"' + merchant + '",' +
       tx.amount.toFixed(2) + ',' + eff.amount.toFixed(2) + ',' +
-      type + ',' + splitInfo + ',' + reimbursed
+      type + ',' + splitInfo + ',' + reimbursed + ',"' + (eff.note || '').replace(/"/g, '""').replace(/^[=+\-@]/, "'$&") + '"'
     );
   });
 
@@ -3695,6 +3737,10 @@ function openActionSheet(tx) {
   actionTxId = tx.id;
   actionTx = tx;
   var action = txActions[tx.id] || {};
+  var noteEl = $('#tx-note');
+  noteEl.value = action.note || '';
+  noteEl._orig = noteEl.value;
+  autoGrowNote();
 
   $('#tx-action-merchant').textContent = tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
   $('#tx-action-amount').textContent = (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount));
@@ -3751,7 +3797,28 @@ function openActionSheet(tx) {
   actionSheet.classList.add('visible');
 }
 
+function saveTxNote() {
+  var el = $('#tx-note');
+  if (!el || !actionTxId) return;
+  var v = el.value.trim();
+  if (v === (el._orig || '').trim()) return;
+  el._orig = v;
+  saveMultiAction(actionTxId, { note: v || null }, { silent: true });
+}
+function autoGrowNote() {
+  var el = $('#tx-note');
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = Math.min(140, el.scrollHeight) + 'px';
+}
+(function() {
+  var el = $('#tx-note');
+  if (!el) return;
+  el.addEventListener('input', autoGrowNote);
+  el.addEventListener('blur', saveTxNote);
+})();
 function closeActionSheet() {
+  saveTxNote();
   actionSheet.classList.remove('visible');
   actionTxId = null;
   actionTx = null;
@@ -4007,7 +4074,8 @@ $('#edit-save').addEventListener('click', async function() {
 });
 
 // Unified save that merges updates with existing action state
-async function saveMultiAction(txId, updates) {
+async function saveMultiAction(txId, updates, opts) {
+  opts = opts || {};
   var existing = txActions[txId] || {};
   var row = {
     user_id: currentUser.id,
@@ -4017,6 +4085,7 @@ async function saveMultiAction(txId, updates) {
     split_portion: updates.hasOwnProperty('split_portion') ? updates.split_portion : (existing.split_portion || null),
     category_override: updates.hasOwnProperty('category_override') ? updates.category_override : (existing.category_override || null),
     nickname: updates.hasOwnProperty('nickname') ? updates.nickname : (existing.nickname || null),
+    note: updates.hasOwnProperty('note') ? updates.note : (existing.note || null),
     date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override || null),
     is_recurring: updates.hasOwnProperty('is_recurring') ? updates.is_recurring : (existing.is_recurring || false),
     recurring_group: updates.hasOwnProperty('recurring_group') ? updates.recurring_group : (existing.recurring_group || null),
@@ -4027,9 +4096,9 @@ async function saveMultiAction(txId, updates) {
   };
   // Update local state and render immediately
   txActions[txId] = row;
-  showToast('Saved');
+  showToast(opts.silent ? 'Note saved' : 'Saved');
   renderTransactionMonth();
-  closeActionSheet();
+  if (!opts.silent) closeActionSheet();
 
   // Save to DB in background
   var previous = txActions.hasOwnProperty(txId) && existing !== row ? existing : null;

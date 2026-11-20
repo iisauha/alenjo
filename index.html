@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261120232219';</script>
+  <script>var _v = '20261120232611';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120232219">
+  <link rel="stylesheet" href="style.css?v=20261120232611">
 </head>
 <body>
 
@@ -368,21 +368,27 @@
       <div class="set-group">
         <div id="account-order-list"></div>
       </div>
-      <p class="set-footnote">Reorder or hide accounts here, or tap an account on Home to manage it.</p>
+      <p class="set-footnote">Drag <span aria-hidden="true">≡</span> to reorder. Tap the eye to hide an account from Home.</p>
 
       <h2 class="set-heading" id="section-accounts">Banks</h2>
       <div class="set-group">
         <div id="accounts-list" class="accounts-manage-list"></div>
         <button id="btn-add-account" class="set-row set-row-action" type="button">+ Connect a bank</button>
       </div>
+
       <h2 class="set-heading" id="section-card-designs">Card designs</h2>
-      <div class="set-group set-group-pad">
-        <div id="card-designs-list" class="card-designs-grid"></div>
+      <div class="set-group">
+        <div class="set-row">
+          <span class="set-row-text"><span>Your cards' look</span><span class="set-hint">Upload a photo of a card, then pick it for that account so it's easy to spot. A Wallet screenshot works best.</span></span>
+          <button id="btn-add-card-design" class="btn-secondary-sm" type="button">Upload</button>
+        </div>
         <div id="card-designs-status" class="card-designs-status" hidden></div>
-        <button id="btn-add-card-design" class="btn-secondary" type="button">+ Upload a card design</button>
+        <details class="set-disclosure" id="card-designs-details">
+          <summary class="set-row"><span>Saved designs</span><span class="set-disclosure-end"><span id="card-designs-count" class="set-hint"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+          <div id="card-designs-list" class="card-designs-grid"></div>
+        </details>
         <input type="file" id="card-design-upload" accept="image/png,image/webp,image/jpeg" hidden>
       </div>
-      <p class="set-footnote">A screenshot from Apple Wallet works best.</p>
 
       <h2 class="set-heading">About</h2>
       <div class="set-group">
@@ -577,6 +583,10 @@
       <div id="tx-action-detail" class="action-sheet-detail" hidden></div>
       <div id="tx-action-status" class="action-sheet-status" hidden></div>
       <div id="tx-action-options" class="action-sheet-options">
+        <label class="tx-note-field">
+          <span class="visually-hidden">Note</span>
+          <textarea id="tx-note" rows="1" maxlength="500" placeholder="Add a note, like who it was for or why"></textarea>
+        </label>
         <p class="action-group-label">Actions</p>
         <div class="action-toggles">
           <button class="action-toggle" data-toggle="split">Split</button>
