@@ -3346,3 +3346,4 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 @media (min-width: 900px) { .act-acct { width: 200px; margin-left: 0; } }
 .hold-row + .hold-row { border-top: none; }
 .hold-list { gap: 2px; }
+.card-more { border-top: none; margin-top: 6px; }
