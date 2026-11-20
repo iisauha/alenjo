@@ -256,6 +256,41 @@ authEmail.addEventListener('change', startAutofillWatch);
 authPassword.addEventListener('change', startAutofillWatch);
 
 // ============================================
+// AUTO-UPDATE
+// ============================================
+// Home-screen apps keep reusing the page they already downloaded. On open
+// and whenever the app comes back to the front, compare our version with
+// the live one; if it's newer, load the new version.
+var pendingVersion = null;
+async function checkForUpdate() {
+  try {
+    var res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    var live = (await res.json()).version;
+    if (!live || live === window._v) return;
+    pendingVersion = live;
+    var tried = '';
+    try { tried = sessionStorage.getItem('alenjo_update_tried') || ''; } catch (e) {}
+    if (!currentUser && tried !== live) {
+      // Only try once per version, so a slow deploy can't cause a reload loop
+      try { sessionStorage.setItem('alenjo_update_tried', live); } catch (e) {}
+      location.replace('/?v=' + encodeURIComponent(live));
+    } else {
+      var bar = $('#update-bar');
+      if (bar) bar.hidden = false;
+    }
+  } catch (e) {}
+}
+var updateBtn = $('#btn-update-now');
+if (updateBtn) updateBtn.addEventListener('click', function() {
+  location.replace('/?v=' + encodeURIComponent(pendingVersion || Date.now()));
+});
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden) checkForUpdate();
+});
+checkForUpdate();
+
+// ============================================
 // FACE ID (passkeys)
 // ============================================
 function hasPasskeyHere() {

@@ -2966,3 +2966,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
 @media (prefers-reduced-motion: reduce) { .screen.active { animation: none; } }
 .signin-faceid-cta { margin-top: 10px; min-height: 48px; border-radius: 14px; border: 1px solid var(--border); background: var(--accent-subtle); color: var(--accent); font: 600 1rem 'Inter', sans-serif; cursor: pointer; }
 .signin-faceid-cta[hidden] { display: none; }
+
+/* Update available bar */
+.update-bar { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 14px; background: var(--text); color: var(--bg); font-size: 0.875rem; font-weight: 500; }
+.update-bar[hidden] { display: none; }
+.update-bar button { min-height: 36px; padding: 0 14px; border: none; border-radius: 10px; background: var(--accent); color: var(--on-accent); font: 600 0.875rem 'Inter', sans-serif; cursor: pointer; }
+@media (min-width: 900px) { .update-bar { left: auto; right: 24px; bottom: 24px; width: 380px; } }

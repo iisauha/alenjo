@@ -29,15 +29,15 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <!-- Bump the version (here and on the stylesheet link) when deploying CSS/JS changes so browsers pick up the new files -->
-  <script>var _v = '20261120j';</script>
+  <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
+  <script>var _v = '20261120222114';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261120j">
+  <link rel="stylesheet" href="style.css?v=20261120222114">
 </head>
 <body>
 
@@ -330,7 +330,12 @@
       <button type="button" id="btn-sign-out" class="set-signout">Sign out</button>
     </section>
 
-    <!-- Bottom Nav -->
+      <div id="update-bar" class="update-bar" role="status" hidden>
+      <span>A new version of Alenjo is ready</span>
+      <button type="button" id="btn-update-now">Update</button>
+    </div>
+
+  <!-- Bottom Nav -->
     <nav class="bottom-nav" id="bottom-nav" aria-label="Main">
       <div class="nav-brand"><img src="alenjo-mark.png?v=1" alt="" width="20" height="26"><span>Alenjo</span></div>
       <button class="nav-item active" data-tab="snapshot">
