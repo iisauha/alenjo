@@ -2080,46 +2080,112 @@ function renderAccounts(accounts) {
 // HOME INSIGHTS (30-day trend + this month's spending)
 // ============================================
 var lastAvailableCash = null;
+// Home chart: Available, Assets and Liabilities rebuilt day by day by walking
+// back through transactions from today's balances. Drag across it (like
+// Robinhood) and the numbers above show that day.
+var homeRange = parseInt(localStorage.getItem('alenjo_home_range') || '30', 10) || 30;
+var homeSeries = null;
+function heroMoney(v) { return (v < 0 ? '-' : '') + formatMoney(Math.abs(v)); }
 function renderHomeInsights() {
-  var label = $('#home-trend-label'), svgEl = $('#home-trend');
-  if (!label || !svgEl) return;
+  var label = $('#home-trend-label'), chart = $('#home-chart'), ranges = $('#home-ranges');
+  if (!label || !chart) return;
   renderBalanceSplit();
   if (!txData || !txData.length || lastAvailableCash === null || !cachedAccounts) {
-    label.hidden = true; svgEl.hidden = true;
+    label.hidden = true; chart.hidden = true; ranges.hidden = true; homeSeries = null;
     return;
   }
-
-  // Trend: walk back from today's available cash. A charge (positive Plaid
-  // amount) lowered available cash, so before it, cash was higher by that amount.
-  var cashAcct = {};
+  var kind = {}, assets = 0, liabs = 0;
   cachedAccounts.forEach(function(a) {
-    if (a.plaid_account_id && ((a.type === 'depository' && a.subtype !== 'savings') || a.type === 'credit')) cashAcct[a.plaid_account_id] = true;
+    if (a.is_hidden || a.exclude_from_totals) return;
+    if (a.type === 'credit') { liabs += Math.max(0, getDisplayBalance(a, 'credit').amount); if (a.plaid_account_id) kind[a.plaid_account_id] = 'credit'; }
+    else if (a.type === 'investment') assets += getInvestmentValue(a);
+    else if (a.type === 'depository') { assets += Math.max(0, getDisplayBalance(a, 'bank').amount); if (a.plaid_account_id) kind[a.plaid_account_id] = a.subtype === 'savings' ? 'savings' : 'bank'; }
+  });
+  var dayKey = function(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  var byDay = {}, earliest = null;
+  txData.forEach(function(tx) {
+    var k = kind[tx.plaid_account_id];
+    if (!k || tx.pending) return;
+    var o = byDay[tx.date] || (byDay[tx.date] = { bank: 0, savings: 0, credit: 0 });
+    o[k] += parseFloat(tx.amount || 0);
+    if (!earliest || tx.date < earliest) earliest = tx.date;
   });
   var today = new Date(); today.setHours(0, 0, 0, 0);
-  var dayKey = function(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
-  var byDay = {};
-  txData.forEach(function(tx) {
-    if (!cashAcct[tx.plaid_account_id] || tx.pending) return;
-    byDay[tx.date] = (byDay[tx.date] || 0) + parseFloat(tx.amount || 0);
-  });
-  var points = [], value = lastAvailableCash;
-  for (var i = 0; i <= 30; i++) {
-    var d = new Date(today); d.setDate(d.getDate() - i);
-    points.unshift(value);
-    value += byDay[dayKey(d)] || 0;
+  // Never draw further back than the transactions we have
+  var span = homeRange;
+  if (earliest) {
+    var p = earliest.split('-'), first = new Date(+p[0], +p[1] - 1, +p[2]);
+    span = Math.max(1, Math.min(homeRange, Math.round((today - first) / 86400000)));
   }
-  var min = Math.min.apply(null, points), max = Math.max.apply(null, points), range = (max - min) || 1;
-  var path = points.map(function(v, idx) {
-    var x = (idx / 30) * 300, y = 44 - ((v - min) / range) * 40;
-    return (idx ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
-  }).join(' ');
-  $('#home-trend-path').setAttribute('d', path);
-  var change = points[points.length - 1] - points[0];
-  label.innerHTML = '<strong class="' + (change < 0 ? 'down' : '') + '">' + (change < 0 ? '↓ ' : '↑ ') + formatMoney(change) + '</strong> in the last 30 days';
-  label.hidden = false; svgEl.hidden = false;
-
-  renderBalanceSplit();
+  var pts = [], av = lastAvailableCash, as = assets, li = liabs;
+  for (var i = 0; i <= span; i++) {
+    var d = new Date(today); d.setDate(d.getDate() - i);
+    pts.unshift({ date: d, available: av, assets: as, liabs: li });
+    var o = byDay[dayKey(d)];
+    if (!o) continue;
+    // Before a charge, cash was higher / the card owed less (Plaid: charges are positive)
+    av += o.bank + o.credit;
+    as += o.bank + o.savings;
+    li -= o.credit;
+  }
+  homeSeries = pts;
+  var vals = pts.map(function(x) { return x.available; });
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals), range = (max - min) || 1;
+  var n = pts.length - 1 || 1;
+  pts.forEach(function(x, idx) { x.x = idx / n * 300; x.y = 60 - ((x.available - min) / range) * 54; });
+  $('#home-trend-path').setAttribute('d', pts.map(function(x, idx) { return (idx ? 'L' : 'M') + x.x.toFixed(1) + ',' + x.y.toFixed(1); }).join(' '));
+  ranges.querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', +b.dataset.range === homeRange); });
+  chart.hidden = false; ranges.hidden = false; label.hidden = false;
+  showHomePoint(null);
 }
+function homeChangeLabel(from, to, suffix) {
+  var change = to - from;
+  return '<strong class="' + (change < 0 ? 'down' : '') + '">' + (change < 0 ? '↓ ' : '↑ ') + formatMoney(Math.abs(change)) + '</strong> ' + suffix;
+}
+var RANGE_WORDS = { 7: 'past week', 30: 'past month', 90: 'past 3 months', 365: 'past year' };
+function showHomePoint(idx) {
+  var s = homeSeries; if (!s || !s.length) return;
+  var cur = $('#home-trend-cursor'), dot = $('#home-trend-dot');
+  var pt = idx === null ? s[s.length - 1] : s[idx];
+  var availEl = $('#available-value');
+  availEl.textContent = heroMoney(pt.available);
+  availEl.className = 'hero-stat-value ' + (pt.available >= 0 ? 'balance-positive' : 'balance-negative');
+  $('#hero-assets').textContent = formatMoney(pt.assets);
+  $('#hero-liabs').textContent = formatMoney(pt.liabs);
+  if (idx === null) {
+    cur.setAttribute('visibility', 'hidden'); dot.hidden = true;
+    var days = s.length - 1;
+    $('#home-trend-label').innerHTML = homeChangeLabel(s[0].available, pt.available, days < homeRange ? 'past ' + days + ' days' : RANGE_WORDS[homeRange]);
+    return;
+  }
+  cur.setAttribute('x1', pt.x); cur.setAttribute('x2', pt.x); cur.setAttribute('visibility', 'visible');
+  dot.hidden = false; dot.style.left = (pt.x / 3) + '%'; dot.style.top = (pt.y / 64 * 100) + '%';
+  var when = pt.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: pt.date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+  $('#home-trend-label').innerHTML = '<span class="home-trend-date">' + when + '</span> ' + homeChangeLabel(s[0].available, pt.available, '');
+}
+(function wireHomeChart() {
+  var chart = $('#home-chart'), ranges = $('#home-ranges');
+  if (!chart) return;
+  var scrubbing = false;
+  var pick = function(e) {
+    if (!homeSeries) return;
+    var r = chart.getBoundingClientRect();
+    var f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    showHomePoint(Math.round(f * (homeSeries.length - 1)));
+  };
+  chart.addEventListener('pointerdown', function(e) { scrubbing = true; pick(e); });
+  chart.addEventListener('pointermove', function(e) { if (scrubbing || e.pointerType === 'mouse') pick(e); });
+  var end = function() { scrubbing = false; showHomePoint(null); };
+  chart.addEventListener('pointerup', end);
+  chart.addEventListener('pointercancel', end);
+  chart.addEventListener('pointerleave', end);
+  ranges.addEventListener('click', function(e) {
+    var b = e.target.closest('button[data-range]'); if (!b) return;
+    homeRange = +b.dataset.range;
+    try { localStorage.setItem('alenjo_home_range', String(homeRange)); } catch (err) {}
+    renderHomeInsights();
+  });
+})();
 
 // Assets and Liabilities beside the big Available number
 function renderBalanceSplit() {

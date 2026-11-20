@@ -2894,7 +2894,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
 .home-trend-label { margin: 6px 0 0; font-size: 0.875rem; color: var(--text-muted); }
 .home-trend-label strong { color: var(--success); font-weight: 600; }
 .home-trend-label strong.down { color: var(--danger); }
-.home-trend { display: block; width: 100%; height: 48px; margin-top: 10px; }
+.home-trend { display: block; width: 100%; height: 100%; }
 
 /* Settings: grouped lists, nothing hidden behind collapsible headers */
 .page-title { font-family: var(--serif); font-size: 2rem; font-weight: 500; margin: 8px 4px 16px; color: var(--text); }
@@ -3170,3 +3170,12 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .card-more[open] > summary svg { transform: rotate(180deg); }
 .card-more-body { padding-bottom: 4px; }
 .card-more-body .card-holdings { margin-top: 0; }
+
+/* Home chart: drag to scrub, range buttons */
+.home-chart { position: relative; height: 96px; margin-top: 10px; touch-action: pan-y; cursor: crosshair; -webkit-user-select: none; user-select: none; }
+.home-chart[hidden], .home-ranges[hidden] { display: none; }
+.home-trend-dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--bg); pointer-events: none; }
+.home-trend-date { color: var(--text); font-weight: 600; }
+.home-ranges { display: flex; gap: 4px; margin-top: 10px; }
+.home-ranges button { min-width: 44px; min-height: 36px; padding: 0 10px; border: none; border-radius: 18px; background: transparent; color: var(--text-muted); font: 600 0.8125rem 'Inter', sans-serif; cursor: pointer; }
+.home-ranges button.on { background: var(--bg-elevated); color: var(--accent); }
