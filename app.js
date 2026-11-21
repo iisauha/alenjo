@@ -308,15 +308,33 @@ async function checkForUpdate() {
       try { sessionStorage.setItem('alenjo_update_tried', live); } catch (e) {}
       location.replace('/?v=' + encodeURIComponent(live));
     } else {
+      // Full screen, no way around it: the app needs the new version to keep working right
       var bar = $('#update-bar');
-      if (bar) bar.hidden = false;
+      if (bar && bar.hidden) {
+        try { saveTxNote(); } catch (e) {}
+        bar.hidden = false;
+        document.body.classList.add('update-required');
+        var b = $('#btn-update-now'); if (b) b.focus();
+      }
     }
   } catch (e) {}
 }
 var updateBtn = $('#btn-update-now');
 if (updateBtn) updateBtn.addEventListener('click', function() {
+  updateBtn.disabled = true;
+  updateBtn.textContent = 'Updating…';
+  // Your theme, Face ID and other choices live on this device and carry over
   location.replace('/?v=' + encodeURIComponent(pendingVersion || Date.now()));
 });
+// Keep the update screen from being closed with Escape or tabbed around
+document.addEventListener('keydown', function(e) {
+  var bar = $('#update-bar');
+  if (!bar || bar.hidden) return;
+  if (e.key === 'Escape') e.preventDefault();
+  if (e.key === 'Tab') { e.preventDefault(); updateBtn.focus(); }
+}, true);
+// Also check every 10 minutes while the app stays open
+setInterval(checkForUpdate, 10 * 60 * 1000);
 document.addEventListener('visibilitychange', function() {
   if (!document.hidden) checkForUpdate();
 });

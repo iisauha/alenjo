@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121013119';</script>
+  <script>var _v = '20261121013605';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121013119">
+  <link rel="stylesheet" href="style.css?v=20261121013605">
 </head>
 <body>
 
@@ -413,11 +413,6 @@
       <button type="button" id="btn-sign-out" class="set-signout">Sign out</button>
     </section>
 
-      <div id="update-bar" class="update-bar" role="status" hidden>
-      <span>A new version of Alenjo is ready</span>
-      <button type="button" id="btn-update-now">Update</button>
-    </div>
-
   <!-- Bottom Nav -->
     <nav class="bottom-nav" id="bottom-nav" aria-label="Main">
       <div class="nav-brand"><img src="alenjo-mark.png?v=1" alt="" width="20" height="26"><span>Alenjo</span></div>
@@ -690,6 +685,15 @@
   <!-- Loading overlay -->
   <div id="loading" class="loading-overlay">
     <div class="spinner"></div>
+  </div>
+
+  <div id="update-bar" class="update-screen" role="alertdialog" aria-modal="true" aria-labelledby="update-title" aria-describedby="update-desc" hidden>
+    <div class="update-card">
+      <img src="alenjo-mark.png?v=1" alt="" class="update-mark">
+      <h2 id="update-title">A new version of Alenjo is ready</h2>
+      <p id="update-desc">Update to get the latest fixes and features. It only takes a second, and your settings stay the same.</p>
+      <button type="button" id="btn-update-now" class="btn-primary">Update now</button>
+    </div>
   </div>
 
   <script>
