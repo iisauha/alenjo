@@ -4090,7 +4090,7 @@ function renderTransactionMonth() {
     else if (gap >= 0) net.innerHTML = 'You kept <b class="good">' + pctOf(gap) + '</b> of it';
     else net.innerHTML = 'You spent <b class="bad">' + pctOf(-gap) + ' more</b> than this';
   } else if (activeCategoryFilter) {
-    net.innerHTML = moneyIn ? '<b>' + pctOf(outByCat[activeCategoryFilter] || 0) + '</b> of your income' : 'Nothing has come in yet';
+    net.innerHTML = moneyIn ? '<b class="bad">' + pctOf(outByCat[activeCategoryFilter] || 0) + '</b> of your income' : 'Nothing has come in yet';
   }
   else if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
   else if (gap > 0) net.innerHTML = '<b class="good">' + wholeMoney(gap) + ' less</b> than you made';
