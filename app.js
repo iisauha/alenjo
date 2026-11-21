@@ -2257,7 +2257,7 @@ async function openPlaidLink(products) {
           })
         });
         var exchangeData = await exchangeRes.json();
-        if (exchangeData.error === 'duplicate') {
+        if (exchangeData.error === 'duplicate' || exchangeData.error === 'limit') {
           showError(exchangeData.message || 'This institution is already connected.');
           showLoading(false);
           return;

@@ -3,6 +3,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { plaidRequest, webhookUrl } from "./plaid.js";
 
 const PLAID_MAX_DAYS = 730;
+// SA-016: each connected bank adds a monthly Plaid fee, so cap them per account
+const MAX_CONNECTIONS = 10;
+const LIMIT_MESSAGE = 'You can connect up to ' + MAX_CONNECTIONS + ' banks. Disconnect one in Settings first.';
+async function atConnectionLimit(adminClient, userId) {
+  const { count } = await adminClient.from('plaid_items').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'active');
+  return (count || 0) >= MAX_CONNECTIONS;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -66,6 +73,7 @@ Deno.serve(async (req) => {
     const { action, public_token, institution, item_id } = await req.json();
 
     if (action === 'create_link_token') {
+      if (await atConnectionLimit(adminClient, user.id)) return jsonResponse({ error: 'limit', detail: LIMIT_MESSAGE }, 400);
       // Products are fixed server-side so a caller can't add Plaid products billed per item or per call.
       const requestedProducts = ['transactions'];
       const { data: oldestItem } = await adminClient.from('plaid_items').select('created_at').eq('user_id', user.id).order('created_at', { ascending: true }).limit(1).maybeSingle();
@@ -218,6 +226,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'exchange_token') {
+      // Checked again here: an unexchanged connection never gets an access token, so it's never billed
+      if (await atConnectionLimit(adminClient, user.id)) return jsonResponse({ error: 'limit', message: LIMIT_MESSAGE }, 400);
       if (institution?.institution_id) {
         const { data: existingItems } = await adminClient.from('plaid_items').select('id').eq('user_id', user.id).eq('institution_id', institution.institution_id).eq('status', 'active');
         if (existingItems && existingItems.length > 0) {
