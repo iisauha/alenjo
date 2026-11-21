@@ -1684,7 +1684,13 @@ function renderAccountOrderList() {
         (items.length > 1 ? '<span class="acct-handle" role="button" tabindex="0" aria-label="Reorder ' + esc(name) + '. Use arrow keys to move."><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 12h16M4 16h16"/></svg></span>' : '') +
       '</div>';
     });
-    html += '</div></details>';
+    html += '</div>';
+    if (items.length > 1) {
+      var custom = items.some(function(a) { return a.sort_order != null; });
+      html += '<div class="acct-order-foot"><span>' + (custom ? 'Your order' : 'Largest balance first') + '</span>' +
+        (custom ? '<button type="button" class="acct-order-reset" data-reset-order="' + kind + '">Sort by balance</button>' : '') + '</div>';
+    }
+    html += '</details>';
   });
   list.innerHTML = html;
 }
@@ -1706,6 +1712,18 @@ function saveGroupOrder(group) {
 var accountOrderList = $('#account-order-list');
 if (accountOrderList) {
   accountOrderList.addEventListener('click', function(e) {
+    var reset = e.target.closest('[data-reset-order]');
+    if (reset) {
+      // Back to automatic: clear the saved order so the group sorts by balance again
+      cachedAccounts.forEach(function(a) {
+        if (accountKind(a) !== reset.dataset.resetOrder || a.sort_order == null) return;
+        a.sort_order = null;
+        sb.from('accounts').update({ sort_order: null }).eq('id', a.id).then(function(res) { if (res.error) showToast('Could not save order'); });
+      });
+      renderAccountOrderList();
+      renderAccounts(cachedAccounts);
+      return;
+    }
     var btn = e.target.closest('[data-toggle-hide]');
     if (!btn) return;
     var acct = cachedAccounts.find(function(a) { return a.id === btn.closest('.acct-order-row').dataset.id; });
@@ -2445,12 +2463,44 @@ function renderBalanceSplit() {
   lEl.textContent = formatMoney(liabs);
 }
 
+// Interest estimate for the current calendar month. Banks accrue interest daily on each
+// day's posted balance and pay it monthly, so a short-lived deposit should barely count.
+// Days already passed use that day's real end-of-day balance (rebuilt backwards from
+// today's posted balance using posted transactions); today and the rest of the month
+// assume today's balance stays put.
+function monthInterestEstimate(a) {
+  var apy = parseFloat(a.apy);
+  if (!(apy > 0)) return 0;
+  var bal = parseFloat(a.balance_current);
+  if (isNaN(bal)) bal = getDisplayBalance(a, 'bank').amount;
+  var dayKey = function(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  var byDay = {};
+  (txData || []).forEach(function(tx) {
+    if (tx.pending || !a.plaid_account_id || tx.plaid_account_id !== a.plaid_account_id) return;
+    byDay[tx.date] = (byDay[tx.date] || 0) + parseFloat(tx.amount || 0);
+  });
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  var dayOfMonth = today.getDate();
+  var sum = bal * (daysInMonth - dayOfMonth + 1); // today through month end
+  var b = bal;
+  for (var i = 1; i < dayOfMonth; i++) {
+    var after = new Date(today); after.setDate(after.getDate() - i + 1);
+    // End of the earlier day = end of the later day plus what posted on the later day
+    // (Plaid amounts: money out is positive)
+    b += byDay[dayKey(after)] || 0;
+    sum += Math.max(0, b);
+  }
+  var avg = sum / daysInMonth;
+  var daily = Math.pow(1 + apy / 100, 1 / 365) - 1;
+  return Math.max(0, avg * daily * daysInMonth);
+}
+
 function formatApy(a) {
   var apy = parseFloat(a.apy);
-  var bal = getDisplayBalance(a, 'bank').amount;
-  var monthly = bal > 0 ? bal * (Math.pow(1 + apy / 100, 1 / 12) - 1) : 0;
-  var perMonth = monthly >= 1 ? '$' + Math.round(monthly).toLocaleString('en-US') : monthly >= 0.01 ? formatMoney(monthly) : '';
-  return apy.toFixed(2).replace(/\.?0+$/, '') + '% APY' + (perMonth ? ' · ~' + perMonth + '/mo' : '');
+  var est = monthInterestEstimate(a);
+  var amt = est >= 1 ? '$' + Math.round(est).toLocaleString('en-US') : est >= 0.01 ? formatMoney(est) : '';
+  return '<span>' + apy.toFixed(2).replace(/\.?0+$/, '') + '% APY</span>' + (amt ? '<span class="apy-est">~' + amt + ' this month</span>' : '');
 }
 
 function getInvestmentValue(a) {
@@ -3165,8 +3215,8 @@ async function loadTransactions() {
   txEmpty.hidden = true;
   txContent.hidden = false;
 
-  // Re-render snapshot in case any credit card has a bonus tracker that needs tx data
-  if (cachedAccounts && cachedAccounts.some(function(a) { return a.type === 'credit' && a.bonus_target_amount; })) {
+  // Re-render snapshot: bonus trackers and interest estimates use tx data
+  if (cachedAccounts && cachedAccounts.some(function(a) { return (a.type === 'credit' && a.bonus_target_amount) || a.apy; })) {
     renderAccounts(cachedAccounts);
   }
 
