@@ -3176,7 +3176,7 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .account-card .account-top { align-items: center; gap: 12px; }
 .acct-badge { flex-shrink: 0; width: 40px; height: 40px; border-radius: 11px; background: #FFFFFF center / cover no-repeat; }
 .acct-badge-logo { background-size: 72%; border: 1px solid var(--border); }
-.acct-badge-art { width: 54px; height: 34px; border-radius: 5px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }
+.acct-badge-art { width: 48px; height: 30px;   /* slimmer so "APY  ~$X this month" stays on one line */ border-radius: 5px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }
 .acct-badge-initial { display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); font-weight: 700; font-size: 1rem; }
 .account-card .account-name { -webkit-line-clamp: 1; font-size: 1rem; }
 .account-sub { font-size: 0.8125rem; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -3483,7 +3483,7 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 /* Split vs adjusted vs renamed tags */
 .txs-adj.is-split, .act-tag-split { background: color-mix(in srgb, #5B7FD6 16%, transparent); color: #5B7FD6; }
 :root[data-theme="dark"] .txs-adj.is-split, :root[data-theme="dark"] .act-tag-split { color: #8EA8EA; background: color-mix(in srgb, #8EA8EA 16%, transparent); }
-.txs-adj.is-adjusted, .act-tag-adjusted { background: var(--accent-subtle); color: var(--accent); }
+.txs-adj.is-adjusted, .act-tag-adjusted { background: color-mix(in srgb, #A07FE0 16%, transparent); color: #A07FE0; }   /* purple: green is only for money in */
 /* Logo picker */
 .txs-avatar-btn { position: relative; flex-shrink: 0; padding: 0; border: none; background: transparent; cursor: pointer; border-radius: 50%; }
 .txs-avatar-badge { position: absolute; right: -2px; bottom: -2px; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); box-shadow: 0 0 0 2px var(--bg-card); }
