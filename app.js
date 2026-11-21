@@ -215,7 +215,7 @@ function setupRememberedEmail() {
   }
 }
 $('#btn-not-you').addEventListener('click', function() {
-  try { localStorage.removeItem('alenjo_last_email'); localStorage.removeItem('alenjo_last_name'); } catch (e) {}
+  try { ['alenjo_last_email', 'alenjo_last_name', 'alenjo_last_avatar', SIGNED_KEY].forEach(function(k) { localStorage.removeItem(k); }); } catch (e) {}
   authEmail.value = '';
   setupRememberedEmail();
   $('#login-greeting').textContent = 'Welcome back';
@@ -420,6 +420,8 @@ var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test
       } catch (e) {}
       firstSync = true;
       lastActivityAt = Date.now();
+      loadSignedCache(currentUser.id);
+      paintCachedProfile();
       Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
         if (cachedAccounts && cachedAccounts.length > 0) throttledSync();
         return loadTransactions();
@@ -635,6 +637,22 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 // for short-lived links (7 days) that only work for the signed-in owner's files.
 // ============================================
 var signedUrlCache = {};
+// The links are kept on this device (for this account only) so the next launch can show
+// your photo and card art straight away, and the browser can reuse the image it already downloaded.
+var SIGNED_KEY = 'alenjo_signed_urls';
+function loadSignedCache(uid) {
+  try {
+    var o = JSON.parse(localStorage.getItem(SIGNED_KEY) || 'null');
+    if (!o || o.uid !== uid) return;
+    Object.keys(o.m || {}).forEach(function(k) { if (o.m[k].exp > Date.now()) signedUrlCache[k] = o.m[k]; });
+  } catch (e) {}
+}
+function saveSignedCache() {
+  if (!currentUser) return;
+  var m = {};
+  Object.keys(signedUrlCache).forEach(function(k) { if (signedUrlCache[k].exp > Date.now()) m[k] = signedUrlCache[k]; });
+  try { localStorage.setItem(SIGNED_KEY, JSON.stringify({ uid: currentUser.id, m: m })); } catch (e) {}
+}
 async function signedUrl(bucket, path) {
   if (!path) return null;
   var key = bucket + '/' + path, hit = signedUrlCache[key];
@@ -642,8 +660,66 @@ async function signedUrl(bucket, path) {
   var r = await sb.storage.from(bucket).createSignedUrl(path, 7 * 24 * 3600);
   if (r.error || !r.data) return null;
   signedUrlCache[key] = { url: r.data.signedUrl, exp: Date.now() + 6 * 24 * 3600 * 1000 };
+  saveSignedCache();
   return r.data.signedUrl;
 }
+// Many at once; only asks the server for the ones not already known. Returns { path: url }.
+async function signedUrls(bucket, paths) {
+  var out = {}, need = [];
+  paths.forEach(function(p) { var h = signedUrlCache[bucket + '/' + p]; if (h && h.exp > Date.now()) out[p] = h.url; else need.push(p); });
+  if (need.length) {
+    var r = await sb.storage.from(bucket).createSignedUrls(need, 7 * 24 * 3600);
+    (r.data || []).forEach(function(x) {
+      if (!x.signedUrl) return;
+      out[x.path] = x.signedUrl;
+      signedUrlCache[bucket + '/' + x.path] = { url: x.signedUrl, exp: Date.now() + 6 * 24 * 3600 * 1000 };
+    });
+    saveSignedCache();
+  }
+  return out;
+}
+// Shrink an image to what the app actually shows (keeps transparency for PNG/WebP)
+function shrinkImage(src, maxDim, type, quality) {
+  return new Promise(function(resolve, reject) {
+    var img = new Image(), url = typeof src === 'string' ? src : URL.createObjectURL(src);
+    if (typeof src === 'string') img.crossOrigin = 'anonymous';
+    img.onload = function() {
+      var w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, maxDim / Math.max(w, h));
+      var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      var ctx = c.getContext('2d');
+      if (type === 'image/jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); }
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      if (typeof src !== 'string') URL.revokeObjectURL(url);
+      c.toBlob(function(b) {
+        if (!b) return reject(new Error('encode'));
+        // Some Safari versions can't write WebP and quietly give PNG; that's fine
+        resolve({ blob: b, width: w, height: h, shrunk: k < 1 });
+      }, type, quality);
+    };
+    img.onerror = function() { if (typeof src !== 'string') URL.revokeObjectURL(url); reject(new Error('read')); };
+    img.src = url;
+  });
+}
+var IMG_CACHE = '604800';   // images can be reused by the browser for a week
+// One time per image: photos and card art uploaded before images were resized get resized
+// in the background (they were often 1-3 MB for a 40px picture).
+var IMG_LIMITS = { 'avatars': { max: 512, type: 'image/jpeg', q: 0.86 }, 'card-designs': { max: 900, type: 'image/webp', q: 0.9 } };
+async function optimizeStoredImages(items) {
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i], flag = 'alenjo_opt_' + it.bucket + '/' + it.path, lim = IMG_LIMITS[it.bucket];
+    try { if (localStorage.getItem(flag)) continue; } catch (e) { continue; }
+    try {
+      var r = await shrinkImage(it.url, lim.max, lim.type, lim.q);
+      if (r.shrunk) {
+        var up = await sb.storage.from(it.bucket).upload(it.path, r.blob, { upsert: true, contentType: r.blob.type, cacheControl: IMG_CACHE });
+        if (up.error) { console.warn('optimise upload', up.error); continue; }
+      }
+      localStorage.setItem(flag, '1');
+    } catch (e) { console.warn('optimise skipped', it.path, e); }
+  }
+}
+function whenIdle(fn) { (window.requestIdleCallback || function(f) { setTimeout(f, 1500); })(fn); }
 function storagePathFromUrl(url, bucket) {
   var m = String(url || '').match(new RegExp('/' + bucket + '/(.+?)(?:\\?|$)'));
   return m ? decodeURIComponent(m[1]) : null;
@@ -660,13 +736,26 @@ async function loadProfile() {
   }
   userProfile = result.data;
   if (userProfile && userProfile.avatar_url) {
-    userProfile.avatar_url = await signedUrl('avatars', storagePathFromUrl(userProfile.avatar_url, 'avatars')) || null;
+    var avPath = storagePathFromUrl(userProfile.avatar_url, 'avatars');
+    userProfile.avatar_url = await signedUrl('avatars', avPath) || null;
+    try { localStorage.setItem('alenjo_last_avatar', JSON.stringify({ uid: currentUser.id, path: avPath })); } catch (e) {}
+    if (userProfile.avatar_url) { var avUrl = userProfile.avatar_url; whenIdle(function() { optimizeStoredImages([{ bucket: 'avatars', path: avPath, url: avUrl }]); }); }
   }
   try { if (userProfile && userProfile.display_name) localStorage.setItem('alenjo_last_name', userProfile.display_name); } catch (e) {}
   updateHeaderProfile();
   updateSettingsProfile();
 }
 
+// Right after sign-in, before the server answers: last known name and photo on this device
+function paintCachedProfile() {
+  try {
+    var name = localStorage.getItem('alenjo_last_name');
+    if (name && headerName && !headerName.textContent) headerName.textContent = name;
+    var av = JSON.parse(localStorage.getItem('alenjo_last_avatar') || 'null');
+    var hit = av && currentUser && av.uid === currentUser.id && signedUrlCache['avatars/' + av.path];
+    if (hit && hit.exp > Date.now() && headerAvatar) headerAvatar.style.backgroundImage = 'url(' + hit.url + ')';
+  } catch (e) {}
+}
 function updateHeaderProfile() {
   if (!userProfile) return;
   headerName.textContent = userProfile.display_name || '';
@@ -707,14 +796,18 @@ $('#avatar-upload').addEventListener('change', async function(e) {
   var file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  if (file.size > 2 * 1024 * 1024) {
-    showToast('Photo is too large. Use one under 2 MB.');
+  if (file.size > 25 * 1024 * 1024) {
+    showToast('Photo is too large. Use one under 25 MB.');
     return;
   }
   showLoading(true);
 
-  var path = currentUser.id + '/avatar.' + file.name.split('.').pop();
-  var uploadResult = await sb.storage.from('avatars').upload(path, file, { upsert: true });
+  // Shown as a small circle: 512px is plenty and loads instantly
+  var shrunk;
+  try { shrunk = (await shrinkImage(file, 512, 'image/jpeg', 0.86)).blob; } catch (err) { showLoading(false); showToast("Couldn't read that photo."); return; }
+  var path = currentUser.id + '/avatar.jpg';
+  var oldPath = userProfile && userProfile.avatar_url ? storagePathFromUrl(userProfile.avatar_url, 'avatars') : null;
+  var uploadResult = await sb.storage.from('avatars').upload(path, shrunk, { upsert: true, contentType: 'image/jpeg', cacheControl: IMG_CACHE });
 
   if (uploadResult.error) {
     console.error('Upload error:', uploadResult.error);
@@ -727,6 +820,8 @@ $('#avatar-upload').addEventListener('change', async function(e) {
   var urlResult = sb.storage.from('avatars').getPublicUrl(path);
   await sb.from('profiles').update({ avatar_url: urlResult.data.publicUrl }).eq('id', currentUser.id);
   delete signedUrlCache['avatars/' + path];
+  if (oldPath && oldPath !== path) sb.storage.from('avatars').remove([oldPath]);   // the old photo under another name
+  try { localStorage.setItem('alenjo_opt_avatars/' + path, '1'); localStorage.setItem('alenjo_last_avatar', JSON.stringify({ uid: currentUser.id, path: path })); } catch (e) {}
   userProfile.avatar_url = (await signedUrl('avatars', path)) + '&v=' + Date.now();
   updateHeaderProfile();
   updateSettingsProfile();
@@ -746,10 +841,15 @@ async function loadCardDesigns() {
   cachedCardDesigns = result.data || [];
   var paths = cachedCardDesigns.map(function(d) { return d.storage_path; }).filter(Boolean);
   if (paths.length) {
-    var signed = await sb.storage.from('card-designs').createSignedUrls(paths, 7 * 24 * 3600);
-    var byPath = {};
-    (signed.data || []).forEach(function(s) { if (s.signedUrl) byPath[s.path] = s.signedUrl; });
-    cachedCardDesigns.forEach(function(d) { if (byPath[d.storage_path]) d.url = byPath[d.storage_path]; });
+    var byPath = await signedUrls('card-designs', paths);
+    cachedCardDesigns.forEach(function(d) {
+      if (!byPath[d.storage_path]) return;
+      d.url = byPath[d.storage_path];
+      new Image().src = d.url;   // start downloading now, before the cards render
+    });
+    whenIdle(function() {
+      optimizeStoredImages(cachedCardDesigns.filter(function(d) { return d.url; }).map(function(d) { return { bucket: 'card-designs', path: d.storage_path, url: d.url }; }));
+    });
   }
   renderCardDesignsSettings();
   // Re-render accounts in case they loaded first and a design was referenced
@@ -1485,10 +1585,13 @@ async function finalizeDesignUpload(processedBlob) {
   URL.revokeObjectURL(objUrl);
 
   setDesignStatus('Uploading...');
-  var fname = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png';
+  // Card art shows at most ~300px wide: 900px covers sharp screens without megabytes
+  try { processedBlob = (await shrinkImage(processedBlob, 900, 'image/webp', 0.9)).blob; } catch (err) {}
+  var fname = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + (processedBlob.type === 'image/webp' ? '.webp' : '.png');
   var path = currentUser.id + '/' + fname;
+  try { localStorage.setItem('alenjo_opt_card-designs/' + path, '1'); } catch (e) {}
 
-  var up = await sb.storage.from('card-designs').upload(path, processedBlob, { contentType: 'image/png' });
+  var up = await sb.storage.from('card-designs').upload(path, processedBlob, { contentType: processedBlob.type || 'image/png', cacheControl: IMG_CACHE });
   if (up.error) {
     console.error('card design upload error', up.error);
     setDesignStatus('Upload failed.', true);
@@ -2253,9 +2356,7 @@ async function loadCustomLogos() {
   customLogos = r.data || [];
   var paths = customLogos.map(function(l) { return l.storage_path; });
   if (paths.length) {
-    var signed = await sb.storage.from('logos').createSignedUrls(paths, 7 * 24 * 3600);
-    var byPath = {};
-    (signed.data || []).forEach(function(x) { if (x.signedUrl) byPath[x.path] = x.signedUrl; });
+    var byPath = await signedUrls('logos', paths);
     customLogos.forEach(function(l) { l.url = byPath[l.storage_path] || null; });
   }
   renderCustomLogosSettings();
@@ -2280,7 +2381,7 @@ async function uploadCustomLogo(file, name) {
   if (!name) throw new Error('name');
   var blob = file instanceof Blob && file.type === 'image/png' && file.__framed ? file : await logoImageToBlob(file);
   var path = currentUser.id + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)) + '.png';
-  var up = await sb.storage.from('logos').upload(path, blob, { contentType: 'image/png' });
+  var up = await sb.storage.from('logos').upload(path, blob, { contentType: 'image/png', cacheControl: IMG_CACHE });
   if (up.error) throw up.error;
   var ins = await sb.from('custom_logos').insert({ name: name, storage_path: path }).select('id, name, storage_path').single();
   if (ins.error) { sb.storage.from('logos').remove([path]); throw ins.error; }
