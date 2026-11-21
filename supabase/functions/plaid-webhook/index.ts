@@ -9,6 +9,7 @@ import { deliver } from "./notify.js";
 // then turned into notifications.
 const enc = new TextEncoder();
 const keyCache = new Map<string, CryptoKey>();
+let missWindow = 0, misses = 0;
 
 function unb64u(s: string) {
   const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
@@ -27,9 +28,13 @@ async function verify(token: string | null, rawBody: string) {
   const parts = token.split('.');
   if (parts.length !== 3) return false;
   const header = JSON.parse(new TextDecoder().decode(unb64u(parts[0])));
-  if (header.alg !== 'ES256' || !header.kid) return false;
+  if (header.alg !== 'ES256' || typeof header.kid !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(header.kid)) return false;
   let key = keyCache.get(header.kid);
   if (!key) {
+    // SA-014: don't let random key ids turn into a flood of Plaid lookups
+    const now = Date.now();
+    if (now - missWindow > 10 * 60 * 1000) { missWindow = now; misses = 0; }
+    if (++misses > 20) return false;
     const res = await plaidRequest('/webhook_verification_key/get', { key_id: header.kid });
     if (!res.key || res.key.expired_at) return false;
     key = await crypto.subtle.importKey('jwk', { kty: res.key.kty, crv: res.key.crv, x: res.key.x, y: res.key.y }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
