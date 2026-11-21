@@ -3378,7 +3378,7 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 /* Amount colors: out = red, in = green, pending = orange until it posts */
 :root { --pending: #B5582F; }
 :root[data-theme="dark"] { --pending: #D97757; }
-.act-row-amt.is-out { color: var(--danger); }
+.act-row-amt.is-out { color: var(--text); }   /* the minus sign says it; red stays for real problems */
 .act-row-amt.is-in { color: var(--success); }
 .act-row-amt.is-pending { color: var(--pending); }
 .act-tag-pending { background: color-mix(in srgb, var(--pending) 16%, transparent); color: var(--pending); }
@@ -3399,7 +3399,7 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .txs-input { width: 100%; min-height: 36px; padding: 0 10px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-card); color: var(--text); font: 600 max(16px, 1rem) 'Inter', sans-serif; outline: none; }
 .txs-amount { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 4px 0 14px 56px; }
 .txs-amt { font-family: var(--serif); font-size: 2rem; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.txs-amt.is-out { color: var(--danger); } .txs-amt.is-in { color: var(--success); } .txs-amt.is-pending { color: var(--pending); }
+.txs-amt.is-out { color: var(--text); } .txs-amt.is-in { color: var(--success); } .txs-amt.is-pending { color: var(--pending); }
 .txs-amt-edit { display: inline-flex; align-items: center; gap: 6px; font-family: var(--serif); font-size: 1.5rem; }
 .txs-amt-edit .txs-input { width: 150px; font-size: 1.25rem; }
 .txs-group { border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; }
