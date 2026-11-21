@@ -13,11 +13,48 @@
     else { try { window.top.location = window.self.location; } catch (e) {} }
   </script>
   <script>
-    // Apply the saved appearance (system, light or dark) before anything paints
+    // Time-of-day helpers shared with app.js: the greeting and the Adaptive theme.
     (function() {
-      var pref = 'system';
-      try { pref = localStorage.getItem('alenjo_theme') || 'system'; } catch (e) {}
-      var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      // Sunset for a date and place (standard sunrise equation, accurate to a minute or two)
+      function sunset(date, lat, lon) {
+        var rad = Math.PI / 180, d = new Date(date); d.setHours(12, 0, 0, 0);
+        var n = Math.round(d.getTime() / 86400000 + 2440587.5 - 2451545.0 + 0.0008);
+        var J = n - lon / 360;
+        var M = (357.5291 + 0.98560028 * J) % 360;
+        var C = 1.9148 * Math.sin(M * rad) + 0.02 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
+        var L = (M + C + 180 + 102.9372) % 360;
+        var transit = 2451545 + J + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * L * rad);
+        var dec = Math.asin(Math.sin(L * rad) * Math.sin(23.44 * rad));
+        var cosW = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * Math.sin(dec)) / (Math.cos(lat * rad) * Math.cos(dec));
+        if (!(cosW > -1 && cosW < 1)) { var f = new Date(date); f.setHours(18, 0, 0, 0); return f; }
+        return new Date((transit + Math.acos(cosW) / rad / 360 - 2440587.5) * 86400000);
+      }
+      // Where you are: a saved rough location if you allowed it, otherwise a guess from your time zone
+      function place() {
+        try { var p = JSON.parse(localStorage.getItem('alenjo_place') || 'null'); if (p && isFinite(p.lat)) return p; } catch (e) {}
+        var y = new Date().getFullYear();
+        var std = Math.max(new Date(y, 0, 1).getTimezoneOffset(), new Date(y, 6, 1).getTimezoneOffset());
+        return { lat: 40, lon: -std / 4, guessed: true };
+      }
+      function prefOf() {
+        var p = 'adaptive';
+        try { p = localStorage.getItem('alenjo_theme') || 'adaptive'; } catch (e) {}
+        return p === 'system' ? 'adaptive' : p;   // the old System choice becomes Adaptive
+      }
+      // Adaptive: dark from sunset until 6am, light from 6am until sunset
+      function isDark(pref) {
+        pref = pref || prefOf();
+        if (pref === 'dark') return true;
+        if (pref === 'light') return false;
+        var now = new Date(), p = place();
+        return now.getHours() < 6 || now >= sunset(now, p.lat, p.lon);
+      }
+      function greeting(now) {
+        var h = (now || new Date()).getHours();
+        return h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Good night';
+      }
+      window.AlenjoTime = { sunset: sunset, place: place, pref: prefOf, isDark: isDark, greeting: greeting };
+      var dark = isDark();
       document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       var m = document.querySelector('meta[name="theme-color"]');
       if (m) m.setAttribute('content', dark ? '#1C1B17' : '#E6E2D8');
@@ -36,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121144139';</script>
+  <script>var _v = '20261121151039';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121144139">
+  <link rel="stylesheet" href="style.css?v=20261121151039">
 </head>
 <body>
 
@@ -136,8 +173,7 @@
         var name = localStorage.getItem('alenjo_last_name') || '';
         var since = localStorage.getItem('alenjo_since') || '';
         var email = localStorage.getItem('alenjo_last_email') || '';
-        var h = new Date().getHours();
-        if (name) document.getElementById('login-greeting').textContent = (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', ' + name.split(' ')[0];
+        if (name) document.getElementById('login-greeting').textContent = window.AlenjoTime.greeting() + ', ' + name.split(' ')[0];
         if (name && since) document.getElementById('login-subtitle').textContent = 'Using Alenjo since ' + since;
         if (email) {
           var at = email.indexOf('@');
@@ -339,10 +375,11 @@
       <div class="set-group">
         <div class="set-row set-row-stack">
           <div class="theme-seg" role="group" aria-label="Appearance">
-            <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
             <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
             <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+            <button type="button" data-theme-choice="adaptive" aria-pressed="true">Adaptive</button>
           </div>
+          <p class="theme-note" id="theme-note" hidden></p>
         </div>
       </div>
 

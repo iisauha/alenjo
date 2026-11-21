@@ -1990,48 +1990,66 @@ if (prefAfterPending) {
 }
 
 // ============================================
-// APPEARANCE (system / light / dark)
+// APPEARANCE (light / dark / adaptive)
+// Adaptive: dark from sunset until 6am. Helpers live in index.html (AlenjoTime).
 // ============================================
-function getThemePref() {
-  try { return localStorage.getItem('alenjo_theme') || 'system'; } catch (e) { return 'system'; }
-}
+var AT = window.AlenjoTime;
+function getThemePref() { return AT.pref(); }
+function fmtClock(d) { return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
 function applyTheme() {
-  var pref = getThemePref();
-  var dark = pref === 'dark' || (pref === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  var pref = getThemePref(), dark = AT.isDark(pref);
+  if (document.documentElement.getAttribute('data-theme') !== (dark ? 'dark' : 'light')) document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   var meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', dark ? '#1C1B17' : '#E6E2D8');
   document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
     b.setAttribute('aria-pressed', b.dataset.themeChoice === pref ? 'true' : 'false');
   });
+  var note = $('#theme-note');
+  if (note) {
+    if (pref !== 'adaptive') { note.hidden = true; }
+    else {
+      var p = AT.place(), set = AT.sunset(new Date(), p.lat, p.lon);
+      note.hidden = false;
+      note.innerHTML = 'Dark from sunset (' + esc(fmtClock(set)) + ' today) until 6:00 AM.' +
+        (p.guessed ? ' <button type="button" class="theme-loc" id="theme-loc">Use my location for exact sunset</button>' : '');
+    }
+  }
 }
+// One rough location (about 10 km), only if you ask for exact sunset. Never sent anywhere.
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#theme-loc') || !navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    try { localStorage.setItem('alenjo_place', JSON.stringify({ lat: Math.round(pos.coords.latitude * 10) / 10, lon: Math.round(pos.coords.longitude * 10) / 10 })); } catch (err) {}
+    applyTheme();
+  }, function() {}, { maximumAge: 86400000, timeout: 15000 });
+});
 document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
   b.addEventListener('click', function() {
     try { localStorage.setItem('alenjo_theme', b.dataset.themeChoice); } catch (e) {}
     applyTheme();
   });
 });
-if (window.matchMedia) {
-  var darkQuery = matchMedia('(prefers-color-scheme: dark)');
-  var onSystemTheme = function() { if (getThemePref() === 'system') applyTheme(); };
-  if (darkQuery.addEventListener) darkQuery.addEventListener('change', onSystemTheme);
-  else if (darkQuery.addListener) darkQuery.addListener(onSystemTheme);
-}
 applyTheme();
 
 // Personal greeting on the sign-in screen
-(function() {
+function renderLoginGreeting() {
+  if (resettingPassword) return;   // keep "Choose a new password"
   var name = '';
   try { name = localStorage.getItem('alenjo_last_name') || ''; } catch (e) {}
-  var h = new Date().getHours();
-  var part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   var g = document.getElementById('login-greeting');
-  if (g) g.textContent = name ? part + ', ' + name.split(' ')[0] : 'Welcome back';
+  if (g) g.textContent = name ? AT.greeting() + ', ' + name.split(' ')[0] : 'Welcome back';
   var sub = document.getElementById('login-subtitle');
   var since = '';
   try { since = localStorage.getItem('alenjo_since') || ''; } catch (e) {}
   if (sub && name && since) sub.textContent = 'Using Alenjo since ' + since;
-})();
+}
+renderLoginGreeting();
+// The app can sit open in the background for hours: refresh the greeting and the
+// Adaptive theme whenever it comes back, and once a minute while it's open.
+function refreshTimeOfDay() { applyTheme(); renderLoginGreeting(); }
+document.addEventListener('visibilitychange', function() { if (!document.hidden) refreshTimeOfDay(); });
+window.addEventListener('pageshow', refreshTimeOfDay);
+setInterval(function() { if (!document.hidden) applyTheme(); }, 60000);
 
 // ============================================
 // PLAID LINK
