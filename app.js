@@ -3840,6 +3840,9 @@ async function loadTransactions() {
   if (freshResult.data && freshResult.data[0]) {
     var plaidTime = freshResult.data[0].plaid_last_checked_at;
     var syncTime = freshResult.data[0].tx_last_synced_at;
+    // Up top: the exact day and time your bank data was last pulled
+    var top = $('#act-updated'), when = plaidTime || syncTime;
+    if (top && when) { top.textContent = 'Updated ' + whenExact(when); top.title = new Date(when).toLocaleString(); top.dataset.when = when; }
     if (plaidTime) {
       updated.textContent = 'Bank data from ' + formatTimestamp(plaidTime);
       updated.setAttribute('data-ts', plaidTime);
@@ -5537,6 +5540,14 @@ if (legendToggle) legendToggle.addEventListener('click', function() {
 // ============================================
 // UTILS
 // ============================================
+// "today, 6:42 AM" / "yesterday, 9:10 PM" / "Nov 18, 9:10 PM"
+function whenExact(ts) {
+  var d = new Date(ts), t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  var day = new Date(d); day.setHours(0, 0, 0, 0);
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var diff = Math.round((today - day) / 86400000);
+  return (diff === 0 ? 'today' : diff === 1 ? 'yesterday' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + ', ' + t;
+}
 function formatTimestamp(ts) {
   if (!ts) return '';
   var d = new Date(ts);
@@ -5570,6 +5581,8 @@ function formatPct(value) {
 
 // Tick all visible relative timestamps every 60s (no API calls)
 setInterval(function() {
+  var au = document.getElementById('act-updated');
+  if (au && au.dataset.when) au.textContent = 'Updated ' + whenExact(au.dataset.when);   // "today" becomes "yesterday" overnight
   document.querySelectorAll('[data-ts]').forEach(function(el) {
     var ts = el.getAttribute('data-ts');
     var prefix = el.getAttribute('data-ts-prefix') || '';

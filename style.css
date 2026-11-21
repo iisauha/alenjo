@@ -3737,3 +3737,7 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .theme-note { margin: 10px 2px 0; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.45; }
 .theme-note[hidden] { display: none; }
 .theme-loc { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: none; background: none; color: var(--accent); font: inherit; font-weight: 500; cursor: pointer; text-align: left; }
+
+/* Activity: when bank data was last pulled, beside "Spent" */
+.act-spent-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.act-updated { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
