@@ -3368,6 +3368,24 @@ function renderTransactionMonth() {
     });
   }
 
+  // On the earliest month you can open, "Show ignored" also lists anything you
+  // moved to a month before it, so it can still be found and moved back.
+  // These don't count toward this month's totals.
+  var movedEarlier = {};
+  if (showIgnoredTx && txMonths.length && month === txMonths[txMonths.length - 1]) {
+    txData.forEach(function(tx) {
+      var eff = getEffectiveTx(tx);
+      if (eff.date.substring(0, 7) >= month) return;
+      if (cardId !== 'all' && tx.plaid_account_id !== cardId) return;
+      if (searchVal) {
+        var hay = [eff.nickname, eff.note, tx.enriched_merchant_name, tx.merchant_name, tx.name].join(' ').toLowerCase();
+        if (hay.indexOf(searchVal) === -1) return;
+      }
+      movedEarlier[tx.id] = eff.date.substring(0, 7);
+      displayTx = displayTx.concat([tx]);
+    });
+  }
+
   // Filter by active category if pie slice clicked
   if (activeCategoryFilter) {
     displayTx = displayTx.filter(function(tx) {
@@ -3495,7 +3513,7 @@ function renderTransactionMonth() {
   });
   groups.forEach(function(key) {
     var dayNet = 0;
-    groupMap[key].forEach(function(tx) { var e = getEffectiveTx(tx); if (!e.excluded) dayNet -= e.amount; });
+    groupMap[key].forEach(function(tx) { var e = getEffectiveTx(tx); if (!e.excluded && !movedEarlier[tx.id]) dayNet -= e.amount; });
     html += '<div class="act-day"><div class="act-day-head"><span>' + friendlyDay(key) + '</span><span>' + (dayNet > 0 ? '+' : dayNet < 0 ? '−' : '') + formatMoney(dayNet) + '</span></div>';
     groupMap[key].forEach(function(tx) {
       var eff = getEffectiveTx(tx);
@@ -3506,7 +3524,8 @@ function renderTransactionMonth() {
       var income = tx.amount < 0;
       var tags = '';
       if (tx.pending) tags += '<span class="act-tag act-tag-pending">Pending</span>';
-      if (eff.date !== swipeDate(tx)) tags += '<span class="act-tag">Moved</span>';
+      if (movedEarlier[tx.id]) tags += '<span class="act-tag act-tag-pending">Moved to ' + MONTH_LONG[parseInt(movedEarlier[tx.id].substring(5, 7), 10) - 1] + '</span>';
+      else if (eff.date !== swipeDate(tx)) tags += '<span class="act-tag">Moved</span>';
       if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
       if (eff.actionType === 'ignored') tags += '<span class="act-tag">Ignored</span>';
       if (!eff.excluded && eff.isAdjusted) tags += '<span class="act-tag act-tag-adjusted">Adjusted</span>';
@@ -3517,7 +3536,7 @@ function renderTransactionMonth() {
       var avatar = '<span class="act-avatar" data-i="' + esc(name.charAt(0).toUpperCase()) + '">' +
         (logoSrc ? '<img src="' + esc(logoSrc) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
       var amountMain = (income ? '+' : '−') + formatMoney((eff.isSplit || eff.isAdjusted) && !eff.excluded ? eff.amount : tx.amount);
-      html += '<div class="tx-row act-row' + (eff.excluded ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
+      html += '<div class="tx-row act-row' + (eff.excluded || movedEarlier[tx.id] ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
         avatar +
         '<span class="act-row-main"><span class="act-row-name">' + esc(name) + '</span>' +
         '<span class="act-row-meta">' + (showCardName ? esc(acctName) + ' · ' : '') + esc(cat) + '</span>' +
