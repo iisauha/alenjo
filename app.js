@@ -1556,7 +1556,8 @@ document.querySelectorAll('.hero-stat').forEach(function(btn) {
     localStorage.setItem('alenjo_show_available', showAvailable ? 'true' : 'false');
     var pref = $('#pref-after-pending');
     if (pref) pref.checked = !showAvailable;
-    if (cachedAccounts) renderAccounts(cachedAccounts);
+    if (cachedAccounts) { renderAccounts(cachedAccounts); renderHomeInsights(); }
+    showToast(showAvailable ? 'Posted balances only' : 'Including pending charges');
   });
 });
 
@@ -1627,7 +1628,8 @@ function renderAccountOrderList() {
       return ox - oy || Math.abs(getDisplayBalance(y, 'bank').amount) - Math.abs(getDisplayBalance(x, 'bank').amount);
     });
     if (!items.length) return;
-    html += '<div class="acct-order-kind">' + kind + '</div><div class="acct-order-group" data-kind="' + kind + '">';
+    var hiddenCount = items.filter(function(a) { return a.is_hidden; }).length;
+    html += '<details class="acct-order-sec" data-kind="' + kind + '"' + (acctOrderOpen[kind] ? ' open' : '') + '><summary class="acct-order-kind"><span>' + kind + '</span><span class="acct-order-count">' + items.length + (hiddenCount ? ' · ' + hiddenCount + ' hidden' : '') + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></summary><div class="acct-order-group" data-kind="' + kind + '">';
     items.forEach(function(a) {
       var name = (a.nickname || a.name || 'Account').replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
       html += '<div class="acct-order-row' + (a.is_hidden ? ' is-hidden' : '') + '" data-id="' + esc(a.id) + '">' +
@@ -1636,10 +1638,15 @@ function renderAccountOrderList() {
         (items.length > 1 ? '<span class="acct-handle" role="button" tabindex="0" aria-label="Reorder ' + esc(name) + '. Use arrow keys to move."><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 12h16M4 16h16"/></svg></span>' : '') +
       '</div>';
     });
-    html += '</div>';
+    html += '</div></details>';
   });
   list.innerHTML = html;
 }
+var acctOrderOpen = {};
+document.addEventListener('toggle', function(e) {
+  var d = e.target;
+  if (d.classList && d.classList.contains('acct-order-sec')) acctOrderOpen[d.dataset.kind] = d.open;
+}, true);
 function saveGroupOrder(group) {
   Array.prototype.forEach.call(group.querySelectorAll('.acct-order-row'), function(r, i) {
     var a = cachedAccounts.find(function(x) { return x.id === r.dataset.id; });
@@ -1726,7 +1733,7 @@ if (prefAfterPending) {
   prefAfterPending.addEventListener('change', function() {
     showAvailable = !this.checked;
     localStorage.setItem('alenjo_show_available', showAvailable ? 'true' : 'false');
-    if (cachedAccounts) renderAccounts(cachedAccounts);
+    if (cachedAccounts) { renderAccounts(cachedAccounts); renderHomeInsights(); }
   });
 }
 

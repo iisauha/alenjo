@@ -3499,3 +3499,11 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 #logo-reset[hidden] { display: none; }
 #split-to-adjusted { display: block; margin: 8px auto 0; min-height: 40px; font-size: 0.8125rem; }
 #split-to-adjusted[hidden] { display: none; }
+/* Accounts: each group folds behind a chevron */
+.acct-order-sec + .acct-order-sec { border-top: 1px solid var(--border); }
+.acct-order-sec > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 14px; cursor: pointer; }
+.acct-order-sec > summary::-webkit-details-marker { display: none; }
+.acct-order-count { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.acct-order-count svg { transition: transform 0.2s; }
+.acct-order-sec[open] .acct-order-count svg { transform: rotate(180deg); }
+.acct-order-sec[open] > .acct-order-group { border-top: 1px solid var(--border); }
