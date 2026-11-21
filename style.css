@@ -3596,3 +3596,8 @@ body.update-required { overflow: hidden; }
 .mylogo-name:focus { border-color: var(--border); background: var(--bg-card); outline: none; }
 .mylogo-del { flex: none; min-height: 44px; padding: 0 4px; background: none; border: 0; color: var(--text-muted); font: inherit; font-size: 0.875rem; cursor: pointer; }
 .mylogo-del.confirm { color: var(--danger); font-weight: 600; }
+
+/* Feel like a native app: no text highlighting or long-press callouts on the UI.
+   Fields you type in stay selectable so copy/paste still works. */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
