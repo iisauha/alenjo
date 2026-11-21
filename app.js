@@ -2989,6 +2989,9 @@ async function loadTransactions() {
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
   }
+  var mapResult = await sb.from('user_category_map').select('source, display');
+  catMap = {};
+  if (mapResult.data) mapResult.data.forEach(function(r) { catMap[r.source] = r.display; });
   var rulesResult = await sb.from('merchant_ignore_rules').select('merchant_name').eq('is_active', true);
   ignoreRules = {};
   if (rulesResult.data) {
@@ -3222,7 +3225,8 @@ function renderTransactionMonth() {
     var eff = getEffectiveTx(tx);
     if (eff.excluded) return;
     var cat = normalizeCategory(eff.category);
-    if (isTransferCategory(cat)) { transfers += Math.abs(eff.amount); return; }
+    // Transfers stay out of spending even if you renamed or deleted that category
+    if (isTransferCategory(baseCategory(eff.category))) { transfers += Math.abs(eff.amount); return; }
     if (eff.amount > 0) {
       spent += eff.amount;
       byCategory[cat] = (byCategory[cat] || 0) + eff.amount;
@@ -3753,7 +3757,18 @@ var CATEGORY_NAMES = {
   GOVERNMENT_AND_NON_PROFIT: 'Government & charity', TRANSPORTATION: 'Transportation',
   TRAVEL: 'Travel', RENT_AND_UTILITIES: 'Rent & utilities', OTHER: 'Other'
 };
+// Your category edits: catMap[original] = new name, or null when you deleted it
+var catMap = {};
 function normalizeCategory(cat) {
+  var name = baseCategory(cat);
+  for (var i = 0; i < 4 && Object.prototype.hasOwnProperty.call(catMap, name); i++) {
+    if (catMap[name] === null) return 'Uncategorized';
+    if (catMap[name] === name) break;
+    name = catMap[name];
+  }
+  return name;
+}
+function baseCategory(cat) {
   if (!cat) return 'Other';
   var key = String(cat).trim().toUpperCase().replace(/\s*&\s*/g, '_AND_').replace(/[\s-]+/g, '_');
   if (CATEGORY_NAMES[key]) return CATEGORY_NAMES[key];
@@ -4145,45 +4160,128 @@ function openSplitPicker() {
   var nc = $('#recat-custom-input');
   if (nc) nc.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); $('#recat-custom-apply').click(); } });
 })();
+// Every category you can pick: Plaid's, ones in your data, ones you made; renamed/deleted applied
+function allCategories() {
+  var src = {};
+  Object.keys(CATEGORY_NAMES).forEach(function(k) { src[CATEGORY_NAMES[k]] = true; });
+  txData.forEach(function(tx) { src[baseCategory(tx.enriched_category_primary || tx.category)] = true; });
+  Object.keys(txActions).forEach(function(id) { var c = txActions[id] && txActions[id].category_override; if (c) src[baseCategory(c)] = true; });
+  Object.keys(catMap).forEach(function(k) { src[k] = true; });
+  var out = {};
+  Object.keys(src).forEach(function(s) { var d = normalizeCategory(s); if (d && d !== 'Uncategorized') out[d] = true; });
+  return Object.keys(out).sort(function(x, y) { return x.localeCompare(y); });
+}
+function saveCatMap(rows) {
+  rows.forEach(function(r) { catMap[r.source] = r.display; });
+  return sb.from('user_category_map').upsert(rows.map(function(r) { return { source: r.source, display: r.display, updated_at: new Date().toISOString() }; }), { onConflict: 'user_id,source' })
+    .then(function(res) { if (res.error) showToast('Couldn’t save that category change'); });
+}
+// Rename: every original name that currently shows as oldName now shows as newName
+function renameCategory(oldName, newName) {
+  newName = newName.trim().slice(0, 40);
+  if (!newName || newName === oldName) return;
+  var rows = [{ source: oldName, display: newName }];
+  Object.keys(catMap).forEach(function(s) { if (s !== oldName && catMap[s] !== null && normalizeCategory(s) === oldName) rows.push({ source: s, display: newName }); });
+  if (!catMap.hasOwnProperty(newName) || catMap[newName] === null) rows.push({ source: newName, display: newName });
+  saveCatMap(rows);
+}
+// Delete: anything in that category shows as Uncategorized
+function deleteCategory(name) {
+  var sources = [name];
+  var probe = {};
+  Object.keys(CATEGORY_NAMES).forEach(function(k) { probe[CATEGORY_NAMES[k]] = true; });
+  txData.forEach(function(tx) { probe[baseCategory(tx.enriched_category_primary || tx.category)] = true; });
+  Object.keys(txActions).forEach(function(id) { var c = txActions[id] && txActions[id].category_override; if (c) probe[baseCategory(c)] = true; });
+  Object.keys(catMap).forEach(function(k) { probe[k] = true; });
+  Object.keys(probe).forEach(function(s) { if (s !== name && normalizeCategory(s) === name) sources.push(s); });
+  saveCatMap(sources.map(function(s) { return { source: s, display: null }; }));
+}
+var catEditMode = false, catPendingDelete = null;
 function showRecatPicker() {
   showSubPicker('#recat-picker');
+  catEditMode = false; catPendingDelete = null;
+  $('#recat-custom-input').value = '';
+  renderRecatList();
+}
+function renderRecatList() {
   var list = $('#recat-list');
   var current = normalizeCategory(getEffectiveTx(actionTx).category);
   var bankCat = normalizeCategory(actionTx.enriched_category_primary || actionTx.category);
   var override = (txActions[actionTxId] || {}).category_override;
-  // Plaid's categories, everything you've used, and any categories you've made
-  var all = {};
-  Object.keys(CATEGORY_NAMES).forEach(function(k) { all[CATEGORY_NAMES[k]] = true; });
-  txData.forEach(function(tx) { all[normalizeCategory(tx.enriched_category_primary || tx.category)] = true; });
-  Object.keys(txActions).forEach(function(id) { var c = txActions[id] && txActions[id].category_override; if (c) all[normalizeCategory(c)] = true; });
-  var cats = Object.keys(all).filter(Boolean).sort(function(x, y) { return x.localeCompare(y); });
-  var check = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
-  list.innerHTML = (override ? '<button type="button" class="recat-option recat-reset" data-reset="1">Use bank’s category · ' + esc(bankCat) + '</button>' : '') +
-    cats.map(function(c) {
-      return '<button type="button" class="recat-option' + (c === current ? ' on' : '') + '" data-cat="' + esc(c) + '"><span>' + esc(c) + '</span>' + (c === current ? check : '') + '</button>';
-    }).join('');
-  list.onclick = function(e) {
-    var btn = e.target.closest('.recat-option');
-    if (!btn || !actionTxId) return;
-    if (btn.dataset.reset) { saveMultiAction(actionTxId, { category_override: null }, { quiet: true }); return; }
-    var existing = txActions[actionTxId] || {};
-    var updates = { category_override: btn.dataset.cat === bankCat ? null : btn.dataset.cat };
-    if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
-    saveMultiAction(actionTxId, updates, { quiet: true });
-  };
-  $('#recat-custom-input').value = '';
+  $('#recat-edit').textContent = catEditMode ? 'Done' : 'Edit';
+  $('#recat-picker').classList.toggle('editing', catEditMode);
+  var cats = allCategories();
+  var pills = cats.map(function(c) {
+    if (catEditMode) {
+      return '<span class="cat-pill edit" data-cat="' + esc(c) + '">' +
+        '<button type="button" class="cat-pill-name" data-rename="' + esc(c) + '" aria-label="Rename ' + esc(c) + '">' + esc(c) + '</button>' +
+        '<button type="button" class="cat-pill-del' + (catPendingDelete === c ? ' confirm' : '') + '" data-del="' + esc(c) + '" aria-label="Delete ' + esc(c) + '">' + (catPendingDelete === c ? 'Delete?' : '×') + '</button></span>';
+    }
+    return '<button type="button" class="cat-pill' + (c === current ? ' on' : '') + '" data-cat="' + esc(c) + '" aria-pressed="' + (c === current) + '">' + esc(c) + '</button>';
+  }).join('');
+  list.innerHTML = (!catEditMode && override && bankCat !== current ? '<button type="button" class="cat-reset" data-reset="1">Use bank’s category · ' + esc(bankCat) + '</button>' : '') +
+    '<div class="cat-pills">' + pills + '</div>' +
+    (catEditMode ? '<p class="cat-help">Tap a name to rename it. Deleting a category moves its transactions to Uncategorized.</p>' : '');
 }
+(function wireRecat() {
+  var list = $('#recat-list');
+  if (!list) return;
+  $('#recat-edit').addEventListener('click', function() { catEditMode = !catEditMode; catPendingDelete = null; renderRecatList(); });
+  list.addEventListener('click', function(e) {
+    if (!actionTxId) return;
+    var t = e.target;
+    if (t.closest('[data-reset]')) { saveMultiAction(actionTxId, { category_override: null }, { quiet: true }); return; }
+    var del = t.closest('[data-del]');
+    if (del) {
+      var name = del.dataset.del;
+      if (catPendingDelete === name) {
+        catPendingDelete = null;
+        deleteCategory(name);
+        showToast('Deleted ' + name);
+        renderRecatList(); renderTransactionMonth(); renderTxSheet(actionTx);
+      } else { catPendingDelete = name; renderRecatList(); }
+      return;
+    }
+    var ren = t.closest('[data-rename]');
+    if (ren) {
+      var old = ren.dataset.rename, pill = ren.parentNode;
+      pill.innerHTML = '<input class="cat-pill-input" maxlength="40" value="' + esc(old) + '" aria-label="New name for ' + esc(old) + '">';
+      var inp = pill.querySelector('input');
+      inp.focus(); inp.select();
+      var done = false;
+      var commit = function() {
+        if (done) return; done = true;
+        var v = inp.value.trim();
+        if (v && v !== old) { renameCategory(old, v); showToast('Renamed to ' + v); renderTransactionMonth(); renderTxSheet(actionTx); }
+        renderRecatList();
+      };
+      inp.addEventListener('blur', commit);
+      inp.addEventListener('keydown', function(ev) { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } if (ev.key === 'Escape') { done = true; renderRecatList(); } });
+      return;
+    }
+    var pick = t.closest('.cat-pill[data-cat]:not(.edit)');
+    if (pick) {
+      var existing = txActions[actionTxId] || {};
+      var bankCat = normalizeCategory(actionTx.enriched_category_primary || actionTx.category);
+      var updates = { category_override: pick.dataset.cat === bankCat ? null : pick.dataset.cat };
+      if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
+      saveMultiAction(actionTxId, updates, { quiet: true });
+    }
+  });
+})();
 
 $('#recat-custom-apply').addEventListener('click', function() {
-  var name = $('#recat-custom-input').value.trim();
+  var name = $('#recat-custom-input').value.trim().slice(0, 40);
   if (!name || !actionTxId) return;
-  var cat = name.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  var existingCat = allCategories().find(function(c) { return c.toLowerCase() === name.toLowerCase(); });
+  var cat = existingCat || name.charAt(0).toUpperCase() + name.slice(1);
+  if (!existingCat) saveCatMap([{ source: cat, display: cat }]);   // remember it even before it's used
+  $('#recat-custom-input').value = '';
+  if (catEditMode) { renderRecatList(); showToast('Added ' + cat); return; }
   var existing = txActions[actionTxId] || {};
   var updates = { category_override: cat };
-  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
-    updates.action_type = null;
-  }
-  saveMultiAction(actionTxId, updates);
+  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
+  saveMultiAction(actionTxId, updates, { quiet: true });
 });
 
 // Edit picker
