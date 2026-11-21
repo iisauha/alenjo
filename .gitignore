@@ -4,3 +4,4 @@
 *.key
 *.pem
 .security-audit/
+SECURITY_AUDIT_REPORT.md
