@@ -478,10 +478,7 @@ document.addEventListener('visibilitychange', function() {
     return;
   }
   // Away longer than the auto-lock time: lock (Face ID) or sign out
-  if (currentUser && !appLocked && !plaidLinkOpen() && Date.now() - lastActivityAt > getLockMs()) {
-    lockOrSignOut();
-    return;
-  }
+  if (lockIfIdle()) return;
   // Short glances at another app don't need a refresh
   if (lastHiddenAt && Date.now() - lastHiddenAt > 5000) {
     refreshOnResume();
@@ -490,6 +487,7 @@ document.addEventListener('visibilitychange', function() {
 
 // bfcache restores on iOS Safari don't always fire visibilitychange
 window.addEventListener('pageshow', function(e) {
+  if (lockIfIdle()) return;
   if (e.persisted) refreshOnResume();
 });
 
@@ -550,30 +548,45 @@ if (unlockBtn) unlockBtn.addEventListener('click', tryUnlock);
 var lockSignOut = $('#btn-lock-signout');
 if (lockSignOut) lockSignOut.addEventListener('click', function() { location.reload(); });
 
-function markActivity() {
+function markActivity(e) {
+  // Only real taps and keys count. Scroll events also fire when the page
+  // re-renders or iOS restores the app, which kept resetting the timer.
+  if (document.hidden || (e && e.isTrusted === false)) return;
   lastActivityAt = Date.now();
 }
 
 // Plaid Link runs in a cross-origin iframe, so taps inside it never reach this
-// page. Treat an open Plaid window as activity so we don't reload mid-connection.
+// page. While it's open, count it as activity so we don't lock mid-connection.
+// Tracked with our own flag: Plaid leaves its iframe in the page after closing,
+// and checking that iframe kept the app "active" forever.
+var plaidOpenSince = 0;
 function plaidLinkOpen() {
-  var frames = document.querySelectorAll('iframe[id^="plaid-link-iframe"]');
-  for (var i = 0; i < frames.length; i++) {
-    if (frames[i].offsetParent !== null || frames[i].style.display !== 'none') return true;
-  }
-  return false;
+  if (plaidOpenSince && Date.now() - plaidOpenSince > 30 * 60 * 1000) plaidOpenSince = 0;   // safety cap
+  return !!plaidOpenSince;
+}
+function plaidCreate(cfg) {
+  var done = function(fn) { return function() { plaidOpenSince = 0; markActivity(); return fn && fn.apply(this, arguments); }; };
+  cfg.onSuccess = done(cfg.onSuccess);
+  cfg.onExit = done(cfg.onExit);
+  var h = Plaid.create(cfg), open = h.open.bind(h);
+  h.open = function() { plaidOpenSince = Date.now(); return open.apply(null, arguments); };
+  return h;
 }
 
-['pointerdown', 'touchstart', 'keydown', 'scroll'].forEach(function(ev) {
+['pointerdown', 'touchstart', 'keydown', 'wheel'].forEach(function(ev) {
   document.addEventListener(ev, markActivity, { passive: true, capture: true });
 });
+// Check the moment the app comes back, however iOS brings it back
+function lockIfIdle() {
+  if (currentUser && !appLocked && !plaidLinkOpen() && Date.now() - lastActivityAt > getLockMs()) { lockOrSignOut(); return true; }
+  return false;
+}
+window.addEventListener('focus', lockIfIdle);
 
 setInterval(function() {
   if (!currentUser) return;
   if (plaidLinkOpen()) { markActivity(); return; }
-  if (!appLocked && Date.now() - lastActivityAt > getLockMs()) {
-    lockOrSignOut();
-  }
+  lockIfIdle();
 }, 5000);
 
 // ============================================
@@ -2082,7 +2095,7 @@ async function openPlaidLink(products) {
 
     showLoading(false);
 
-    var handler = Plaid.create({
+    var handler = plaidCreate({
       token: data.link_token,
       onSuccess: async function(publicToken, metadata) {
         showLoading(true);
@@ -2215,7 +2228,7 @@ async function reconnectItem(itemId, btn) {
     var res = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', { method: 'POST', headers: headers, body: JSON.stringify({ action: 'create_reconnect_token', item_id: itemId }) });
     var data = await res.json();
     if (!res.ok || !data.link_token) { showError('Couldn’t start reconnecting. Try again in a minute.'); return; }
-    var handler = Plaid.create({
+    var handler = plaidCreate({
       token: data.link_token,
       onSuccess: async function() {
         showToast('Reconnected. Catching up…');
@@ -3178,7 +3191,7 @@ document.addEventListener('click', async function(e) {
     btn.textContent = originalText;
     btn.disabled = false;
 
-    var handler = Plaid.create({
+    var handler = plaidCreate({
       token: data.link_token,
       onSuccess: async function() {
         showLoading(true);
