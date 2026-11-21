@@ -3507,3 +3507,14 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .acct-order-count svg { transition: transform 0.2s; }
 .acct-order-sec[open] .acct-order-count svg { transform: rotate(180deg); }
 .acct-order-sec[open] > .acct-order-group { border-top: 1px solid var(--border); }
+/* From the founder */
+.founder-head { display: flex; align-items: center; gap: 12px; padding: 16px 16px 4px; }
+.founder-mark { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-subtle); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.founder-mark img { width: 18px; height: 24px; }
+.founder-who { display: flex; flex-direction: column; gap: 1px; }
+.founder-who b { font-family: var(--serif); font-size: 1.125rem; font-weight: 500; }
+.founder-who span { font-size: 0.75rem; color: var(--text-muted); }
+.founder-body { padding: 8px 16px 6px; }
+.founder-body p { margin: 0 0 10px; font-size: 0.9375rem; line-height: 1.55; color: var(--text); }
+.founder-body p:first-child { font-weight: 500; }
+.founder-link { border-top: 1px solid var(--border); color: var(--accent); font-weight: 500; }
