@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121060459';</script>
+  <script>var _v = '20261121061304';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121060459">
+  <link rel="stylesheet" href="style.css?v=20261121061304">
 </head>
 <body>
 
@@ -287,7 +287,6 @@
             <div class="act-spent">
               <span class="act-stat-label" id="act-spent-label">Spent</span>
               <span id="act-spent" class="act-spent-value"></span>
-              <div id="act-budget" class="act-budget" hidden></div>
               <span class="act-sub"><button type="button" id="act-switch" class="act-switch" aria-label="Show money in"></button><span id="act-daily-note"></span></span>
             </div>
             <div id="act-bars" class="act-bars" role="group" aria-label="Spending by day. Tap a day to see its transactions."></div>
@@ -614,14 +613,24 @@
   </div>
 
   <div id="budget-sheet" class="action-sheet-overlay" aria-hidden="true">
-    <div class="action-sheet delete-sheet budget-sheet" role="dialog" aria-modal="true" aria-labelledby="budget-title">
-      <h2 id="budget-title" class="delete-title">Monthly budgets</h2>
-      <p id="budget-help" class="delete-lead"></p>
-      <div id="budget-list" class="budget-list"></div>
-      <div class="budget-actions">
-        <button type="button" id="budget-cancel" class="budget-btn">Cancel</button>
-        <button type="button" id="budget-save" class="budget-btn primary">Save</button>
+    <div class="action-sheet budget-sheet" role="dialog" aria-modal="true" aria-labelledby="budget-title">
+      <div class="budget-head"><h2 id="budget-title" class="delete-title">Budgets</h2><span id="budget-total" class="budget-total"></span></div>
+      <button type="button" id="budget-copy" class="budget-copy" hidden></button>
+      <p id="budget-help" class="budget-help"></p>
+      <div id="budget-editor" class="budget-editor" hidden>
+        <div class="budget-ed-top"><b id="budget-ed-name"></b><small id="budget-ed-avg"></small></div>
+        <div class="budget-ed-row">
+          <label class="budget-ed-amt"><span aria-hidden="true">$</span><input id="budget-ed-amt" inputmode="decimal" autocomplete="off" placeholder="None" aria-label="Monthly amount"></label>
+          <button type="button" id="budget-ed-set" class="budget-ed-set">Set</button>
+        </div>
+        <button type="button" id="budget-ed-clear" class="budget-ed-clear" hidden>Remove budget</button>
       </div>
+      <div class="recat-new">
+        <input type="text" id="budget-new-cat" class="app-input" maxlength="40" placeholder="New category" enterkeyhint="done">
+        <button class="btn-primary" id="budget-new-add" type="button">Add</button>
+      </div>
+      <div id="budget-pills" class="cat-pills budget-pills"></div>
+      <button type="button" id="budget-cancel" class="action-sheet-cancel">Done</button>
     </div>
   </div>
 
