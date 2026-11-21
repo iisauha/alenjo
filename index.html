@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121040122';</script>
+  <script>var _v = '20261121040536';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121040122">
+  <link rel="stylesheet" href="style.css?v=20261121040536">
 </head>
 <body>
 
@@ -279,7 +279,7 @@
             <div class="act-spent">
               <span class="act-stat-label" id="act-spent-label">Spent</span>
               <span id="act-spent" class="act-spent-value"></span>
-              <span class="act-sub"><span>In <b id="act-income" class="act-in"></b></span><span id="act-daily-note"></span></span>
+              <span class="act-sub"><button type="button" id="act-switch" class="act-switch" aria-label="Show money in"></button><span id="act-daily-note"></span></span>
             </div>
             <div id="act-bars" class="act-bars" role="group" aria-label="Spending by day. Tap a day to see its transactions."></div>
             <div class="home-ranges act-range" id="act-range" role="group" aria-label="Chart range">

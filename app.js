@@ -3569,6 +3569,14 @@ function renderTransactionMonth() {
     displayTx = displayTx.filter(function(tx) { return parseInt(getEffectiveTx(tx).date.substring(8, 10), 10) === activeDay; });
   }
 
+  // Money in view: only incoming money (no transfers between your accounts)
+  if (incomeMode) {
+    displayTx = displayTx.filter(function(tx) {
+      var eff = getEffectiveTx(tx);
+      return !eff.excluded && eff.amount < 0 && !isTransferCategory(baseCategory(eff.category));
+    });
+  }
+
   // ---- Summary: spent / money in / transfers (effective amounts, skip excluded)
   var byCategory = {}, spent = 0, moneyIn = 0, transfers = 0, byDay = {};
   filtered.forEach(function(tx) {
@@ -3577,21 +3585,28 @@ function renderTransactionMonth() {
     var cat = normalizeCategory(eff.category);
     // Transfers stay out of spending even if you renamed or deleted that category
     if (isTransferCategory(baseCategory(eff.category))) { transfers += Math.abs(eff.amount); return; }
-    if (eff.amount > 0) {
-      spent += eff.amount;
-      byCategory[cat] = (byCategory[cat] || 0) + eff.amount;
+    // The chart, chips and big number follow whichever side you're looking at
+    var amt = Math.abs(eff.amount), isOut = eff.amount > 0;
+    if (isOut) spent += amt; else moneyIn += amt;
+    if (isOut === !incomeMode) {
+      byCategory[cat] = (byCategory[cat] || 0) + amt;
       var day = parseInt(eff.date.substring(8, 10), 10);
       byDay[day] = byDay[day] || {};
-      byDay[day][cat] = (byDay[day][cat] || 0) + eff.amount;
-    } else {
-      moneyIn += -eff.amount;
+      byDay[day][cat] = (byDay[day][cat] || 0) + amt;
     }
   });
   if (activeCategoryFilter && !byCategory[activeCategoryFilter]) activeCategoryFilter = null;
-  var shownSpent = activeCategoryFilter ? byCategory[activeCategoryFilter] : spent;
-  $('#act-spent-label').textContent = activeCategoryFilter ? activeCategoryFilter : 'Spent';
-  $('#act-spent').textContent = formatMoney(shownSpent);
-  $('#act-income').textContent = (moneyIn > 0 ? '+' : '') + formatMoney(moneyIn);
+  var shownSpent = activeCategoryFilter ? byCategory[activeCategoryFilter] : (incomeMode ? moneyIn : spent);
+  $('#act-spent-label').textContent = activeCategoryFilter ? activeCategoryFilter : (incomeMode ? 'Money in' : 'Spent');
+  $('#act-spent').textContent = (incomeMode && shownSpent > 0 && !hideMoney ? '+' : '') + formatMoney(shownSpent);
+  $('#act-spent').classList.toggle('is-in', incomeMode);
+  // The small line is the other side; tap it to switch
+  var sw = $('#act-switch');
+  sw.innerHTML = incomeMode
+    ? 'Spent <b>' + formatMoney(spent) + '</b>'
+    : 'In <b class="act-in">' + (moneyIn > 0 && !hideMoney ? '+' : '') + formatMoney(moneyIn) + '</b>';
+  sw.setAttribute('aria-label', incomeMode ? 'Show spending' : 'Show money in');
+  $('#act-bars').setAttribute('aria-label', (incomeMode ? 'Money in' : 'Spending') + ' by day. Tap a day to see its transactions.');
 
   // ---- One chart: spending by day, each bar stacked by category.
   // The category chips under it are the legend and the filter.
@@ -3665,7 +3680,7 @@ function renderTransactionMonth() {
     var on = activeCategoryFilter === e[0];
     return '<button type="button" class="act-cat' + (on ? ' on' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
       '<i style="background:' + categoryColorMap[e[0]] + '"></i><span>' + esc(e[0]) + '</span><b>' + formatMoney(e[1]).replace(/\.\d\d$/, '') + '</b></button>';
-  }).join('') : '<p class="act-empty-note">' + (activeDay ? 'No spending this day.' : 'No spending this month yet.') + '</p>';
+  }).join('') : '<p class="act-empty-note">' + (incomeMode ? (activeDay ? 'No money in this day.' : 'No money in this month yet.') : (activeDay ? 'No spending this day.' : 'No spending this month yet.')) + '</p>';
   legend.querySelectorAll('.act-cat').forEach(function(el) {
     el.addEventListener('click', function() {
       activeCategoryFilter = activeCategoryFilter === el.dataset.cat ? null : el.dataset.cat;
@@ -3815,6 +3830,16 @@ function updateCatScroll() {
 })();
 
 var activeDay = null;
+var incomeMode = false;   // Activity: false = spending, true = money in
+(function wireActSwitch() {
+  var sw = $('#act-switch');
+  if (!sw) return;
+  sw.addEventListener('click', function() {
+    incomeMode = !incomeMode;
+    activeCategoryFilter = null;   // spending and income categories differ
+    renderTransactionMonth();
+  });
+})();
 // Scroll the day bars so the focus day (today, or the picked day) is at the right edge.
 // If the tab is hidden (width 0) this waits until it's shown.
 function scrollBarsToFocus() {
