@@ -3633,3 +3633,10 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 /* While framing a new logo, the sheet's Done button would compete with Save */
 .action-sheet:has(#logo-picker.framing) #action-sheet-cancel { display: none; }
 .logo-new { align-items: stretch; } .logo-new > .logo-new-field, .logo-new > .logo-new-actions, .logo-new > .logo-frame-controls { width: 100%; align-self: stretch; }
+
+/* Picked day: other days go grey, the picked one keeps its colours (no box behind it) */
+.act-bar.on .act-bar-col { background: transparent; }
+.act-bar.dim .act-bar-fill { opacity: 1; }
+.act-bar.dim .act-bar-fill i { background: color-mix(in srgb, var(--text) 16%, transparent) !important; }
+.act-bar-fill i { transition: background-color 0.2s; }
+@media (hover: hover) { .act-bar.on:hover .act-bar-col { background: transparent; } }

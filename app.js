@@ -3565,6 +3565,8 @@ function renderTransactionMonth() {
   var isThisMonth = now.getFullYear() === y && now.getMonth() + 1 === m;
   var lastDay = isThisMonth ? now.getDate() : daysInMonth;
   if (activeDay && activeDay > lastDay) activeDay = null;
+  // Picked a day that doesn't have the filtered category: drop the category filter
+  if (activeDay && activeCategoryFilter && !(byDay[activeDay] || {})[activeCategoryFilter]) { activeCategoryFilter = null; return renderTransactionMonth(); }
   var dayTotal = function(d) {
     var o = byDay[d] || {};
     if (activeCategoryFilter) return o[activeCategoryFilter] || 0;
@@ -3613,12 +3615,18 @@ function renderTransactionMonth() {
     $('#act-daily-note').textContent = '';
   }
 
-  // Category chips: one swipeable row, tap to filter, tap again to clear
-  legend.innerHTML = catEntries.length ? catEntries.map(function(e) {
+  // Category chips: one swipeable row, tap to filter, tap again to clear.
+  // With a day picked, only that day's categories and amounts (same colours as the bars).
+  var pillEntries = catEntries;
+  if (activeDay) {
+    var od = byDay[activeDay] || {};
+    pillEntries = Object.keys(od).map(function(k) { return [k, od[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  }
+  legend.innerHTML = pillEntries.length ? pillEntries.map(function(e) {
     var on = activeCategoryFilter === e[0];
     return '<button type="button" class="act-cat' + (on ? ' on' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
       '<i style="background:' + categoryColorMap[e[0]] + '"></i><span>' + esc(e[0]) + '</span><b>' + formatMoney(e[1]).replace(/\.\d\d$/, '') + '</b></button>';
-  }).join('') : '<p class="act-empty-note">No spending this month yet.</p>';
+  }).join('') : '<p class="act-empty-note">' + (activeDay ? 'No spending this day.' : 'No spending this month yet.') + '</p>';
   legend.querySelectorAll('.act-cat').forEach(function(el) {
     el.addEventListener('click', function() {
       activeCategoryFilter = activeCategoryFilter === el.dataset.cat ? null : el.dataset.cat;
