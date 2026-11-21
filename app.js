@@ -3181,11 +3181,11 @@ $('#account-edit-save').addEventListener('click', function() {
   if (!editingAccountId) return;
 
   // Save nickname -- update local state and re-render immediately
-  var newName = nicknameInput.value.trim();
-  if (newName && cachedAccounts) {
-    cachedAccounts.forEach(function(a) {
-      if (a.id === editingAccountId) a.nickname = newName;
-    });
+  var newName = nicknameInput.value.trim() || null;
+  var prevAcct = cachedAccounts && cachedAccounts.find(function(a) { return a.id === editingAccountId; });
+  if (prevAcct && (prevAcct.nickname || null) !== newName) {
+    prevAcct.nickname = newName;
+    refreshAccountNames();
     // Save to DB in background (must call .then() to execute the request)
     var saveId = editingAccountId;
     sb.from('accounts').update({ nickname: newName }).eq('id', saveId).then(function(result) {
@@ -3537,6 +3537,19 @@ var CATEGORY_COLORS = [
   '#3E8E7E', '#9C5B3C', '#6D6AC9', '#4D8F3F', '#B5873A'
 ];
 
+// After renaming an account: Activity (rows, filter, add-transaction picker, open sheet) uses the new name right away
+function refreshAccountNames() {
+  if (!cachedAccounts) return;
+  var byPlaid = {};
+  cachedAccounts.forEach(function(a) { if (a.plaid_account_id) byPlaid[a.plaid_account_id] = a.nickname || a.name || 'Account'; });
+  ['#tx-card-filter', '#add-tx-account'].forEach(function(sel) {
+    var el = $(sel); if (!el) return;
+    Array.prototype.forEach.call(el.options, function(o) { if (byPlaid[o.value]) o.textContent = byPlaid[o.value]; });
+  });
+  if (txData && txData.length) renderTransactionMonth();
+  if (typeof actionTx !== 'undefined' && actionTx && actionSheet && actionSheet.classList.contains('visible')) renderTxSheet(actionTx);
+  syncPickerLabels();
+}
 function buildAccountMap() {
   var map = {};
   if (cachedAccounts) {
@@ -4072,11 +4085,13 @@ $('#btn-export-csv').addEventListener('click', function() {
     return a.date > b.date ? 1 : a.date < b.date ? -1 : 0;
   });
 
-  var csvRows = ['Category,Date,Merchant,Amount,Your Share,Type,Split,Reimbursed,Note'];
+  var csvRows = ['Category,Date,Merchant,Account,Amount,Your Share,Type,Split,Reimbursed,Note'];
+  var csvAcct = buildAccountMap();
+  var cell = function(v) { return String(v || '').replace(/"/g, '""').replace(/^[=+\-@]/, "'$&"); };
   filtered.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
-    var cat = normalizeCategory(eff.category).replace(/"/g, '""');
-    var merchant = (eff.nickname || tx.merchant_name || tx.name || 'Unknown').replace(/"/g, '""');
+    var cat = cell(normalizeCategory(eff.category));
+    var merchant = cell(eff.nickname || tx.merchant_name || tx.name || 'Unknown') + '","' + cell(tx.plaid_account_id ? csvAcct[tx.plaid_account_id] || 'Account' : 'Cash');
     var type = tx.amount < 0 ? 'Income' : 'Expense';
     var splitInfo = eff.isAdjusted ? 'Adjusted by hand' : eff.isSplit ? (eff.splitWays ? eff.splitWays + '-way' : 'Custom') : '';
     var reimbursed = eff.actionType === 'reimbursed' ? 'Yes' : '';
@@ -4289,6 +4304,8 @@ function renderTxSheet(tx) {
   $('#txs-avatar').innerHTML = logo ? '<img src="' + esc(logo) + '" alt="" onerror="this.remove()">' : '';
 
   var parts = [];
+  var acctNm = tx.plaid_account_id ? buildAccountMap()[tx.plaid_account_id] : 'Cash';
+  if (acctNm) parts.push(acctNm);
   if (tx.enriched_location_city || tx.enriched_location_region) parts.push([tx.enriched_location_city, tx.enriched_location_region].filter(Boolean).join(', '));
   if (tx.enriched_payment_channel === 'online') parts.push('Online');
   else if (tx.enriched_payment_channel === 'in store') parts.push('In store');
