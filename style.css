@@ -3659,3 +3659,6 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .hero-value-row { align-items: flex-start; }
 .money-eye { width: 36px; height: 36px; font-size: 2.6rem; margin-top: calc(0.37em - 18px); }
 .money-eye svg { width: 18px; height: 18px; }
+/* Account filter sizes to its label (set in JS); this is just the fallback */
+.act-acct { width: auto; min-width: 0; }
+@media (min-width: 900px) { .act-acct { max-width: 280px; } }

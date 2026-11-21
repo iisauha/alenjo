@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121040608';</script>
+  <script>var _v = '20261121041229';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121040608">
+  <link rel="stylesheet" href="style.css?v=20261121041229">
 </head>
 <body>
 
@@ -238,6 +238,14 @@
           <span class="section-total" id="inv-investments-total"></span>
         </div>
         <div class="account-list" id="list-inv-investments"></div>
+      </section>
+
+      <section class="account-section" id="section-loans" hidden>
+        <div class="section-header">
+          <h2>Loans</h2>
+          <span class="section-total" id="loans-total"></span>
+        </div>
+        <div class="account-list" id="list-loans"></div>
       </section>
 
     </section>

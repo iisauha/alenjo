@@ -1695,6 +1695,7 @@ if (lockSelect) {
 function accountKind(a) {
   if (a.type === 'credit') return 'Credit cards';
   if (a.type === 'investment') return 'Investments';
+  if (a.type === 'loan') return 'Loans';
   if (a.subtype === 'savings') return 'Savings';
   return 'Banks';
 }
@@ -1707,7 +1708,7 @@ function renderAccountOrderList() {
   var groups = {};
   cachedAccounts.forEach(function(a) { (groups[accountKind(a)] = groups[accountKind(a)] || []).push(a); });
   var html = '';
-  ['Banks', 'Credit cards', 'Savings', 'Investments'].forEach(function(kind) {
+  ['Banks', 'Credit cards', 'Savings', 'Investments', 'Loans'].forEach(function(kind) {
     var items = (groups[kind] || []).slice().sort(function(x, y) {
       var ox = x.sort_order == null ? 1e9 : x.sort_order, oy = y.sort_order == null ? 1e9 : y.sort_order;
       return ox - oy || Math.abs(getDisplayBalance(y, 'bank').amount) - Math.abs(getDisplayBalance(x, 'bank').amount);
@@ -2378,14 +2379,16 @@ function renderAccounts(accounts) {
   var savings = accounts.filter(function(a) { return a.type === 'depository' && a.subtype === 'savings'; });
   var credits = accounts.filter(function(a) { return a.type === 'credit'; });
   var investments = accounts.filter(function(a) { return a.type === 'investment'; });
+  var loans = accounts.filter(function(a) { return a.type === 'loan'; });
 
   // Snapshot tab: all account types
-  var hasAnyAccounts = banks.length > 0 || credits.length > 0 || savings.length > 0 || investments.length > 0;
+  var hasAnyAccounts = banks.length > 0 || credits.length > 0 || savings.length > 0 || investments.length > 0 || loans.length > 0;
   connectCta.hidden = hasAnyAccounts;
   sectionBanks.hidden = banks.length === 0;
   sectionCredit.hidden = credits.length === 0;
   $('#section-inv-savings').hidden = savings.length === 0;
   $('#section-inv-investments').hidden = investments.length === 0;
+  $('#section-loans').hidden = loans.length === 0;
 
   renderSection(listBanks, banks, 'bank');
   var bankSum = banks.reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
@@ -2401,6 +2404,15 @@ function renderAccounts(accounts) {
     loadLiabilities().then(function() {
       renderSection(listCredit, credits, 'credit');
     });
+  }
+
+  // Loans: what you owe. Details (rate, next payment, payoff) come from the same liabilities sync as cards.
+  renderSection($('#list-loans'), loans, 'loan');
+  var loanSum = loans.reduce(function(s, a) { return s + Math.abs(getDisplayBalance(a, 'loan').amount); }, 0);
+  $('#loans-total').textContent = formatMoney(loanSum);
+  $('#loans-total').className = 'section-total balance-negative';
+  if (loans.length > 0 && cachedLiabilities === null) {
+    loadLiabilities().then(function() { renderSection($('#list-loans'), loans, 'loan'); });
   }
 
   renderSection($('#list-inv-savings'), savings, 'bank');
@@ -2464,6 +2476,7 @@ function renderHomeInsights() {
   cachedAccounts.forEach(function(a) {
     if (a.is_hidden || a.exclude_from_totals) return;
     if (a.type === 'credit') { liabs += Math.max(0, getDisplayBalance(a, 'credit').amount); if (a.plaid_account_id) kind[a.plaid_account_id] = 'credit'; }
+    else if (a.type === 'loan') liabs += Math.abs(getDisplayBalance(a, 'loan').amount);
     else if (a.type === 'investment') assets += getInvestmentValue(a);
     else if (a.type === 'depository') { assets += Math.max(0, getDisplayBalance(a, 'bank').amount); if (a.plaid_account_id) kind[a.plaid_account_id] = a.subtype === 'savings' ? 'savings' : 'bank'; }
   });
@@ -2567,6 +2580,7 @@ function renderBalanceSplit() {
   cachedAccounts.forEach(function(a) {
     if (a.is_hidden || a.exclude_from_totals) return;
     if (a.type === 'credit') liabs += Math.max(0, getDisplayBalance(a, 'credit').amount);
+    else if (a.type === 'loan') liabs += Math.abs(getDisplayBalance(a, 'loan').amount);
     else if (a.type === 'investment') assets += getInvestmentValue(a);
     else if (a.type === 'depository') assets += Math.max(0, getDisplayBalance(a, 'bank').amount);
   });
@@ -2962,6 +2976,37 @@ function accountCard(account, type) {
 
   // Liabilities detail for credit cards
   var liabHtml = '';
+  if (type === 'loan') {
+    var ln = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
+    var lt = [];
+    var lTile = function(label, value, cls) { lt.push('<div class="liab-tile' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b>' + value + '</b></div>'); };
+    if (ln) {
+      var pay = ln.minimum_payment_amount != null ? parseFloat(ln.minimum_payment_amount) : ln.next_monthly_payment != null ? parseFloat(ln.next_monthly_payment) : null;
+      if (pay != null) lTile('Next payment', formatMoney(pay));
+      if (ln.interest_rate != null) lTile('Interest rate', parseFloat(ln.interest_rate).toFixed(2) + '%');
+      if (ln.outstanding_interest) lTile('Unpaid interest', formatMoney(parseFloat(ln.outstanding_interest)));
+      if (ln.ytd_interest_paid) lTile('Interest paid this year', formatMoney(parseFloat(ln.ytd_interest_paid)));
+      if (ln.ytd_principal_paid) lTile('Principal paid this year', formatMoney(parseFloat(ln.ytd_principal_paid)));
+      if (ln.origination_principal) lTile('Original amount', formatMoney(parseFloat(ln.origination_principal)) + (ln.origination_date ? '<small>' + formatLiabDate(ln.origination_date) + '</small>' : ''));
+      if (ln.expected_payoff_date || ln.maturity_date) lTile('Paid off by', formatLiabDate(ln.expected_payoff_date || ln.maturity_date));
+      if (ln.last_payment_amount) lTile('Last paid', formatMoney(parseFloat(ln.last_payment_amount)) + (ln.last_payment_date ? '<small>' + formatLiabDate(ln.last_payment_date) + '</small>' : ''));
+      if (ln.repayment_plan) lTile('Plan', esc(ln.repayment_plan));
+      if (ln.loan_status && ln.loan_status !== 'repayment') lTile('Status', esc(ln.loan_status.replace(/_/g, ' ')));
+      if (ln.escrow_balance) lTile('Escrow', formatMoney(parseFloat(ln.escrow_balance)));
+      if (ln.is_overdue) lTile('Status', 'Overdue', 'liab-urgent');
+      var lDue = '', lCls = '';
+      if (ln.next_payment_due_date) {
+        var dU = Math.ceil((new Date(ln.next_payment_due_date + 'T00:00:00') - new Date()) / 86400000);
+        lCls = dU <= 3 ? 'liab-urgent' : dU <= 7 ? 'liab-soon' : '';
+        lDue = 'Due ' + formatLiabDate(ln.next_payment_due_date) + (dU > 1 ? ' · in ' + dU + ' days' : dU === 1 ? ' · tomorrow' : dU === 0 ? ' · today' : ' · overdue');
+      }
+      if (lt.length || lDue) {
+        liabHtml += moreSection(account.id + ':d',
+          '<span class="liab-due ' + lCls + '">' + esc(lDue || 'Loan details') + '</span>' + (lDue ? '<span class="more-word">Details</span>' : ''),
+          '<div class="liab-tiles">' + lt.join('') + '</div>');
+      }
+    }
+  }
   if (type === 'credit') {
     var limit = account.balance_limit ? parseFloat(account.balance_limit) : 0;
     var used = bal.amount;
@@ -3045,7 +3090,7 @@ function accountCard(account, type) {
         (account.exclude_from_totals ? '<span class="account-flag">Not in totals</span>' : '') +
       '</div>' +
       '<div class="account-balance">' +
-        '<div class="amount ' + (type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + (type === 'credit' ? ' amount-bonus-trigger' : '') + '"' + (type === 'credit' ? ' data-bonus-id="' + account.id + '"' : '') + '>' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
+        '<div class="amount ' + (type === 'loan' ? 'balance-negative' : type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + (type === 'credit' ? ' amount-bonus-trigger' : '') + '"' + (type === 'credit' ? ' data-bonus-id="' + account.id + '"' : '') + '>' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
         '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
       '</div>' +
     '</div>' +
@@ -3497,6 +3542,7 @@ function buildAccountMap() {
 
 var lastActKey = '';
 function renderTransactionMonth() {
+  sizeAcctFilter();
   var month = $('#tx-month-filter').value;
   var cardId = $('#tx-card-filter').value;
   if (month + '|' + cardId !== lastActKey) { activeDay = null; lastActKey = month + '|' + cardId; }
@@ -3924,7 +3970,21 @@ function accountColor(plaidAccountId) {
   var i = ids.indexOf(plaidAccountId);
   return i === -1 ? 'var(--track)' : ACCOUNT_COLORS[i % ACCOUNT_COLORS.length];
 }
+// Account filter hugs whatever is selected (capped by CSS max-width, long names still get "…")
+var _measureCtx = null;
+function sizeAcctFilter() {
+  var sel = $('#tx-card-filter'), box = sel && sel.closest('.act-acct');
+  if (!box || !sel.options.length) return;
+  var text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : '';
+  _measureCtx = _measureCtx || document.createElement('canvas').getContext('2d');
+  var cs = getComputedStyle(sel);
+  _measureCtx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+  var pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+  box.style.width = Math.ceil(_measureCtx.measureText(text).width + pad + 2) + 'px';
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function() { sizeAcctFilter(); });
 function syncPickerLabels() {
+  sizeAcctFilter();
   document.querySelectorAll('.picker-wrap').forEach(function(w) {
     var sel = w.querySelector('select'), hit = w.querySelector('.picker-hit');
     if (sel && hit) hit.setAttribute('aria-label', (sel.getAttribute('aria-label') || 'Choose') + ': ' + (sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : ''));
