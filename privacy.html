@@ -95,6 +95,13 @@
       .tbl td + td { display: flex; gap: 8px; margin-top: 4px; color: var(--text); }
       .tbl td + td::before { content: attr(data-label); flex: 0 0 96px; font-size: 0.75rem; color: var(--muted); padding-top: 1px; }
     }
+    .rows { margin: 4px 0 8px; border-top: 1px solid var(--border); }
+    .rows > div { display: grid; grid-template-columns: 1fr; gap: 2px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .rows dt { font-weight: 600; font-size: 0.9375rem; }
+    .rows dd { margin: 0; color: var(--muted); font-size: 0.9375rem; line-height: 1.55; }
+    @media (min-width: 600px) { .rows > div { grid-template-columns: 150px 1fr; gap: 20px; } }
+    .doc .note { color: var(--muted); font-size: 0.875rem; margin-top: 12px; }
+    .doc h2 + .rows { margin-top: 0; }
     /* plain cards */
     .sec.plain h2 { font-size: 1.0625rem; font-weight: 700; margin: 0 0 8px; }
     .facts { margin: 0; padding-left: 1.15em; display: flex; flex-direction: column; gap: 8px; font-size: 0.9375rem; line-height: 1.5; }
@@ -147,46 +154,65 @@
       <article class="doc">
       <h1>Privacy</h1>
       <p class="updated">Last updated November 20, 2026</p>
-      <p>Alenjo is a personal finance app built and run by Isaiah Aguilar. This page lists the data it keeps, the outside services involved, and how to delete it.</p>
+      <p>What Alenjo keeps, who else is involved, and how to delete it.</p>
 
       <h2>What Alenjo keeps</h2>
       <ul>
-        <li><b>You:</b> name, email, and a profile photo if you add one.</li>
-        <li><b>Accounts</b> (from your bank, through Plaid): name, type, last 4 digits and balance. The name, last 4 digits and balance are encrypted.</li>
-        <li><b>Transactions:</b> store, amount, swipe and post dates, category, and Plaid’s store logo and city.</li>
-        <li><b>Card details</b> when your bank shares them: APR, minimum payment, due date, statement balance.</li>
-        <li><b>Investments</b> when your brokerage shares them: ticker, shares, value and cost.</li>
-        <li><b>Your edits:</b> notes, renames, adjusted amounts, splits, moved dates, categories, logos you picked, and transactions you add.</li>
+        <li><b>Profile:</b> your name, email, and a photo if you add one.</li>
+        <li><b>Accounts:</b> name, type, last 4 digits and balance. The name, last 4 and balance are encrypted.</li>
+        <li><b>Transactions:</b> store, amount, swipe and post dates, category, store logo and city.</li>
+        <li><b>Credit cards:</b> APR, minimum payment, due date and statement balance, when your bank shares them.</li>
+        <li><b>Investments:</b> ticker, shares, value and cost, when your brokerage shares them.</li>
+        <li><b>Your edits:</b> notes, renames, adjusted amounts, splits, moved dates, categories, logos, and transactions you add.</li>
         <li><b>Card design images</b> you upload, in private storage.</li>
-        <li><b>Bank connection keys</b> from Plaid, encrypted.</li>
+        <li><b>Bank keys</b> from Plaid, encrypted.</li>
       </ul>
-      <p>Alenjo never gets your bank password (you type it into Plaid’s window), your full card or account numbers (Plaid only shares the last 4), or anything about your face (Face ID stays on your phone).</p>
+
+      <h2>What it never gets</h2>
+      <ul>
+        <li>Your bank password. You type it into Plaid’s window, not Alenjo’s.</li>
+        <li>Full card or account numbers. Plaid only shares the last 4 digits.</li>
+        <li>Your face. Face ID runs on your phone; Alenjo only keeps a public key.</li>
+      </ul>
 
       <h2>Where it’s kept</h2>
-      <p>In a Supabase Postgres database on AWS in Northern Virginia (us-east-1). Each row is tied to your account and the database only returns your own rows. Photos and card images are in private storage and load through links that expire after 7 days.</p>
-      <p>Your phone or browser keeps only settings: theme, Face ID and auto-lock choices, the last tab you had open, and your email and first name for the sign-in screen. Tap <b>Not you?</b> on the sign-in screen to clear those.</p>
+      <ul>
+        <li>A Supabase Postgres database on AWS in Northern Virginia (us-east-1). It only ever returns your own rows.</li>
+        <li>Images are in private storage and load through links that expire after 7 days.</li>
+        <li>Your phone or browser keeps settings only: theme, Face ID and auto-lock choices, last tab, and your email and first name for the sign-in screen. Tap <b>Not you?</b> to clear them.</li>
+      </ul>
 
       <h2>Outside services</h2>
-      <div class="tbl"><table><thead><tr><th>Service</th><th>What it receives</th><th>Why</th></tr></thead><tbody><tr><td data-label="Service">Plaid</td><td data-label="What it receives">Your bank sign-in (in its own window)</td><td data-label="Why">Read-only access to balances, transactions, card details and holdings</td></tr><tr><td data-label="Service">Supabase</td><td data-label="What it receives">All of the data above</td><td data-label="Why">Database, sign-in and server code</td></tr><tr><td data-label="Service">GitHub Pages</td><td data-label="What it receives">Your IP address</td><td data-label="Why">Serves the app’s files</td></tr><tr><td data-label="Service">logo.dev</td><td data-label="What it receives">A store’s name or website, and what you type in logo search</td><td data-label="Why">Store and bank logos</td></tr><tr><td data-label="Service">Google Fonts</td><td data-label="What it receives">Your IP address</td><td data-label="Why">The Inter and Newsreader typefaces</td></tr><tr><td data-label="Service">jsDelivr</td><td data-label="What it receives">Your IP address, only when you upload a card image</td><td data-label="Why">A small model that checks the image on your device</td></tr></tbody></table></div>
-      <p>There are no analytics, advertising or tracking scripts, and nothing is sold or shared for marketing.</p>
-
-      <h2>Technical notes</h2>
-      <p>The columns that are encrypted on the accounts table (read back only inside locked-down database functions):</p>
-      <pre><code>name_enc, mask_enc, balance_current_enc, balance_available_enc, balance_limit_enc, plaid_account_id_enc</code></pre>
-      <p>Everything the app saves on your device, all starting with <code>alenjo_</code>:</p>
-      <pre><code>alenjo_theme, alenjo_show_available, alenjo_active_tab, alenjo_show_ignored,
-alenjo_lock_minutes, alenjo_auto_faceid, alenjo_has_passkey,
-alenjo_last_email, alenjo_last_name, alenjo_since, alenjo_home_range, alenjo_act_range,
-alenjo_last_tx_sync</code></pre>
-
-      <h2>Deleting your data</h2>
       <ul>
-        <li><b>One bank:</b> Settings → Bank connections → Disconnect. Its accounts, transactions and your edits are deleted, and Plaid is told to revoke access.</li>
-        <li><b>Everything:</b> Settings → Delete account. Every bank is disconnected at Plaid, then your data, images and sign-in are deleted. This can’t be undone.</li>
+        <li><b>Plaid</b> gets your bank sign-in, in its own window, and gives Alenjo read-only access to balances, transactions, card details and holdings.</li>
+        <li><b>Supabase</b> stores everything above and runs sign-in and the server code.</li>
+        <li><b>GitHub Pages</b> serves the app’s files and sees your IP address, like any website host.</li>
+        <li><b>logo.dev</b> gets a store’s name or website, plus what you type in logo search, and returns logos. Never amounts or accounts.</li>
+        <li><b>Google Fonts</b> serves the two typefaces and sees your IP address.</li>
+        <li><b>jsDelivr</b> is only used when you upload a card image. It serves a small check that runs on your device; the image isn’t sent anywhere for it.</li>
+        <li>There are no analytics, ad or tracking scripts, and nothing is sold or shared for marketing.</li>
+      </ul>
+
+      <h2>Deleting</h2>
+      <ul>
+        <li><b>One bank:</b> Settings → Bank connections → Disconnect. Its accounts, transactions and your edits are deleted, and Plaid revokes access.</li>
+        <li><b>Everything:</b> Settings → Delete account. Every bank is disconnected, then your data, images and sign-in are deleted for good.</li>
       </ul>
 
       <h2>Source code</h2>
-      <p>The app’s code is public on GitHub: <a href="https://github.com/iisauha/alenjo" target="_blank" rel="noopener">github.com/iisauha/alenjo</a>. The server functions that talk to Plaid run on Supabase. No passwords, keys or personal data are in the repository.</p>
+      <p>The app’s code is public at <a href="https://github.com/iisauha/alenjo" target="_blank" rel="noopener">github.com/iisauha/alenjo</a>. The server functions that talk to Plaid run on Supabase. No passwords, keys or personal data are in the repository.</p>
+
+      <h2>Technical notes</h2>
+      <p>The encrypted columns on the accounts table. They’re only read back inside locked-down database functions:</p>
+      <pre><code>name_enc, mask_enc, plaid_account_id_enc,
+balance_current_enc, balance_available_enc, balance_limit_enc</code></pre>
+      <p>How the app asks for an image. It gets a private link that stops working after 7 days:</p>
+      <pre><code>const { data } = await sb.storage.from(&#x27;card-designs&#x27;)
+  .createSignedUrl(path, 7 * 24 * 3600)   <span class="c">// only works for your own folder</span></code></pre>
+      <p>Everything the app saves on your device. Every key starts with <code>alenjo_</code>:</p>
+      <pre><code>alenjo_theme, alenjo_show_available, alenjo_active_tab, alenjo_show_ignored,
+alenjo_lock_minutes, alenjo_auto_faceid, alenjo_has_passkey, alenjo_last_email,
+alenjo_last_name, alenjo_since, alenjo_home_range, alenjo_act_range, alenjo_last_tx_sync</code></pre>
 
       <h2>Changes</h2>
       <p>If this page changes in a way that matters, the date at the top changes too.</p>
