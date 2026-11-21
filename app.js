@@ -2934,7 +2934,7 @@ function budgetSuggestion(cat, side) {
   if (!months.length) return null;
   var sum = months.reduce(function(t, k) { return t + (byMonth[k] || 0); }, 0);
   if (!(sum > 0)) return null;
-  return { avg: Math.round(sum / months.length), months: months };
+  return { avg: Math.round(sum / months.length * 100) / 100, months: months };
 }
 // Every category you have, each with its monthly amount (blank = no budget)
 function budgetCategories(side) {
@@ -3931,11 +3931,11 @@ function prevMonthKey(month) {
   var p = month.split('-'), d = new Date(+p[0], +p[1] - 2, 1);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
-function wholeMoney(v) { return formatMoney(v).replace(/\.\d\d$/, ''); }
+function wholeMoney(v) { return formatMoney(v); }   // keeps the cents
 // One category: the line under its name, how full its bar is, and its colour state.
 // A budget is just a monthly amount for a category; everything in that category counts toward it.
 function budgetStatus(b, got, side) {
-  var amt = b.amount, g = Math.round(got), a = Math.round(amt);   // whole dollars, so cents never show "$0 over"
+  var amt = b.amount, g = Math.round(got * 100) / 100, a = Math.round(amt * 100) / 100;   // exact to the cent
   var base = wholeMoney(g) + ' / ' + wholeMoney(a);
   // Green when at or under budget, red when over. Income: green once the expected amount is in.
   if (side === 'in') return { sub: base, cls: g >= a ? 'good' : '' };
@@ -4082,8 +4082,8 @@ function renderTransactionMonth() {
   // One sentence: spent vs what came in this month (all accounts; transfers between your accounts left out)
   // Nothing picked: spent vs made. A category picked: its share of your income.
   // Income picked: how much of it you kept (your savings rate).
-  var net = $('#act-net'), gap = Math.round(moneyIn) - Math.round(spent);
-  var pctOf = function(x) { var v = x / moneyIn * 100; return (v > 0 && v < 1 ? '<1' : Math.round(v)) + '%'; };
+  var net = $('#act-net'), gap = Math.round((moneyIn - spent) * 100) / 100;
+  var pctOf = function(x) { var v = x / moneyIn * 100; return (v > 0 && v < 0.1 ? '<0.1' : (Math.round(v * 10) / 10).toLocaleString('en-US')) + '%'; };
   if (cardId !== 'all' || (!moneyIn && !spent)) net.innerHTML = '';
   else if (incomeMode) {
     if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
