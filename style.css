@@ -3566,3 +3566,4 @@ body.update-required { overflow: hidden; }
 .delete-form .action-sheet-cancel { position: static; box-shadow: none; margin-top: 0; }
 .info-back:focus { outline: none; }
 .info-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+.delete-phrase { color: var(--text); font-weight: 600; user-select: none; -webkit-user-select: none; }

@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121020540';</script>
+  <script>var _v = '20261121020918';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121020540">
+  <link rel="stylesheet" href="style.css?v=20261121020918">
 </head>
 <body>
 
@@ -597,9 +597,9 @@
       </ul>
       <form id="delete-form" class="delete-form" autocomplete="off">
         <label class="delete-field"><span>Your password</span><input type="password" id="delete-password" class="app-input" autocomplete="current-password" required></label>
-        <label class="delete-field"><span>Type DELETE to confirm</span><input type="text" id="delete-confirm" class="app-input" autocapitalize="characters" autocomplete="off" spellcheck="false" required></label>
+        <label class="delete-field"><span>To confirm, type <b class="delete-phrase">I want to delete my account</b></span><input type="text" id="delete-confirm" class="app-input" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" required></label>
         <p id="delete-error" class="auth-error" hidden></p>
-        <button type="submit" id="delete-submit" class="delete-btn" disabled>Delete my account</button>
+        <button type="submit" id="delete-submit" class="delete-btn" disabled>Delete this account</button>
         <button type="button" id="delete-cancel" class="action-sheet-cancel">Cancel</button>
       </form>
     </div>

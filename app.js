@@ -1768,12 +1768,14 @@ if (prefAutoFaceId) {
   });
 }
 
-// Delete account: confirm with your password and by typing DELETE
+// Delete account (like GitHub): your password plus typing the exact sentence
 (function wireDeleteAccount() {
   var open = $('#btn-delete-account'), sheet = $('#delete-sheet');
   if (!open || !sheet) return;
   var pw = $('#delete-password'), conf = $('#delete-confirm'), submit = $('#delete-submit'), err = $('#delete-error');
-  function ready() { submit.disabled = !(pw.value && conf.value.trim().toUpperCase() === 'DELETE'); }
+  var PHRASE = 'i want to delete my account';
+  function typed() { return conf.value.trim().replace(/\s+/g, ' ').toLowerCase(); }
+  function ready() { submit.disabled = !(pw.value && typed() === PHRASE); }
   function close() { sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); pw.value = ''; conf.value = ''; err.hidden = true; ready(); }
   open.addEventListener('click', function() { sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false'); setTimeout(function() { pw.focus(); }, 200); });
   $('#delete-cancel').addEventListener('click', close);
@@ -1791,7 +1793,7 @@ if (prefAutoFaceId) {
       var res = await fetch(SUPABASE_URL + '/functions/v1/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY },
-        body: JSON.stringify({ confirm: 'DELETE' })
+        body: JSON.stringify({ confirm: conf.value })
       });
       var data = await res.json().catch(function() { return {}; });
       if (!res.ok || !data.deleted) throw new Error('Something went wrong and nothing was deleted. Try again.');
@@ -1801,7 +1803,7 @@ if (prefAutoFaceId) {
       location.replace('/?deleted=1');
     } catch (x) {
       err.textContent = x.message; err.hidden = false;
-      submit.textContent = 'Delete my account'; ready();
+      submit.textContent = 'Delete this account'; ready();
     }
   });
 })();
