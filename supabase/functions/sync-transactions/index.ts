@@ -73,6 +73,13 @@ async function migratePendingAction(
     .eq('transaction_id', oldId);
 }
 
+function sameSecret(a: string, b: string) {
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  let d = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) d |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return d === 0;
+}
+
 // Money moving between your own accounts or paying a card isn't a purchase or a deposit
 const NOT_NOTIFIABLE = new Set(['TRANSFER_IN', 'TRANSFER_OUT', 'LOAN_PAYMENTS']);
 
@@ -93,7 +100,8 @@ Deno.serve(async (req: Request) => {
     // (server key, one bank, wants the newly added transactions back).
     let user: { id: string } | null = null;
     let onlyItemId: string | null = null;
-    const internal = authHeader === 'Bearer ' + serviceKey && reqBody.internal === true;
+    // SA-013: the server key must exist and match exactly (constant-time compare)
+    const internal = reqBody.internal === true && typeof serviceKey === 'string' && serviceKey.length > 20 && sameSecret(authHeader, 'Bearer ' + serviceKey);
     if (internal) {
       if (!reqBody.user_id || !reqBody.item_id) return jsonResponse({ error: 'Missing user_id or item_id' }, 400);
       user = { id: reqBody.user_id };
