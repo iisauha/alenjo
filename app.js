@@ -3348,7 +3348,7 @@ function renderTransactionMonth() {
       if (eff.date !== swipeDate(tx)) tags += '<span class="act-tag">Moved</span>';
       if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
       if (eff.actionType === 'ignored') tags += '<span class="act-tag">Ignored</span>';
-      if (eff.isSplit) tags += '<span class="act-tag act-tag-accent">' + (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Your share') + '</span>';
+      if ((eff.isSplit && !eff.excluded) || eff.nickname) tags += '<span class="act-tag act-tag-accent">Adjusted</span>';
       // Store logo (see txLogoUrl); the first letter shows underneath as a fallback
       var logoSrc = txLogoUrl(tx, eff);
       var avatar = '<span class="act-avatar" data-i="' + esc(name.charAt(0).toUpperCase()) + '">' +
@@ -3360,7 +3360,7 @@ function renderTransactionMonth() {
         '<span class="act-row-meta">' + (showCardName ? esc(acctName) + ' · ' : '') + esc(cat) + '</span>' +
         (eff.note ? '<span class="act-row-note">' + esc(eff.note) + '</span>' : '') + '</span>' +
         '<span class="act-row-right"><span class="act-row-amt ' + (tx.pending ? 'is-pending' : income ? 'is-in' : 'is-out') + '">' + amountMain + '</span>' +
-        (eff.isSplit && !eff.excluded ? '<span class="act-row-sub">of ' + formatMoney(tx.amount) + '</span>' : '') +
+
         (tags ? '<span class="act-row-tags">' + tags + '</span>' : '') + '</span>' +
       '</div>';
     });
@@ -3824,13 +3824,13 @@ function renderTxSheet(tx) {
   var bankName = tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
   var name = eff.nickname || bankName;
   $('#tx-action-merchant').textContent = name;
+  $('#txs-name-adj').hidden = !eff.nickname;
   $('#txs-name-btn').hidden = false; $('#txs-name-input').hidden = true;
   var logo = txLogoUrl(tx, eff);
   $('#txs-avatar').setAttribute('data-i', name.charAt(0).toUpperCase());
   $('#txs-avatar').innerHTML = logo ? '<img src="' + esc(logo) + '" alt="" onerror="this.remove()">' : '';
 
   var parts = [];
-  if (eff.nickname) parts.push('Bank: ' + bankName);
   if (tx.enriched_location_city || tx.enriched_location_region) parts.push([tx.enriched_location_city, tx.enriched_location_region].filter(Boolean).join(', '));
   if (tx.enriched_payment_channel === 'online') parts.push('Online');
   else if (tx.enriched_payment_channel === 'in store') parts.push('In store');
@@ -3842,8 +3842,8 @@ function renderTxSheet(tx) {
   amtEl.textContent = (income ? '+' : '−') + formatMoney(counted);
   amtEl.className = 'txs-amt ' + (tx.pending ? 'is-pending' : income ? 'is-in' : 'is-out');
   $('#txs-amt-btn').hidden = false; $('#txs-amt-edit').hidden = true;
+  $('#txs-amt-adj').hidden = !(eff.isSplit && !eff.excluded);
   $('#txs-amt-sub').textContent = eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
-    : eff.isSplit ? 'Your share of ' + formatMoney(total) + (eff.splitWays ? ' · split ' + eff.splitWays + ' ways' : '')
     : tx.pending ? 'Pending' : '';
 
   $('#txs-cat-val').textContent = normalizeCategory(eff.category);

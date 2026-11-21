@@ -3473,3 +3473,5 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .cat-pill.edit:has(.cat-pill-input) { border-color: var(--accent); }
 .cat-reset { display: block; width: 100%; min-height: 40px; margin-bottom: 10px; border: none; background: transparent; color: var(--text-muted); font: 500 0.8125rem 'Inter', sans-serif; text-align: left; cursor: pointer; padding: 0 2px; }
 .cat-help { margin: 12px 2px 0; font-size: 0.75rem; color: var(--text-muted); }
+.txs-adj { flex-shrink: 0; font: 600 0.6875rem 'Inter', sans-serif; padding: 2px 7px; border-radius: 6px; background: var(--accent-subtle); color: var(--accent); }
+.txs-adj[hidden] { display: none; }
