@@ -3000,7 +3000,7 @@ function renderBudgetSheet() {
   var same = function(A, B) { var k = Object.keys(A); return k.length === Object.keys(B).length && k.every(function(c) { return B[c] && Math.abs(B[c].amount - A[c].amount) < 0.005; }); };
   copy.hidden = !nPrev || (same(PO, BO) && same(PI, BIn));
   if (copy.hidden) copy.dataset.confirm = '';
-  else if (copy.dataset.confirm === bs.month) copy.innerHTML = 'Replace ' + esc(mName) + '’s ' + nCur + '?' + ' <b>Tap to confirm</b>';
+  else if (copy.dataset.confirm === bs.month) copy.innerHTML = 'Replace ' + esc(mName) + '’s budgets? <b>Tap to confirm</b>';
   else copy.innerHTML = 'Use ' + esc(budgetMonthName(prev)) + '’s budgets <b>' + nPrev + ' set</b>';
   $('#budget-help').textContent = 'Tap a category to set its amount for ' + mName + '. No amount means no budget.';
   $('#budget-help').hidden = !!bs.cat;
