@@ -51,6 +51,8 @@ var headerName = $('#header-name');
 var currentUser = null;
 var userProfile = null;
 var showAvailable = localStorage.getItem('alenjo_show_available') !== 'false';
+// Privacy: long-press the Available number to hide every amount (like Robinhood). Remembered on this device.
+var hideMoney = (function() { try { return localStorage.getItem('alenjo_hide_money') === '1'; } catch (e) { return false; } })();
 var cachedAccounts = null;
 
 // ============================================
@@ -1596,8 +1598,45 @@ document.addEventListener('click', function(e) {
 // ============================================
 // BALANCE TOGGLE
 // ============================================
+// Long-press Available: hide or show every amount. A short tap still switches pending.
+var heroLongPressed = false;
+function setHideMoney(v) {
+  hideMoney = !!v;
+  try { localStorage.setItem('alenjo_hide_money', hideMoney ? '1' : '0'); } catch (e) {}
+  syncMoneyEye();
+  if (cachedAccounts) { renderAccounts(cachedAccounts); renderHomeInsights(); }
+  if (txData && txData.length) renderTransactionMonth();
+  if (actionTx && actionSheet && actionSheet.classList.contains('visible')) renderTxSheet(actionTx);
+  if (navigator.vibrate) navigator.vibrate(10);
+}
+function syncMoneyEye() {
+  document.body.classList.toggle('money-hidden', hideMoney);
+  var eye = $('#money-eye'); if (eye) eye.hidden = !hideMoney;
+}
+syncMoneyEye();
+(function wireHeroLongPress() {
+  var hero = $('#hero-available'), eye = $('#money-eye'), timer = null, start = null;
+  if (!hero) return;
+  function cancel() { clearTimeout(timer); timer = null; hero.classList.remove('pressing'); }
+  hero.addEventListener('pointerdown', function(e) {
+    if (e.target.closest('#money-eye')) return;
+    heroLongPressed = false; start = { x: e.clientX, y: e.clientY };
+    hero.classList.add('pressing');
+    timer = setTimeout(function() { timer = null; heroLongPressed = true; hero.classList.remove('pressing'); setHideMoney(!hideMoney); }, 550);
+  });
+  hero.addEventListener('pointermove', function(e) { if (timer && start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) { hero.addEventListener(ev, cancel); });
+  hero.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+  if (eye) {
+    var reveal = function(e) { e.preventDefault(); e.stopPropagation(); setHideMoney(false); };
+    eye.addEventListener('click', reveal);
+    eye.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') reveal(e); });
+  }
+})();
+
 document.querySelectorAll('.hero-stat').forEach(function(btn) {
   btn.addEventListener('click', function() {
+    if (heroLongPressed) { heroLongPressed = false; return; }
     showAvailable = !showAvailable;
     localStorage.setItem('alenjo_show_available', showAvailable ? 'true' : 'false');
     var pref = $('#pref-after-pending');
@@ -2391,7 +2430,7 @@ function renderAccounts(accounts) {
 
     var availEl = $('#available-value');
     if (availEl) {
-      availEl.textContent = (availableCash < 0 ? '-' : '') + formatMoney(availableCash);
+      availEl.textContent = heroMoney(availableCash);
       availEl.className = 'hero-stat-value ' + (availableCash >= 0 ? 'balance-positive' : 'balance-negative');
     }
   } else {
@@ -2412,7 +2451,7 @@ var lastAvailableCash = null;
 // Robinhood) and the numbers above show that day.
 var homeRange = parseInt(localStorage.getItem('alenjo_home_range') || '30', 10) || 30;
 var homeSeries = null;
-function heroMoney(v) { return (v < 0 ? '-' : '') + formatMoney(Math.abs(v)); }
+function heroMoney(v) { return (v < 0 && !hideMoney ? '-' : '') + formatMoney(Math.abs(v)); }
 function renderHomeInsights() {
   var label = $('#home-trend-label'), chart = $('#home-chart'), ranges = $('#home-ranges');
   if (!label || !chart) return;
@@ -2571,7 +2610,7 @@ function monthInterestEstimate(a) {
 function formatApy(a) {
   var apy = parseFloat(a.apy);
   var est = monthInterestEstimate(a);
-  var amt = est >= 1 ? '$' + Math.round(est).toLocaleString('en-US') : est >= 0.01 ? formatMoney(est) : '';
+  var amt = hideMoney ? (est >= 0.01 ? '****' : '') : est >= 1 ? '$' + Math.round(est).toLocaleString('en-US') : est >= 0.01 ? formatMoney(est) : '';
   return '<span>' + apy.toFixed(2).replace(/\.?0+$/, '') + '% APY</span>' + (amt ? '<span class="apy-est">~' + amt + ' this month</span>' : '');
 }
 
@@ -4906,6 +4945,7 @@ function formatSigned(amount) {
 }
 
 function formatMoney(amount) {
+  if (hideMoney) return '****';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD'

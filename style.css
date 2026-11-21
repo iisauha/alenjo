@@ -3640,3 +3640,10 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .act-bar.dim .act-bar-fill i { background: color-mix(in srgb, var(--text) 16%, transparent) !important; }
 .act-bar-fill i { transition: background-color 0.2s; }
 @media (hover: hover) { .act-bar.on:hover .act-bar-col { background: transparent; } }
+
+/* Hidden amounts: eye next to the Available number brings them back */
+.hero-value-row { display: flex; align-items: center; gap: 12px; }
+.money-eye { flex: none; width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); cursor: pointer; }
+.money-eye[hidden] { display: none; }
+.hero-stat.pressing .hero-stat-value { opacity: 0.6; transition: opacity 0.5s; }
+.money-hidden .hero-stat-value, .money-hidden .hero-side-value { letter-spacing: 0.04em; }

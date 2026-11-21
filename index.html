@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121035651';</script>
+  <script>var _v = '20261121040122';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121035651">
+  <link rel="stylesheet" href="style.css?v=20261121040122">
 </head>
 <body>
 
@@ -179,7 +179,7 @@
         <div class="hero-stats">
           <button class="hero-stat" id="hero-available">
             <span class="hero-stat-label">Available</span>
-            <span class="hero-stat-value" id="available-value"></span>
+            <span class="hero-value-row"><span class="hero-stat-value" id="available-value"></span><span class="money-eye" id="money-eye" role="button" tabindex="0" aria-label="Show balances" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span></span>
           </button>
           <div class="hero-side" id="hero-side">
             <div class="hero-side-row"><span class="hero-stat-label">Assets</span><span class="hero-side-value" id="hero-assets"></span></div>
@@ -345,7 +345,7 @@
         </div>
         <div id="account-order-list"></div>
         <label class="set-row">
-          <span class="set-row-text"><span>Include pending charges</span><span class="set-hint">Show what you can spend right now, not just what's posted. Tip: tap the big number on Home to switch.</span></span>
+          <span class="set-row-text"><span>Include pending charges</span><span class="set-hint">Show what you can spend right now, not just what's posted. Tip: tap the big number on Home to switch, or press and hold it to hide all amounts.</span></span>
           <input type="checkbox" id="pref-after-pending" class="set-switch" role="switch">
         </label>
       </div>
