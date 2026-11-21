@@ -3941,10 +3941,11 @@ function budgetStatus(b, got, side) {
   if (side === 'in') return { sub: base, cls: g >= a ? 'good' : '' };
   return { sub: g > a ? base + ' · ' + wholeMoney(g - a) + ' over' : base, cls: g > a ? 'bad' : 'good' };
 }
+// Spending categories never use green: green means income
 var CATEGORY_COLORS = [
-  '#2E8B57', '#4F6BD8', '#D98A2B', '#8A5CC2', '#C2524A',
-  '#2A9AA8', '#7A8B2E', '#B0679A', '#5E7FA3', '#A6782E',
-  '#3E8E7E', '#9C5B3C', '#6D6AC9', '#4D8F3F', '#B5873A'
+  '#4F6BD8', '#D98A2B', '#8A5CC2', '#C2524A', '#3E8CC7',
+  '#B0679A', '#B8913A', '#6D6AC9', '#D46A5A', '#5E7FA3',
+  '#7D4E8F', '#9C5B3C', '#C04F86', '#A8956B', '#8C6A4F'
 ];
 
 // After renaming an account: Activity (rows, filter, add-transaction picker, open sheet) uses the new name right away
