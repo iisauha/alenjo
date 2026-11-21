@@ -3547,3 +3547,15 @@ body.update-required { overflow: hidden; }
 .set-intro > span { font-size: 0.8125rem; color: var(--text-muted); line-height: 1.45; }
 .set-intro-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 4px; border-radius: 6px; background: var(--bg-elevated); color: var(--text); font-weight: 700; }
 #account-order-list + .set-row { border-top: 1px solid var(--border); }
+
+/* Delete account */
+.set-delete-link { display: block; margin: 10px auto 24px; min-height: 44px; padding: 0 16px; border: none; background: transparent; color: var(--danger); font: 500 0.875rem 'Inter', sans-serif; cursor: pointer; }
+.delete-sheet { padding-top: 1.5rem; }
+.delete-title { margin: 0 0 6px; font-family: var(--serif); font-weight: 500; font-size: 1.5rem; }
+.delete-lead { margin: 0 0 6px; color: var(--text-muted); font-size: 0.9375rem; }
+.delete-list { margin: 0 0 14px; padding-left: 1.1em; font-size: 0.875rem; line-height: 1.55; }
+.delete-form { display: flex; flex-direction: column; gap: 10px; }
+.delete-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.8125rem; color: var(--text-muted); }
+.delete-btn { min-height: 48px; border: none; border-radius: 12px; background: var(--danger); color: #fff; font: 600 1rem 'Inter', sans-serif; cursor: pointer; }
+.delete-btn:disabled { opacity: 0.4; cursor: default; }
+.delete-form .action-sheet-cancel { position: static; box-shadow: none; margin-top: 0; }

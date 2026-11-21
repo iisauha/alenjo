@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121013900';</script>
+  <script>var _v = '20261121014226';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121013900">
+  <link rel="stylesheet" href="style.css?v=20261121014226">
 </head>
 <body>
 
@@ -111,7 +111,6 @@
             </button>
           </div>
           <button type="submit" id="auth-submit" class="btn-primary">Sign in</button>
-          <button type="button" id="login-faceid-cta" class="signin-faceid-cta" hidden>Sign in with Face ID</button>
           <button type="button" id="btn-forgot" class="signin-link signin-forgot">Forgot password?</button>
           <button type="button" id="btn-goto-beta" class="btn-link" hidden>Sign up</button>
         </form>
@@ -414,6 +413,7 @@
       </div>
 
       <button type="button" id="btn-sign-out" class="set-signout">Sign out</button>
+      <button type="button" id="btn-delete-account" class="set-delete-link">Delete account</button>
     </section>
 
   <!-- Bottom Nav -->
@@ -583,6 +583,26 @@
       <button type="button" id="info-close" class="info-back" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
     </div>
     <iframe id="info-frame" title="Info" tabindex="0"></iframe>
+  </div>
+
+  <div id="delete-sheet" class="action-sheet-overlay" aria-hidden="true">
+    <div class="action-sheet delete-sheet" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+      <h2 id="delete-title" class="delete-title">Delete your account?</h2>
+      <p class="delete-lead">This can’t be undone. Alenjo will:</p>
+      <ul class="delete-list">
+        <li>Disconnect every bank from Plaid</li>
+        <li>Delete all your accounts, transactions, notes, splits and categories</li>
+        <li>Delete your profile photo and card designs</li>
+        <li>Delete your sign-in, including Face ID</li>
+      </ul>
+      <form id="delete-form" class="delete-form" autocomplete="off">
+        <label class="delete-field"><span>Your password</span><input type="password" id="delete-password" class="app-input" autocomplete="current-password" required></label>
+        <label class="delete-field"><span>Type DELETE to confirm</span><input type="text" id="delete-confirm" class="app-input" autocapitalize="characters" autocomplete="off" spellcheck="false" required></label>
+        <p id="delete-error" class="auth-error" hidden></p>
+        <button type="submit" id="delete-submit" class="delete-btn" disabled>Delete my account</button>
+        <button type="button" id="delete-cancel" class="action-sheet-cancel">Cancel</button>
+      </form>
+    </div>
   </div>
 
   <div id="picker-sheet" class="action-sheet-overlay picker-overlay" aria-hidden="true">

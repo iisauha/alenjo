@@ -367,7 +367,7 @@ async function signInWithFaceId(fromUserTap) {
         ? 'Face ID sign-in failed. Use your password instead.'
         : 'Face ID isn\u2019t set up yet. Sign in with your password, then go to Settings → Security.';
       authError.hidden = false;
-    } else if (!fromUserTap) { $('#login-faceid-cta').hidden = false; }
+    }
   }
   if (!res.error) { try { localStorage.setItem('alenjo_has_passkey', 'true'); } catch (e) {} }
   // On success the SIGNED_IN handler takes over and opens Home.
@@ -385,8 +385,6 @@ authFaceId.addEventListener('click', function() { signInWithFaceId(true); });
   inp.addEventListener('focus', unlock);
   inp.addEventListener('keydown', unlock);
 });
-var faceIdCta = $('#login-faceid-cta');
-if (faceIdCta) faceIdCta.addEventListener('click', function() { signInWithFaceId(true); });
 
 // Sign out any existing session on load so user must log in every time
 // Then listen for fresh sign-ins only
@@ -1739,6 +1737,44 @@ if (prefAutoFaceId) {
     try { localStorage.setItem('alenjo_auto_faceid', this.checked ? 'true' : 'false'); } catch (e) {}
   });
 }
+
+// Delete account: confirm with your password and by typing DELETE
+(function wireDeleteAccount() {
+  var open = $('#btn-delete-account'), sheet = $('#delete-sheet');
+  if (!open || !sheet) return;
+  var pw = $('#delete-password'), conf = $('#delete-confirm'), submit = $('#delete-submit'), err = $('#delete-error');
+  function ready() { submit.disabled = !(pw.value && conf.value.trim().toUpperCase() === 'DELETE'); }
+  function close() { sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); pw.value = ''; conf.value = ''; err.hidden = true; ready(); }
+  open.addEventListener('click', function() { sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false'); setTimeout(function() { pw.focus(); }, 200); });
+  $('#delete-cancel').addEventListener('click', close);
+  sheet.addEventListener('click', function(e) { if (e.target === sheet) close(); });
+  pw.addEventListener('input', ready); conf.addEventListener('input', ready);
+  $('#delete-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (submit.disabled || !currentUser) return;
+    err.hidden = true; submit.disabled = true; submit.textContent = 'Deleting…';
+    try {
+      // Make sure it's really you before deleting anything
+      var check = await sb.auth.signInWithPassword({ email: currentUser.email, password: pw.value });
+      if (check.error) throw new Error('That password isn’t right.');
+      var session = (await sb.auth.getSession()).data.session;
+      var res = await fetch(SUPABASE_URL + '/functions/v1/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ confirm: 'DELETE' })
+      });
+      var data = await res.json().catch(function() { return {}; });
+      if (!res.ok || !data.deleted) throw new Error('Something went wrong and nothing was deleted. Try again.');
+      // Forget this device's saved email, name and settings too
+      try { Object.keys(localStorage).forEach(function(k) { if (k.indexOf('alenjo_') === 0) localStorage.removeItem(k); }); } catch (x) {}
+      await sb.auth.signOut({ scope: 'local' });
+      location.replace('/?deleted=1');
+    } catch (x) {
+      err.textContent = x.message; err.hidden = false;
+      submit.textContent = 'Delete my account'; ready();
+    }
+  });
+})();
 
 var signOutBtn = $('#btn-sign-out');
 if (signOutBtn) signOutBtn.addEventListener('click', function() {
