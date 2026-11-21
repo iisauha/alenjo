@@ -2204,6 +2204,7 @@ function txLogoUrl(tx, eff) {
   var q = '?token=' + LOGO_KEY + '&size=64&retina=true&format=png&fallback=404';
   // 1. A logo you picked for this store
   var picked = merchantLogos[merchantKey(tx)];
+  if (picked === 'none') return null;   // you chose no logo: show the letter instead
   if (picked) return logoByDomain(picked);
   // 2. If you renamed it, look up the new name (so "Claude" gets Claude's logo)
   if (eff.nickname) return 'https://img.logo.dev/name/' + encodeURIComponent(eff.nickname.trim()) + q;
@@ -4172,11 +4173,15 @@ function renderTxSheet(tx) {
   var timer = null, seq = 0;
   function tiles(results) {
     var current = merchantLogos[merchantKey(actionTx)];
-    out.innerHTML = results.length ? results.map(function(r) {
+    var eff = getEffectiveTx(actionTx);
+    var letter = ((eff.nickname || actionTx.merchant_name || actionTx.name || '?').replace(/^(to|from)\s+/i, '').trim().charAt(0) || '?').toUpperCase();
+    var none = '<button type="button" class="logo-tile' + (current === 'none' ? ' on' : '') + '" data-domain="none">' +
+      '<span class="logo-img" data-i="' + esc(letter) + '"></span><span class="logo-name">None</span><span class="logo-domain">Just the letter</span></button>';
+    out.innerHTML = none + (results.length ? results.map(function(r) {
       return '<button type="button" class="logo-tile' + (r.domain === current ? ' on' : '') + '" data-domain="' + esc(r.domain) + '">' +
         '<span class="logo-img" data-i="' + esc((r.name || r.domain).charAt(0).toUpperCase()) + '"><img src="' + esc(logoByDomain(r.domain, 96)) + '" alt="" loading="lazy" onerror="this.remove()"></span>' +
         '<span class="logo-name">' + esc(r.name) + '</span><span class="logo-domain">' + esc(r.domain) + '</span></button>';
-    }).join('') : '<p class="logo-empty">' + (q.value.trim().length < 2 ? 'Type a store name to see logos.' : 'No logos found. Try a shorter name or the website, like “claude.ai”.') + '</p>';
+    }).join('') : '<p class="logo-empty">' + (q.value.trim().length < 2 ? 'Type a store name to see logos.' : 'No logos found. Try a shorter name or the website, like “claude.ai”.') + '</p>');
   }
   async function search(term) {
     var my = ++seq;
@@ -4216,7 +4221,7 @@ function renderTxSheet(tx) {
     merchantLogos[key] = domain;
     sb.from('merchant_logos').upsert({ merchant_key: key, domain: domain, updated_at: new Date().toISOString() }, { onConflict: 'user_id,merchant_key' })
       .then(function(r) { if (r.error) showToast('Couldn’t save the logo'); });
-    showToast('Logo updated');
+    showToast(domain === 'none' ? 'Logo removed' : 'Logo updated');
     after();
   });
   $('#logo-reset').addEventListener('click', function() {
@@ -4780,4 +4785,21 @@ function flashSaved(btn) {
 }
 
 
+})();
+
+// Tap outside a popup to close it, same as Cancel. Only counts when the tap also started
+// outside: a drag that begins inside (selecting text, moving a crop) and ends on the
+// backdrop must not close it.
+(function wireBackdropClose() {
+  var downOn = null;
+  document.addEventListener('pointerdown', function(e) { downOn = e.target; }, true);
+  document.addEventListener('click', function(e) {
+    var t = e.target;
+    if (!t.classList || !(t.classList.contains('modal-overlay') || t.classList.contains('action-sheet-overlay'))) return;
+    if (downOn !== t) { e.stopImmediatePropagation(); return; }
+    if (t.classList.contains('modal-overlay')) {
+      var cancel = t.querySelector('[id$="-cancel"]');
+      if (cancel) cancel.click();
+    }
+  }, true);
 })();
