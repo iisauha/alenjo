@@ -3691,7 +3691,8 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
     e.preventDefault();
     lastFocus = a;
     frame.classList.remove('loaded');
-    frame.src = a.getAttribute('href').replace(/\.html$/, '') + '.html?embed=1';
+    // The version number makes sure you always get the latest page, not an old saved copy
+    frame.src = a.getAttribute('href').replace(/\.html$/, '') + '.html?embed=1&v=' + encodeURIComponent(window._v || Date.now());
     panel.hidden = false;
     requestAnimationFrame(function() { panel.classList.add('open'); });
     // Only move focus for keyboard users; on touch it drew a focus box around Back

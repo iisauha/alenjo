@@ -215,7 +215,7 @@ await db.rpc(&#x27;insert_plaid_item&#x27;, { p_user_id: user.id, p_access_token
     // Inside the app, keep page-to-page links in the same embedded view
     if (document.documentElement.classList.contains('embed')) {
       document.querySelectorAll('a[href^="/privacy"], a[href^="/security"], a[href^="/faq"]').forEach(function(a) {
-        a.href = a.getAttribute('href').split('#')[0].replace(/\.html$/, '') + '.html?embed=1' + (a.hash || '');
+        a.href = a.getAttribute('href').split('#')[0].replace(/\.html$/, '') + '.html?embed=1&v=' + (new URLSearchParams(location.search).get('v') || '') + (a.hash || '');
       });
     }
   </script>
