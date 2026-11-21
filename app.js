@@ -1942,7 +1942,7 @@ if (prefAutoFaceId) {
   var PHRASE = 'i want to delete my account';
   function typed() { return conf.value.trim().replace(/\s+/g, ' ').toLowerCase(); }
   function ready() { submit.disabled = !(pw.value && typed() === PHRASE); }
-  function close() { sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); pw.value = ''; conf.value = ''; err.hidden = true; ready(); }
+  function close() { $('#budget-copy').dataset.confirm = ''; sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); pw.value = ''; conf.value = ''; err.hidden = true; ready(); }
   open.addEventListener('click', function() { sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false'); setTimeout(function() { pw.focus(); }, 200); });
   $('#delete-cancel').addEventListener('click', close);
   sheet.addEventListener('click', function(e) { if (e.target === sheet) close(); });
@@ -2995,9 +2995,13 @@ function renderBudgetSheet() {
   // Reuse last month's, when this month has none yet
   var prev = prevMonthKey(bs.month), PO = (budgets[prev] || {}).out || {}, PI = (budgets[prev] || {}).in || {};
   var nPrev = Object.keys(PO).length + Object.keys(PI).length;
-  var copy = $('#budget-copy');
-  copy.hidden = Object.keys(BO).length + Object.keys(BIn).length > 0 || !nPrev;
-  if (!copy.hidden) copy.innerHTML = 'Use ' + esc(budgetMonthName(prev)) + '’s budgets <b>' + nPrev + ' set</b>';
+  // Shown whenever last month had budgets and this month's aren't already the same
+  var copy = $('#budget-copy'), nCur = Object.keys(BO).length + Object.keys(BIn).length;
+  var same = function(A, B) { var k = Object.keys(A); return k.length === Object.keys(B).length && k.every(function(c) { return B[c] && Math.abs(B[c].amount - A[c].amount) < 0.005; }); };
+  copy.hidden = !nPrev || (same(PO, BO) && same(PI, BIn));
+  if (copy.hidden) copy.dataset.confirm = '';
+  else if (copy.dataset.confirm === bs.month) copy.innerHTML = 'Replace ' + esc(mName) + '’s ' + nCur + '?' + ' <b>Tap to confirm</b>';
+  else copy.innerHTML = 'Use ' + esc(budgetMonthName(prev)) + '’s budgets <b>' + nPrev + ' set</b>';
   $('#budget-help').textContent = 'Tap a category to set its amount for ' + mName + '. No amount means no budget.';
   $('#budget-help').hidden = !!bs.cat;
   var ed = $('#budget-editor');
@@ -3058,9 +3062,16 @@ function saveMonthBudget(month, side, cat, amount) {
   $('#budget-ed-amt').addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); setIt(); } });
   $('#budget-ed-clear').addEventListener('click', function() { $('#budget-ed-amt').value = ''; setIt(); });
   $('#budget-copy').addEventListener('click', function() {
-    var bs = budgetSheet, prev = budgets[prevMonthKey(bs.month)] || {}, rows = [];
+    var bs = budgetSheet, prev = budgets[prevMonthKey(bs.month)] || {}, rows = [], btn = this;
+    var cur = (monthBudgets(bs.month, 'out'), monthBudgets(bs.month, 'in'), budgets[bs.month]);
+    var nCur = Object.keys(cur.out).length + Object.keys(cur.in).length;
+    // This month already has budgets: ask once before replacing them
+    if (nCur && btn.dataset.confirm !== bs.month) { btn.dataset.confirm = bs.month; renderBudgetSheet(); return; }
+    btn.dataset.confirm = '';
     ['out', 'in'].forEach(function(side) {
-      var P = prev[side] || {};
+      var P = prev[side] || {}, C = cur[side];
+      // Make this month match last month exactly: drop the ones last month didn't have
+      Object.keys(C).forEach(function(c) { if (!P[c]) saveMonthBudget(bs.month, side, c, null).then(function(r) { if (r.error) showToast('Couldn’t copy budgets'); }); });
       Object.keys(P).forEach(function(c) {
         monthBudgets(bs.month, side)[c] = { kind: 'limit', amount: P[c].amount };
         rows.push({ month: bs.month, category: c, direction: side, kind: 'limit', amount: P[c].amount, updated_at: new Date().toISOString() });
