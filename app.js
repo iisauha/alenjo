@@ -895,10 +895,11 @@ function renderCardDesignsSettings() {
   }).join('');
 }
 
-function loadScript(src) {
+function loadScript(src, integrity) {
   return new Promise(function(resolve, reject) {
     var s = document.createElement('script');
     s.src = src;
+    if (integrity) s.integrity = integrity;   // a tampered CDN copy is refused
     s.crossOrigin = 'anonymous';
     s.onload = function() { resolve(); };
     s.onerror = function() { reject(new Error('Failed to load ' + src)); };
@@ -936,13 +937,15 @@ function loadCropper() {
     var link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = 'https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css';
+    link.integrity = 'sha384-6LFfkTKLRlzFtgx8xsWyBdKGpcMMQTkv+dB7rAbugeJAu1Ym2q1Aji1cjHBG12Xh';
+    link.crossOrigin = 'anonymous';
     link.onload = resolve;
     link.onerror = resolve;
     document.head.appendChild(link);
   });
   cropperAssetsPromise = Promise.all([
     cssLoad,
-    loadScript('https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js')
+    loadScript('https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js', 'sha384-jrOgQzBlDeUNdmQn3rUt/PZD+pdcRBdWd/HWRqRo+n2OR2QtGyjSaJC0GiCeH+ir')
   ]);
   return cropperAssetsPromise;
 }
