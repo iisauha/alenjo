@@ -2344,6 +2344,8 @@ function getDisplayBalance(account, type) {
   var current = parseFloat(account.balance_current || 0);
   var available = account.balance_available != null ? parseFloat(account.balance_available) : null;
   var limit = account.balance_limit != null ? parseFloat(account.balance_limit) : null;
+  // A loan's balance is what you owe; Plaid's "available" for loans is meaningless (often 0)
+  if (type === 'loan' || account.type === 'loan') return { amount: current, label: 'Owed' };
 
   if (type === 'credit') {
     if (showAvailable) {
@@ -2987,11 +2989,14 @@ function accountCard(account, type) {
       if (ln.outstanding_interest) lTile('Unpaid interest', formatMoney(parseFloat(ln.outstanding_interest)));
       if (ln.ytd_interest_paid) lTile('Interest paid this year', formatMoney(parseFloat(ln.ytd_interest_paid)));
       if (ln.ytd_principal_paid) lTile('Principal paid this year', formatMoney(parseFloat(ln.ytd_principal_paid)));
-      if (ln.origination_principal) lTile('Original amount', formatMoney(parseFloat(ln.origination_principal)) + (ln.origination_date ? '<small>' + formatLiabDate(ln.origination_date) + '</small>' : ''));
-      if (ln.expected_payoff_date || ln.maturity_date) lTile('Paid off by', formatLiabDate(ln.expected_payoff_date || ln.maturity_date));
+      var withYear = function(d) { var p = d.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
+      if (ln.origination_principal) lTile('Original amount', formatMoney(parseFloat(ln.origination_principal)) + (ln.origination_date ? '<small>' + withYear(ln.origination_date) + '</small>' : ''));
+      if (ln.expected_payoff_date || ln.maturity_date) lTile('Paid off by', withYear(ln.expected_payoff_date || ln.maturity_date));
       if (ln.last_payment_amount) lTile('Last paid', formatMoney(parseFloat(ln.last_payment_amount)) + (ln.last_payment_date ? '<small>' + formatLiabDate(ln.last_payment_date) + '</small>' : ''));
       if (ln.repayment_plan) lTile('Plan', esc(ln.repayment_plan));
-      if (ln.loan_status && ln.loan_status !== 'repayment') lTile('Status', esc(ln.loan_status.replace(/_/g, ' ')));
+      var statusWord = ln.loan_status ? ln.loan_status.replace(/_/g, ' ').replace(/^./, function(c) { return c.toUpperCase(); }) : '';
+      var paused = /^(deferment|forbearance|in school|grace)/i.test(ln.loan_status || '');
+      if (ln.loan_status && ln.loan_status !== 'repayment') lTile('Status', esc(statusWord));
       if (ln.escrow_balance) lTile('Escrow', formatMoney(parseFloat(ln.escrow_balance)));
       if (ln.is_overdue) lTile('Status', 'Overdue', 'liab-urgent');
       var lDue = '', lCls = '';
@@ -3000,9 +3005,11 @@ function accountCard(account, type) {
         lCls = dU <= 3 ? 'liab-urgent' : dU <= 7 ? 'liab-soon' : '';
         lDue = 'Due ' + formatLiabDate(ln.next_payment_due_date) + (dU > 1 ? ' · in ' + dU + ' days' : dU === 1 ? ' · tomorrow' : dU === 0 ? ' · today' : ' · overdue');
       }
+      // No due date while payments are paused: say so instead of a blank "Loan details"
+      if (!lDue && paused) lDue = statusWord + ' · no payment due';
       if (lt.length || lDue) {
         liabHtml += moreSection(account.id + ':d',
-          '<span class="liab-due ' + lCls + '">' + esc(lDue || 'Loan details') + '</span>' + (lDue ? '<span class="more-word">Details</span>' : ''),
+          '<span class="liab-due ' + lCls + '">' + esc(lDue || 'Loan details') + '</span><span class="more-word">Details</span>',
           '<div class="liab-tiles">' + lt.join('') + '</div>');
       }
     }
