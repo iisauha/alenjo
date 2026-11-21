@@ -3092,7 +3092,6 @@ $('#bonus-edit-save').addEventListener('click', function() {
 var txData = [];
 var txMonths = [];
 var txActions = {};
-var ignoreRules = {};
 var txListenersReady = false;
 async function loadTransactions() {
   var txEmpty = $('#tx-empty');
@@ -3168,7 +3167,7 @@ async function loadTransactions() {
   }
 
   // Load user actions and ignore rules
-  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, amount_override, category_override, nickname, note, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted').order('transaction_id'); });
+  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, amount_override, category_override, nickname, note, date_override').order('transaction_id'); });
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
@@ -3179,25 +3178,6 @@ async function loadTransactions() {
   var mapResult = await sb.from('user_category_map').select('source, display');
   catMap = {};
   if (mapResult.data) mapResult.data.forEach(function(r) { catMap[r.source] = r.display; });
-  var rulesResult = await sb.from('merchant_ignore_rules').select('merchant_name').eq('is_active', true);
-  ignoreRules = {};
-  if (rulesResult.data) {
-    rulesResult.data.forEach(function(r) { ignoreRules[r.merchant_name] = true; });
-  }
-
-  // Auto-apply ignore rules to new transactions
-  var toAutoIgnore = txData.filter(function(tx) {
-    if (txActions[tx.id]) return false;
-    var key = (tx.merchant_name || tx.name || '').toLowerCase().trim();
-    return ignoreRules[key];
-  });
-  if (toAutoIgnore.length > 0) {
-    var rows = toAutoIgnore.map(function(tx) {
-      return { user_id: currentUser.id, transaction_id: tx.id, action_type: 'ignored' };
-    });
-    await sb.from('transaction_actions').upsert(rows, { onConflict: 'user_id,transaction_id' });
-    toAutoIgnore.forEach(function(tx) { txActions[tx.id] = { action_type: 'ignored' }; });
-  }
 
   // Build month range from data start date to current month
   var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -3296,17 +3276,12 @@ function getEffectiveTx(tx) {
     splitPortion: action ? action.split_portion : null,
     reimbursement: 0,
     nickname: null, note: null, date: swipeDate(tx),
-    isRecurring: false, recurringGroup: null,
     isSplit: false, isAdjusted: false, isRecategorized: false
   };
   if (!action) return result;
   if (action.nickname) result.nickname = action.nickname;
   if (action.note) result.note = action.note;
   if (action.date_override) result.date = action.date_override;
-  if (action.is_recurring) {
-    result.isRecurring = true;
-    result.recurringGroup = action.recurring_group || null;
-  }
   if (action.action_type === 'ignored' || action.action_type === 'reimbursed') {
     result.excluded = true;
     result.amount = 0;
@@ -4601,13 +4576,7 @@ async function saveMultiAction(txId, updates, opts) {
     category_override: updates.hasOwnProperty('category_override') ? updates.category_override : (existing.category_override || null),
     nickname: updates.hasOwnProperty('nickname') ? updates.nickname : (existing.nickname || null),
     note: updates.hasOwnProperty('note') ? updates.note : (existing.note || null),
-    date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override || null),
-    is_recurring: updates.hasOwnProperty('is_recurring') ? updates.is_recurring : (existing.is_recurring || false),
-    recurring_group: updates.hasOwnProperty('recurring_group') ? updates.recurring_group : (existing.recurring_group || null),
-    recurring_next_date: updates.hasOwnProperty('recurring_next_date') ? updates.recurring_next_date : (existing.recurring_next_date || null),
-    recurring_amount_mode: updates.hasOwnProperty('recurring_amount_mode') ? updates.recurring_amount_mode : (existing.recurring_amount_mode || 'recent'),
-    recurring_paused: updates.hasOwnProperty('recurring_paused') ? updates.recurring_paused : (existing.recurring_paused || false),
-    recurring_deleted: updates.hasOwnProperty('recurring_deleted') ? updates.recurring_deleted : (existing.recurring_deleted || false)
+    date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override || null)
   };
   // Update local state and render immediately
   txActions[txId] = row;
