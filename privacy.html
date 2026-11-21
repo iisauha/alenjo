@@ -73,6 +73,28 @@
     .flow div { flex: 1 0 84px; padding: 10px 8px; border-radius: 12px; background: var(--elev); text-align: center; font-size: 0.75rem; color: var(--muted); line-height: 1.35; }
     .flow div b { display: block; color: var(--text); font-size: 0.8125rem; margin-bottom: 2px; }
     .flow i { align-self: center; color: var(--muted); font-style: normal; }
+    /* document pages (Privacy, Security) */
+    .doc { max-width: 680px; }
+    .doc h2 { font-size: 1.125rem; font-weight: 700; margin: 34px 0 10px; padding-top: 18px; border-top: 1px solid var(--border); }
+    .doc p, .doc li { font-size: 0.9688rem; line-height: 1.6; }
+    .doc ul, .doc ol { margin: 0 0 12px; padding-left: 1.25em; display: flex; flex-direction: column; gap: 6px; }
+    .doc code { font-size: 0.8em; }
+    .tbl { margin: 6px 0 14px; overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; -webkit-overflow-scrolling: touch; }
+    .tbl table { width: 100%; border-collapse: collapse; font-size: 0.875rem; line-height: 1.45; }
+    .tbl th { text-align: left; font-weight: 600; font-size: 0.75rem; color: var(--muted); padding: 10px 12px; background: var(--card); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .tbl td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: top; }
+    .tbl tr:first-child td { border-top: none; }
+    .tbl td:first-child { font-weight: 600; min-width: 120px; }
+    @media (max-width: 599px) {
+      .tbl { border: none; border-radius: 0; overflow: visible; }
+      .tbl thead { display: none; }
+      .tbl table, .tbl tbody, .tbl tr, .tbl td { display: block; width: 100%; }
+      .tbl tr { padding: 12px 14px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+      .tbl td { padding: 0; border: none; }
+      .tbl td:first-child { font-size: 0.9375rem; margin-bottom: 6px; }
+      .tbl td + td { display: flex; gap: 8px; margin-top: 4px; color: var(--text); }
+      .tbl td + td::before { content: attr(data-label); flex: 0 0 96px; font-size: 0.75rem; color: var(--muted); padding-top: 1px; }
+    }
     /* plain cards */
     .sec.plain h2 { font-size: 1.0625rem; font-weight: 700; margin: 0 0 8px; }
     .facts { margin: 0; padding-left: 1.15em; display: flex; flex-direction: column; gap: 8px; font-size: 0.9375rem; line-height: 1.5; }
@@ -122,21 +144,32 @@
     </nav>
     <main>
 
+      <article class="doc">
       <h1>Privacy</h1>
       <p class="updated">Last updated November 20, 2026</p>
-      <p class="lead">What Alenjo stores, where it’s stored, and which outside services see anything.</p>
+      <p>Alenjo is a personal finance app built and run by Isaiah Aguilar. This page lists the data it keeps, the outside services involved, and how to delete it.</p>
 
-      <section class="sec plain"><h2>What’s stored</h2><ul class="facts"><li><b>Your profile:</b> name, email, and a profile photo if you add one.</li><li><b>Accounts:</b> name, type, last 4 digits and balance for each account you connect.</li><li><b>Transactions:</b> store, amount, swipe and post dates, category, and Plaid’s store logo and city.</li><li><b>Your edits:</b> notes, renames, adjusted amounts, splits, moved dates, categories, logos you picked, and transactions you added yourself.</li><li><b>Card details</b> when your bank shares them: APR, minimum payment, due date, statement balance.</li><li><b>Investments</b> when your brokerage shares them: ticker, shares, value, cost.</li><li><b>Card design images</b> you upload.</li></ul></section>
+      <h2>What Alenjo keeps</h2>
+      <div class="tbl"><table><thead><tr><th>Data</th><th>Where it comes from</th><th>Encrypted in the database</th></tr></thead><tbody><tr><td data-label="Data">Name, email, profile photo</td><td data-label="Where it comes from">You</td><td data-label="Encrypted in the database">Photo is in private storage</td></tr><tr><td data-label="Data">Account name, type, last 4 digits, balance</td><td data-label="Where it comes from">Your bank, through Plaid</td><td data-label="Encrypted in the database">Yes</td></tr><tr><td data-label="Data">Transactions: store, amount, dates, category, logo, city</td><td data-label="Where it comes from">Your bank, through Plaid</td><td data-label="Encrypted in the database">No</td></tr><tr><td data-label="Data">Card details: APR, minimum, due date, statement balance</td><td data-label="Where it comes from">Your bank, through Plaid</td><td data-label="Encrypted in the database">No</td></tr><tr><td data-label="Data">Holdings: ticker, shares, value, cost</td><td data-label="Where it comes from">Your brokerage, through Plaid</td><td data-label="Encrypted in the database">No</td></tr><tr><td data-label="Data">Your edits: notes, renames, amounts, splits, dates, categories, logos</td><td data-label="Where it comes from">You</td><td data-label="Encrypted in the database">No</td></tr><tr><td data-label="Data">Card design images</td><td data-label="Where it comes from">You</td><td data-label="Encrypted in the database">Private storage</td></tr><tr><td data-label="Data">Bank connection keys</td><td data-label="Where it comes from">Plaid</td><td data-label="Encrypted in the database">Yes</td></tr></tbody></table></div>
+      <p>Alenjo never gets your bank password (you type it into Plaid’s window), your full card or account numbers (Plaid only shares the last 4), or anything about your face (Face ID stays on your phone).</p>
 
-      <section class="sec plain"><h2>What’s not stored</h2><ul class="facts"><li>Your bank username or password. You type those into Plaid’s window, not Alenjo’s.</li><li>Your face. Face ID runs on your phone; Alenjo only keeps a public key (see Security).</li><li>Full card or account numbers. Plaid only gives the last 4.</li></ul></section>
+      <h2>Where it’s kept</h2>
+      <p>In a Supabase Postgres database on AWS in Northern Virginia (us-east-1). Each row is tied to your account and the database only returns your own rows. Photos and card images are in private storage and load through links that expire after 7 days.</p>
+      <p>Your phone or browser keeps only settings: theme, Face ID and auto-lock choices, the last tab you had open, and your email and first name for the sign-in screen. Tap <b>Not you?</b> on the sign-in screen to clear those.</p>
 
-      <section class="sec plain"><h2>Where it lives</h2><ul class="facts"><li>A Supabase Postgres database on AWS in Northern Virginia (us-east-1).</li><li>Account names, last 4 digits, balances and bank keys are encrypted inside the database, on top of Supabase’s disk encryption.</li><li>Photos and card images are in private storage. The app gets a link that expires after 7 days and only works for your own files.</li><li>On your device, only settings: theme, Face ID and auto-lock choices, the last tab you used, and your email and first name for the sign-in greeting. No balances or transactions.</li></ul></section>
+      <h2>Outside services</h2>
+      <div class="tbl"><table><thead><tr><th>Service</th><th>What it receives</th><th>Why</th></tr></thead><tbody><tr><td data-label="Service">Plaid</td><td data-label="What it receives">Your bank sign-in (in its own window)</td><td data-label="Why">Read-only access to balances, transactions, card details and holdings</td></tr><tr><td data-label="Service">Supabase</td><td data-label="What it receives">All of the data above</td><td data-label="Why">Database, sign-in and server code</td></tr><tr><td data-label="Service">GitHub Pages</td><td data-label="What it receives">Your IP address</td><td data-label="Why">Serves the app’s files</td></tr><tr><td data-label="Service">logo.dev</td><td data-label="What it receives">A store’s name or website, and what you type in logo search</td><td data-label="Why">Store and bank logos</td></tr><tr><td data-label="Service">Google Fonts</td><td data-label="What it receives">Your IP address</td><td data-label="Why">The Inter and Newsreader typefaces</td></tr><tr><td data-label="Service">jsDelivr</td><td data-label="What it receives">Your IP address, only when you upload a card image</td><td data-label="Why">A small model that checks the image on your device</td></tr></tbody></table></div>
+      <p>There are no analytics, advertising or tracking scripts, and nothing is sold or shared for marketing.</p>
 
-      <section class="sec plain"><h2>Who else sees anything</h2><ul class="facts"><li><b>Plaid:</b> connects to your bank, read-only. Alenjo uses Transactions, Liabilities and Investments. It doesn’t use Plaid’s money-movement products, so it can’t move money.</li><li><b>Supabase:</b> hosts the database, sign-in and the server code.</li><li><b>GitHub Pages:</b> serves the app’s files. It sees your IP address like any website host.</li><li><b>logo.dev:</b> gets a store’s website or name to return its logo, plus whatever you type in the logo search. Not your amounts or account.</li><li><b>Google Fonts:</b> serves the two typefaces, so Google can see your IP address.</li><li><b>jsDelivr:</b> only when you upload a card image, it serves a small model that checks the image on your phone. The image itself isn’t sent anywhere for that check.</li><li>No analytics, ad or tracking scripts are loaded. Nothing is sold or shared for marketing.</li></ul></section>
+      <h2>Deleting your data</h2>
+      <ul>
+        <li><b>One bank:</b> Settings → Bank connections → Disconnect. Its accounts, transactions and your edits are deleted, and Plaid is told to revoke access.</li>
+        <li><b>Everything:</b> Settings → Delete account. Every bank is disconnected at Plaid, then your data, images and sign-in are deleted. This can’t be undone.</li>
+      </ul>
 
-      <section class="sec plain"><h2>Deleting</h2><ul class="facts"><li><b>One bank:</b> Settings → Bank connections → Disconnect. Its accounts, transactions and your edits to them are deleted, and Plaid is told to revoke access.</li><li><b>Everything:</b> Settings → Delete account. Every bank is disconnected at Plaid, then your data, photos and sign-in are deleted. This can’t be undone.</li></ul></section>
-
-      <p class="muted">If this page changes in a meaningful way, the date at the top changes too.</p>
+      <h2>Changes</h2>
+      <p>If this page changes in a way that matters, the date at the top changes too.</p>
+      </article>
 
       <p class="footer"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span><span>Questions? <a href="mailto:isaiahaaguilar1@gmail.com">isaiahaaguilar1@gmail.com</a><span class="back-link"> · <a href="/">Back to Alenjo</a></span></span></p>
     </main>

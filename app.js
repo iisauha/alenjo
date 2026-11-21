@@ -3692,7 +3692,8 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
     frame.src = a.getAttribute('href').replace(/\.html$/, '') + '.html?embed=1';
     panel.hidden = false;
     requestAnimationFrame(function() { panel.classList.add('open'); });
-    $('#info-close').focus();
+    // Only move focus for keyboard users; on touch it drew a focus box around Back
+    if (e.detail === 0) $('#info-close').focus();
   });
   frame.addEventListener('load', function() { frame.classList.add('loaded'); });
   var close = function() {

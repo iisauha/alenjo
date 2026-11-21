@@ -3564,3 +3564,5 @@ body.update-required { overflow: hidden; }
 .delete-btn { min-height: 48px; border: none; border-radius: 12px; background: var(--danger); color: #fff; font: 600 1rem 'Inter', sans-serif; cursor: pointer; }
 .delete-btn:disabled { opacity: 0.4; cursor: default; }
 .delete-form .action-sheet-cancel { position: static; box-shadow: none; margin-top: 0; }
+.info-back:focus { outline: none; }
+.info-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }

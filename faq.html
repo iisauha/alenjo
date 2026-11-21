@@ -73,6 +73,28 @@
     .flow div { flex: 1 0 84px; padding: 10px 8px; border-radius: 12px; background: var(--elev); text-align: center; font-size: 0.75rem; color: var(--muted); line-height: 1.35; }
     .flow div b { display: block; color: var(--text); font-size: 0.8125rem; margin-bottom: 2px; }
     .flow i { align-self: center; color: var(--muted); font-style: normal; }
+    /* document pages (Privacy, Security) */
+    .doc { max-width: 680px; }
+    .doc h2 { font-size: 1.125rem; font-weight: 700; margin: 34px 0 10px; padding-top: 18px; border-top: 1px solid var(--border); }
+    .doc p, .doc li { font-size: 0.9688rem; line-height: 1.6; }
+    .doc ul, .doc ol { margin: 0 0 12px; padding-left: 1.25em; display: flex; flex-direction: column; gap: 6px; }
+    .doc code { font-size: 0.8em; }
+    .tbl { margin: 6px 0 14px; overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; -webkit-overflow-scrolling: touch; }
+    .tbl table { width: 100%; border-collapse: collapse; font-size: 0.875rem; line-height: 1.45; }
+    .tbl th { text-align: left; font-weight: 600; font-size: 0.75rem; color: var(--muted); padding: 10px 12px; background: var(--card); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .tbl td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: top; }
+    .tbl tr:first-child td { border-top: none; }
+    .tbl td:first-child { font-weight: 600; min-width: 120px; }
+    @media (max-width: 599px) {
+      .tbl { border: none; border-radius: 0; overflow: visible; }
+      .tbl thead { display: none; }
+      .tbl table, .tbl tbody, .tbl tr, .tbl td { display: block; width: 100%; }
+      .tbl tr { padding: 12px 14px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+      .tbl td { padding: 0; border: none; }
+      .tbl td:first-child { font-size: 0.9375rem; margin-bottom: 6px; }
+      .tbl td + td { display: flex; gap: 8px; margin-top: 4px; color: var(--text); }
+      .tbl td + td::before { content: attr(data-label); flex: 0 0 96px; font-size: 0.75rem; color: var(--muted); padding-top: 1px; }
+    }
     /* plain cards */
     .sec.plain h2 { font-size: 1.0625rem; font-weight: 700; margin: 0 0 8px; }
     .facts { margin: 0; padding-left: 1.15em; display: flex; flex-direction: column; gap: 8px; font-size: 0.9375rem; line-height: 1.5; }
