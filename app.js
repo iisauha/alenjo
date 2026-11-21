@@ -2108,11 +2108,10 @@ async function renderNotifications() {
     status.textContent = isIOS ? 'Notifications are blocked for Alenjo. Turn them on in iPhone Settings → Notifications → Alenjo, then come back here.' : 'Notifications are blocked for this site in your browser settings.';
     enable.hidden = true;
   } else {
-    status.textContent = here ? 'On for this device. You’ll get a heads-up when something new shows up in Activity.' : 'A heads-up when something new shows up in Activity. Turn it on for each phone or computer you use.';
+    status.textContent = here ? 'On for this ' + (deviceLabel().split(' ·')[0].replace('Browser', 'device')) + '. Works even when Alenjo is closed.' : 'Get a heads-up when something new shows up in Activity.';
     enable.hidden = !!here;
   }
   opts.hidden = devices.length === 0;
-  $('#notif-test').hidden = !here;
   var st = await sb.from('notification_settings').select('*').maybeSingle();
   notifSettings = st.data || { purchases: true, deposits: true, min_amount: 0, quiet: true };
   $('#notif-purchases').checked = !!notifSettings.purchases;
@@ -2122,8 +2121,9 @@ async function renderNotifications() {
   $('#notif-devices').innerHTML = devices.map(function(d) {
     var mine = sub && d.endpoint === sub.endpoint;
     var when = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return '<div class="notif-device"><span><b>' + esc(d.label || 'Device') + (mine ? ' (this one)' : '') + '</b><span class="set-hint">Added ' + esc(when) + '</span></span>' +
-      '<button type="button" data-remove-device="' + esc(d.id) + '"' + (mine ? ' data-mine="1"' : '') + '>Remove</button></div>';
+    return '<div class="notif-device"><span class="set-row-text"><span>' + esc(d.label || 'Device') + '</span><span class="set-hint">' + (mine ? 'This device' : 'Added ' + esc(when)) + '</span></span>' +
+      '<span class="notif-device-actions">' + (mine ? '<button type="button" class="notif-test" data-test-device="1">Test</button>' : '') +
+      '<button type="button" class="notif-remove" data-remove-device="' + esc(d.id) + '"' + (mine ? ' data-mine="1"' : '') + '>Remove</button></span></div>';
   }).join('');
 }
 
@@ -2170,7 +2170,7 @@ async function sendTestPush(endpoint) {
       console.error('Enable notifications failed', e);
       showToast('Couldn’t turn on notifications. Try again.');
     } finally {
-      btn.disabled = false; btn.textContent = 'Allow notifications on this device';
+      btn.disabled = false; btn.textContent = 'Turn on for this device';
       renderNotifications();
     }
   });
@@ -2184,14 +2184,16 @@ async function sendTestPush(endpoint) {
     this.value = v ? String(v) : '';
     saveNotifSettings({ min_amount: v });
   });
-  $('#notif-test').addEventListener('click', async function() {
-    var btn = this; btn.disabled = true;
+  async function testThisDevice(btn) {
+    btn.disabled = true;
     var sub = await currentSubscription();
     var r = await sendTestPush(sub ? sub.endpoint : undefined);
     btn.disabled = false;
-    showToast(r.sent ? 'Sent. Check your notifications.' : 'Couldn’t send. Try turning notifications off and on.');
-  });
+    showToast(r.sent ? 'Sent. Check your notifications.' : 'Couldn’t send. Try removing this device and turning it on again.');
+  }
   $('#notif-devices').addEventListener('click', async function(e) {
+    var t = e.target.closest('[data-test-device]');
+    if (t) { testThisDevice(t); return; }
     var b = e.target.closest('[data-remove-device]');
     if (!b) return;
     b.disabled = true;
