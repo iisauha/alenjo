@@ -3518,3 +3518,15 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .founder-body p { margin: 0 0 10px; font-size: 0.9375rem; line-height: 1.55; color: var(--text); }
 .founder-body p:first-child { font-weight: 500; }
 .founder-link { border-top: 1px solid var(--border); color: var(--accent); font-weight: 500; }
+/* Bank connection alerts */
+.bank-alerts { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
+.bank-alerts[hidden] { display: none; }
+.bank-alert { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--danger) 10%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border)); font-size: 0.875rem; }
+.bank-alert.warn { background: color-mix(in srgb, var(--pending) 10%, var(--bg-card)); border-color: color-mix(in srgb, var(--pending) 30%, var(--border)); }
+.bank-alert-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+.bank-alert.warn .bank-alert-dot { background: var(--pending); }
+.bank-alert-text { flex: 1; min-width: 0; line-height: 1.35; }
+.bank-alert-btn, .btn-reconnect-inst { flex-shrink: 0; min-height: 36px; padding: 0 14px; border: none; border-radius: 18px; background: var(--accent); color: var(--on-accent); font: 600 0.8125rem 'Inter', sans-serif; cursor: pointer; }
+.bank-alert-btn:disabled { opacity: 0.6; }
+.settings-inst-alert { display: block; font-size: 0.75rem; font-weight: 600; color: var(--danger); margin-top: 2px; }
+.settings-inst-alert.warn { color: var(--pending); }

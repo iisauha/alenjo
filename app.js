@@ -1885,9 +1885,90 @@ async function loadAccounts() {
   cachedAccounts = result.data || [];
   renderAccounts(cachedAccounts);
   resolveLogos();
+  loadItemHealth();
 
   loadingAccounts = false;
 }
+
+// ============================================
+// BANK CONNECTION HEALTH (needs sign-in again, access expiring)
+// ============================================
+var itemHealth = {};   // plaid_item_id -> { error_code, consent_expires_at }
+async function loadItemHealth() {
+  var r = await sb.from('plaid_items').select('id, error_code, consent_expires_at').eq('status', 'active');
+  itemHealth = {};
+  if (r.data) r.data.forEach(function(i) { itemHealth[i.id] = i; });
+  renderBankAlerts();
+  if (typeof renderAccountsSettings === 'function' && cachedAccounts) renderAccountsSettings();
+}
+function institutionForItem(itemId) {
+  var a = (cachedAccounts || []).find(function(x) { return x.plaid_item_id === itemId; });
+  return (a && a.institution) || 'A bank';
+}
+// What (if anything) a connection needs from you
+function itemAttention(itemId) {
+  var h = itemHealth[itemId];
+  if (!h) return null;
+  if (h.error_code) {
+    var why = h.error_code === 'ITEM_LOGIN_REQUIRED' || h.error_code === 'INVALID_CREDENTIALS' ? 'needs you to sign in again'
+      : h.error_code === 'PENDING_EXPIRATION' || h.error_code === 'ACCESS_NOT_GRANTED' || h.error_code === 'CONSENT_EXPIRED' ? 'needs your permission again'
+      : h.error_code === 'INSTITUTION_DOWN' || h.error_code === 'INSTITUTION_NOT_RESPONDING' ? 'isn’t responding right now'
+      : 'stopped syncing';
+    return { level: 'error', text: why, canReconnect: !/^INSTITUTION_/.test(h.error_code) };
+  }
+  if (h.consent_expires_at) {
+    var days = Math.ceil((new Date(h.consent_expires_at) - new Date()) / 86400000);
+    if (days <= 14) return { level: 'warn', text: days <= 0 ? 'access expired' : 'access expires in ' + days + ' day' + (days === 1 ? '' : 's'), canReconnect: true };
+  }
+  return null;
+}
+function renderBankAlerts() {
+  var box = $('#bank-alerts');
+  if (!box) return;
+  var html = '';
+  Object.keys(itemHealth).forEach(function(id) {
+    var att = itemAttention(id);
+    if (!att) return;
+    html += '<div class="bank-alert ' + att.level + '" role="status"><span class="bank-alert-dot" aria-hidden="true"></span>' +
+      '<span class="bank-alert-text"><b>' + esc(institutionForItem(id)) + '</b> ' + esc(att.text) + (att.level === 'error' ? '. Balances and transactions from it aren’t updating.' : '.') + '</span>' +
+      (att.canReconnect ? '<button type="button" class="bank-alert-btn" data-reconnect="' + esc(id) + '">Reconnect</button>' : '') + '</div>';
+  });
+  box.innerHTML = html;
+  box.hidden = !html;
+}
+// Plaid's own sign-in window for that bank. Same connection: history, splits, notes all stay.
+async function reconnectItem(itemId, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
+  try {
+    var session = (await sb.auth.getSession()).data.session;
+    var headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY };
+    var res = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', { method: 'POST', headers: headers, body: JSON.stringify({ action: 'create_reconnect_token', item_id: itemId }) });
+    var data = await res.json();
+    if (!res.ok || !data.link_token) { showError('Couldn’t start reconnecting. Try again in a minute.'); return; }
+    var handler = Plaid.create({
+      token: data.link_token,
+      onSuccess: async function() {
+        showToast('Reconnected. Catching up…');
+        if (itemHealth[itemId]) { itemHealth[itemId].error_code = null; itemHealth[itemId].consent_expires_at = null; }
+        renderBankAlerts();
+        localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
+        await backgroundSync();
+        await loadItemHealth();
+        if ($('#tx-month-filter') && typeof loadTransactions === 'function') { try { await loadTransactions(); } catch (e) {} }
+      },
+      onExit: function(err) { if (err) showError('Reconnect didn’t finish: ' + (err.display_message || err.error_message || 'try again.')); }
+    });
+    handler.open();
+  } catch (e) {
+    showError('Couldn’t start reconnecting. ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Reconnect'; }
+  }
+}
+document.addEventListener('click', function(e) {
+  var b = e.target.closest('[data-reconnect]');
+  if (b) { e.preventDefault(); reconnectItem(b.dataset.reconnect, b); }
+});
 
 // Dynamic sync cooldown based on connected Plaid items
 // Plaid allows 30 req/min/item. Each sync = 3 calls/item.
@@ -1967,6 +2048,7 @@ async function backgroundSync() {
       }
     }
 
+    loadItemHealth();
   } catch (e) {
     console.error('Background sync error:', e);
   }
@@ -2341,11 +2423,14 @@ async function renderAccountsSettings() {
     html += '<div class="settings-inst-info">';
     html += '<span class="settings-inst-name">' + esc(group.institution) + '</span>';
     var n = group.accounts.length;
+    var att = itemAttention(itemId);
     html += '<span class="settings-inst-detail">' + n + ' account' + (n !== 1 ? 's' : '') + '</span>';
+    if (att) html += '<span class="settings-inst-alert ' + att.level + '">' + (att.level === 'error' ? 'Needs attention: ' : '') + esc(att.text) + '</span>';
     html += '</div>';
     html += '</div>';
     html += '<div class="settings-inst-actions">';
-    html += '<button class="btn-add-card-inst" data-item="' + esc(itemId) + '">Manage</button>';
+    if (att && att.canReconnect) html += '<button class="btn-reconnect-inst" data-reconnect="' + esc(itemId) + '">Reconnect</button>';
+    else html += '<button class="btn-add-card-inst" data-item="' + esc(itemId) + '">Manage</button>';
     html += '<button class="btn-disconnect-inst" data-item="' + esc(itemId) + '">Disconnect</button>';
     html += '</div>';
     html += '</div>';
