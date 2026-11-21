@@ -3475,3 +3475,7 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .cat-help { margin: 12px 2px 0; font-size: 0.75rem; color: var(--text-muted); }
 .txs-adj { flex-shrink: 0; font: 600 0.6875rem 'Inter', sans-serif; padding: 2px 7px; border-radius: 6px; background: var(--accent-subtle); color: var(--accent); }
 .txs-adj[hidden] { display: none; }
+/* Split vs adjusted vs renamed tags */
+.txs-adj.is-split, .act-tag-split { background: color-mix(in srgb, #5B7FD6 16%, transparent); color: #5B7FD6; }
+:root[data-theme="dark"] .txs-adj.is-split, :root[data-theme="dark"] .act-tag-split { color: #8EA8EA; background: color-mix(in srgb, #8EA8EA 16%, transparent); }
+.txs-adj.is-adjusted, .act-tag-adjusted { background: var(--accent-subtle); color: var(--accent); }

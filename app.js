@@ -2984,7 +2984,7 @@ async function loadTransactions() {
   }
 
   // Load user actions and ignore rules
-  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, category_override, nickname, note, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted').order('transaction_id'); });
+  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, amount_override, category_override, nickname, note, date_override, is_recurring, recurring_group, recurring_next_date, recurring_amount_mode, recurring_paused, recurring_deleted').order('transaction_id'); });
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
@@ -3110,7 +3110,7 @@ function getEffectiveTx(tx) {
     reimbursement: 0,
     nickname: null, note: null, date: swipeDate(tx),
     isRecurring: false, recurringGroup: null,
-    isSplit: false, isRecategorized: false
+    isSplit: false, isAdjusted: false, isRecategorized: false
   };
   if (!action) return result;
   if (action.nickname) result.nickname = action.nickname;
@@ -3124,7 +3124,11 @@ function getEffectiveTx(tx) {
     result.excluded = true;
     result.amount = 0;
   }
-  if (action.split_portion && action.split_portion > 0) {
+  if (action.amount_override != null && action.amount_override !== '') {
+    result.isAdjusted = true;
+    result.adjustedAmount = parseFloat(action.amount_override);
+    if (!result.excluded) result.amount = tx.amount > 0 ? result.adjustedAmount : -result.adjustedAmount;
+  } else if (action.split_portion && action.split_portion > 0) {
     result.isSplit = true;
     result.splitPortion = parseFloat(action.split_portion);
     result.reimbursement = Math.abs(tx.amount) - result.splitPortion;
@@ -3348,12 +3352,14 @@ function renderTransactionMonth() {
       if (eff.date !== swipeDate(tx)) tags += '<span class="act-tag">Moved</span>';
       if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
       if (eff.actionType === 'ignored') tags += '<span class="act-tag">Ignored</span>';
-      if ((eff.isSplit && !eff.excluded) || eff.nickname) tags += '<span class="act-tag act-tag-accent">Adjusted</span>';
+      if (!eff.excluded && eff.isAdjusted) tags += '<span class="act-tag act-tag-adjusted">Adjusted</span>';
+      else if (!eff.excluded && eff.isSplit) tags += '<span class="act-tag act-tag-split">' + (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split') + '</span>';
+      if (eff.nickname) tags += '<span class="act-tag">Renamed</span>';
       // Store logo (see txLogoUrl); the first letter shows underneath as a fallback
       var logoSrc = txLogoUrl(tx, eff);
       var avatar = '<span class="act-avatar" data-i="' + esc(name.charAt(0).toUpperCase()) + '">' +
         (logoSrc ? '<img src="' + esc(logoSrc) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
-      var amountMain = (income ? '+' : '−') + formatMoney(eff.isSplit && !eff.excluded ? eff.amount : tx.amount);
+      var amountMain = (income ? '+' : '−') + formatMoney((eff.isSplit || eff.isAdjusted) && !eff.excluded ? eff.amount : tx.amount);
       html += '<div class="tx-row act-row' + (eff.excluded ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
         avatar +
         '<span class="act-row-main"><span class="act-row-name">' + esc(name) + '</span>' +
@@ -3622,7 +3628,7 @@ $('#btn-export-csv').addEventListener('click', function() {
     var cat = normalizeCategory(eff.category).replace(/"/g, '""');
     var merchant = (eff.nickname || tx.merchant_name || tx.name || 'Unknown').replace(/"/g, '""');
     var type = tx.amount < 0 ? 'Income' : 'Expense';
-    var splitInfo = eff.isSplit ? (eff.splitWays ? eff.splitWays + '-way' : 'Custom') : '';
+    var splitInfo = eff.isAdjusted ? 'Adjusted by hand' : eff.isSplit ? (eff.splitWays ? eff.splitWays + '-way' : 'Custom') : '';
     var reimbursed = eff.actionType === 'reimbursed' ? 'Yes' : '';
     csvRows.push(
       '"' + cat + '",' + eff.date + ',"' + merchant + '",' +
@@ -3825,6 +3831,7 @@ function renderTxSheet(tx) {
   var name = eff.nickname || bankName;
   $('#tx-action-merchant').textContent = name;
   $('#txs-name-adj').hidden = !eff.nickname;
+  $('#txs-name-adj').textContent = 'Renamed';
   $('#txs-name-btn').hidden = false; $('#txs-name-input').hidden = true;
   var logo = txLogoUrl(tx, eff);
   $('#txs-avatar').setAttribute('data-i', name.charAt(0).toUpperCase());
@@ -3837,23 +3844,26 @@ function renderTxSheet(tx) {
   $('#tx-action-detail').textContent = parts.join(' · ');
 
   var income = tx.amount < 0, total = Math.abs(tx.amount);
-  var counted = eff.isSplit && !eff.excluded ? Math.abs(eff.amount) : total;
+  var counted = (eff.isSplit || eff.isAdjusted) && !eff.excluded ? Math.abs(eff.amount) : total;
   var amtEl = $('#tx-action-amount');
   amtEl.textContent = (income ? '+' : '−') + formatMoney(counted);
   amtEl.className = 'txs-amt ' + (tx.pending ? 'is-pending' : income ? 'is-in' : 'is-out');
   $('#txs-amt-btn').hidden = false; $('#txs-amt-edit').hidden = true;
-  $('#txs-amt-adj').hidden = !(eff.isSplit && !eff.excluded);
+  var amtTag = $('#txs-amt-adj');
+  amtTag.hidden = eff.excluded || !(eff.isSplit || eff.isAdjusted);
+  amtTag.textContent = eff.isAdjusted ? 'Adjusted' : eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split';
+  amtTag.className = 'txs-adj ' + (eff.isAdjusted ? 'is-adjusted' : 'is-split');
   $('#txs-amt-sub').textContent = eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
     : tx.pending ? 'Pending' : '';
 
   $('#txs-cat-val').textContent = normalizeCategory(eff.category);
   $('#txs-cat-dot').hidden = !action.category_override;
-  $('#txs-split-val').textContent = action.split_ways > 1 ? action.split_ways + ' ways' : action.split_portion > 0 ? 'Your share' : 'Off';
+  $('#txs-split-val').textContent = action.split_ways > 1 ? action.split_ways + ' ways' : action.split_portion > 0 ? 'Custom' : 'Off';
   document.querySelectorAll('#tx-action-options .action-toggle').forEach(function(btn) {
     btn.classList.toggle('active', action.action_type === btn.dataset.toggle);
     btn.setAttribute('aria-pressed', action.action_type === btn.dataset.toggle);
   });
-  var changed = !!(action.action_type || action.split_ways || action.split_portion || action.category_override || action.nickname || action.date_override || action.note);
+  var changed = !!(action.action_type || action.split_ways || action.split_portion || action.amount_override != null || action.category_override || action.nickname || action.date_override || action.note);
   document.querySelector('.action-option-clear').hidden = !changed;
   $('#btn-delete-tx').hidden = !(tx.id && tx.id.indexOf('manual_') === 0);
   renderMonthMove(tx);
@@ -3888,7 +3898,7 @@ function renderTxSheet(tx) {
   btn.addEventListener('click', function() {
     if (!actionTx) return;
     var eff = getEffectiveTx(actionTx);
-    input.value = (eff.isSplit && !eff.excluded ? Math.abs(eff.amount) : Math.abs(actionTx.amount)).toFixed(2);
+    input.value = ((eff.isSplit || eff.isAdjusted) && !eff.excluded ? Math.abs(eff.amount) : Math.abs(actionTx.amount)).toFixed(2);
     btn.hidden = true; wrap.hidden = false; input.focus(); input.select();
   });
   var commit = function() {
@@ -3897,8 +3907,8 @@ function renderTxSheet(tx) {
     wrap.hidden = true; btn.hidden = false;
     if (isNaN(v) || v < 0) { renderTxSheet(actionTx); return; }
     if (v > total) { showToast('Can’t be more than ' + formatMoney(total)); renderTxSheet(actionTx); return; }
-    var portion = Math.abs(v - total) < 0.005 ? null : Math.round(v * 100) / 100;
-    saveMultiAction(actionTx.id, { split_portion: portion, split_ways: null }, { silent: true, quiet: true });
+    var amt = Math.abs(v - total) < 0.005 ? null : Math.round(v * 100) / 100;
+    saveMultiAction(actionTx.id, { amount_override: amt, split_portion: null, split_ways: null }, { silent: true, quiet: true });
   };
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', function(e) {
@@ -4145,7 +4155,7 @@ function openSplitPicker() {
     if (mine > total + 0.004) { showToast('Can’t be more than ' + formatMoney(total)); return; }
     if (Math.abs(mine - total) < 0.005) { saveMultiAction(actionTxId, { split_ways: null, split_portion: null }, { quiet: true }); return; }
     var existing = txActions[actionTxId] || {};
-    var updates = splitWaysPicked ? { split_ways: splitWaysPicked, split_portion: null } : { split_ways: null, split_portion: Math.round(mine * 100) / 100 };
+    var updates = splitWaysPicked ? { split_ways: splitWaysPicked, split_portion: null, amount_override: null } : { split_ways: null, split_portion: Math.round(mine * 100) / 100, amount_override: null };
     if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
     saveMultiAction(actionTxId, updates);
   });
@@ -4307,6 +4317,7 @@ async function saveMultiAction(txId, updates, opts) {
     action_type: updates.hasOwnProperty('action_type') ? updates.action_type : (existing.action_type || null),
     split_ways: updates.hasOwnProperty('split_ways') ? updates.split_ways : (existing.split_ways || null),
     split_portion: updates.hasOwnProperty('split_portion') ? updates.split_portion : (existing.split_portion || null),
+    amount_override: updates.hasOwnProperty('amount_override') ? updates.amount_override : (existing.amount_override != null ? existing.amount_override : null),
     category_override: updates.hasOwnProperty('category_override') ? updates.category_override : (existing.category_override || null),
     nickname: updates.hasOwnProperty('nickname') ? updates.nickname : (existing.nickname || null),
     note: updates.hasOwnProperty('note') ? updates.note : (existing.note || null),
