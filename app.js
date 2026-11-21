@@ -2977,14 +2977,14 @@ function accountCard(account, type) {
   }
 
   // Liabilities detail for credit cards
-  var liabHtml = '';
+  var liabHtml = '', loanMain = null;
   if (type === 'loan') {
     var ln = cachedLiabilities ? cachedLiabilities.find(function(l) { return l.account_id === account.id; }) : null;
     var lt = [];
     var lTile = function(label, value, cls) { lt.push('<div class="liab-tile' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b>' + value + '</b></div>'); };
+    lTile('Balance owed', formatMoney(Math.abs(parseFloat(account.balance_current) || 0)));
     if (ln) {
       var pay = ln.minimum_payment_amount != null ? parseFloat(ln.minimum_payment_amount) : ln.next_monthly_payment != null ? parseFloat(ln.next_monthly_payment) : null;
-      if (pay != null) lTile('Next payment', formatMoney(pay));
       if (ln.interest_rate != null) lTile('Interest rate', parseFloat(ln.interest_rate).toFixed(2) + '%');
       if (ln.outstanding_interest) lTile('Unpaid interest', formatMoney(parseFloat(ln.outstanding_interest)));
       if (ln.ytd_interest_paid) lTile('Interest paid this year', formatMoney(parseFloat(ln.ytd_interest_paid)));
@@ -3007,6 +3007,8 @@ function accountCard(account, type) {
       }
       // No due date while payments are paused: say so instead of a blank "Loan details"
       if (!lDue && paused) lDue = statusWord + ' · no payment due';
+      // Card's big number: the next payment (what you'll actually pay), not the whole balance
+      loanMain = { amount: paused && pay == null ? 0 : pay, label: paused ? statusWord : ln.next_payment_due_date ? 'Due ' + formatLiabDate(ln.next_payment_due_date) : 'Next payment' };
       if (lt.length || lDue) {
         liabHtml += moreSection(account.id + ':d',
           '<span class="liab-due ' + lCls + '">' + esc(lDue || 'Loan details') + '</span><span class="more-word">Details</span>',
@@ -3097,8 +3099,11 @@ function accountCard(account, type) {
         (account.exclude_from_totals ? '<span class="account-flag">Not in totals</span>' : '') +
       '</div>' +
       '<div class="account-balance">' +
-        '<div class="amount ' + (type === 'loan' ? 'balance-negative' : type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + (type === 'credit' ? ' amount-bonus-trigger' : '') + '"' + (type === 'credit' ? ' data-bonus-id="' + account.id + '"' : '') + '>' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
-        '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>' +
+        (loanMain && loanMain.amount != null
+          ? '<div class="amount ' + (loanMain.amount > 0 ? 'balance-negative' : '') + '">' + formatMoney(loanMain.amount) + '</div><div class="label">' + esc(loanMain.label) + '</div>'
+          : '') +
+        (loanMain && loanMain.amount != null ? '' : ('<div class="amount ' + (type === 'loan' ? 'balance-negative' : type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + (type === 'credit' ? ' amount-bonus-trigger' : '') + '"' + (type === 'credit' ? ' data-bonus-id="' + account.id + '"' : '') + '>' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
+        '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>')) +
       '</div>' +
     '</div>' +
     holdingsHtml +
