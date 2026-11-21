@@ -3649,10 +3649,6 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .money-hidden .hero-stat-value, .money-hidden .hero-side-value { letter-spacing: 0.04em; }
 
 /* "In +$X" / "Spent $X" under the big number switches the Activity view */
-.act-switch { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: -10px 0; padding: 0; border: 0; background: none; color: var(--text-muted); font: inherit; font-size: 0.8125rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.act-switch b { font-weight: 600; color: var(--text-muted); }
-.act-switch b.act-in { color: var(--success); }
-.act-switch::after { content: ''; width: 6px; height: 6px; margin-left: 4px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); opacity: 0.7; }
 .act-spent-value.is-in { color: var(--success); }
 /* Asterisks sit high in the line, so line the eye up with them rather than the line box.
    0.37em = centre of the asterisks below the top of the number (measured), at the number's size. */
@@ -3716,3 +3712,16 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .act-cat.two.on.b-good small, .act-cat.two.on.b-bad small { color: var(--bg); }
 .budget-ed-amt { min-width: 0; }
 .budget-ed-amt input { width: 100%; }
+
+/* Spent vs made, in one sentence */
+.act-net { font-size: 0.875rem; color: var(--text-muted); }
+.act-net b { font-weight: 600; }
+.act-net b.good { color: var(--success); }
+.act-net b.bad { color: var(--danger); }
+/* Budget sheet sections */
+.budget-sec { margin: 4px 0 8px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.budget-pills .cat-pills { margin-bottom: 14px; }
+.budget-pill.is-income.set { border-color: var(--success); }
+.budget-pill.is-income.set b { color: var(--success); }
+.budget-new { margin: 0 0 12px; }
+.budget-pills { margin-bottom: 10px; }

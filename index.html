@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121061337';</script>
+  <script>var _v = '20261121063216';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121061337">
+  <link rel="stylesheet" href="style.css?v=20261121063216">
 </head>
 <body>
 
@@ -287,7 +287,7 @@
             <div class="act-spent">
               <span class="act-stat-label" id="act-spent-label">Spent</span>
               <span id="act-spent" class="act-spent-value"></span>
-              <span class="act-sub"><button type="button" id="act-switch" class="act-switch" aria-label="Show money in"></button><span id="act-daily-note"></span></span>
+              <span class="act-sub"><span id="act-net" class="act-net" aria-live="polite"></span><span id="act-daily-note"></span></span>
             </div>
             <div id="act-bars" class="act-bars" role="group" aria-label="Spending by day. Tap a day to see its transactions."></div>
             <div class="home-ranges act-range" id="act-range" role="group" aria-label="Chart range">
@@ -625,11 +625,11 @@
         </div>
         <button type="button" id="budget-ed-clear" class="budget-ed-clear" hidden>Remove budget</button>
       </div>
-      <div class="recat-new">
+      <div id="budget-pills" class="budget-pills"></div>
+      <div class="recat-new budget-new">
         <input type="text" id="budget-new-cat" class="app-input" maxlength="40" placeholder="New category" enterkeyhint="done">
         <button class="btn-primary" id="budget-new-add" type="button">Add</button>
       </div>
-      <div id="budget-pills" class="cat-pills budget-pills"></div>
       <button type="button" id="budget-cancel" class="action-sheet-cancel">Done</button>
     </div>
   </div>
