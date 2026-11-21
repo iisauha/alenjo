@@ -1614,7 +1614,10 @@ function setHideMoney(v) {
 function syncMoneyEye() {
   document.body.classList.toggle('money-hidden', hideMoney);
   var eye = $('#money-eye'); if (eye) eye.hidden = !hideMoney;
+  alignMoneyEye();
 }
+// The eye's position is set in CSS (measured against the real Newsreader asterisks)
+function alignMoneyEye() {}
 syncMoneyEye();
 (function wireHeroLongPress() {
   var hero = $('#hero-available'), eye = $('#money-eye'), timer = null, start = null;
@@ -2447,6 +2450,7 @@ function renderAccounts(accounts) {
     var availEl = $('#available-value');
     if (availEl) {
       availEl.textContent = heroMoney(availableCash);
+      if (hideMoney) requestAnimationFrame(alignMoneyEye);
       availEl.className = 'hero-stat-value ' + (availableCash >= 0 ? 'balance-positive' : 'balance-negative');
     }
   } else {
@@ -2456,6 +2460,7 @@ function renderAccounts(accounts) {
   renderAccountsSettings();
   renderAccountOrderList();
   renderHomeInsights();
+  if (hideMoney) requestAnimationFrame(alignMoneyEye);
 }
 
 // ============================================

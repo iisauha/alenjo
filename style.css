@@ -3657,7 +3657,7 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 /* Asterisks sit high in the line, so line the eye up with them rather than the line box.
    0.37em = centre of the asterisks below the top of the number (measured), at the number's size. */
 .hero-value-row { align-items: flex-start; }
-.money-eye { width: 36px; height: 36px; font-size: 2.6rem; margin-top: calc(0.37em - 18px); }
+.money-eye { width: 36px; height: 36px; font-size: 2.6rem; margin-top: calc(0.2em - 18px); }  /* 0.2em = centre of Newsreader's asterisks below the number's top */
 .money-eye svg { width: 18px; height: 18px; }
 /* Account filter sizes to its label (set in JS); this is just the fallback */
 .act-acct { width: auto; min-width: 0; }
