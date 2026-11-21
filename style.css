@@ -3601,3 +3601,35 @@ body.update-required { overflow: hidden; }
    Fields you type in stay selectable so copy/paste still works. */
 body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+
+/* Upload framing: the circle is exactly what shows next to transactions */
+.logo-new { display: flex; flex-direction: column; gap: 14px; padding: 4px 0; }
+.logo-frame-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.logo-frame { position: relative; width: 180px; height: 180px; border-radius: 50%; overflow: hidden; touch-action: none; cursor: grab;
+  background-color: var(--bg-elevated);
+  background-image: linear-gradient(45deg, color-mix(in srgb, var(--text) 6%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--text) 6%, transparent) 75%),
+    linear-gradient(45deg, color-mix(in srgb, var(--text) 6%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--text) 6%, transparent) 75%);
+  background-size: 16px 16px; background-position: 0 0, 8px 8px;
+  box-shadow: 0 0 0 1px var(--border); }
+.logo-frame[style*="background"] { background-image: none; }
+.logo-frame:active { cursor: grabbing; }
+.logo-frame img { position: absolute; left: 50%; top: 50%; max-width: none; pointer-events: none; -webkit-user-drag: none; }
+.logo-frame-hint { font-size: 0.75rem; color: var(--text-muted); }
+.logo-frame-controls { display: flex; flex-direction: column; gap: 10px; }
+.logo-zoom { display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
+.logo-zoom input { flex: 1; min-height: 44px; accent-color: var(--accent); }
+.logo-bg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.logo-bg button { min-height: 40px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); color: var(--text); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+.logo-bg button[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; font-weight: 600; }
+.logo-bg button[data-fit] { color: var(--text-muted); }
+.logo-new-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* Your logos in the picker get a delete badge */
+.logo-tile-wrap { position: relative; display: grid; min-width: 0; }
+.logo-del { position: absolute; top: 4px; right: 4px; min-width: 28px; height: 28px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 14px; background: var(--bg-elevated); color: var(--text-muted); font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.logo-del::after { content: ''; position: absolute; inset: -8px; }
+.logo-del.confirm { background: var(--danger); color: #fff; }
+
+.logo-results[hidden], .logo-search[hidden] { display: none; }
+/* While framing a new logo, the sheet's Done button would compete with Save */
+.action-sheet:has(#logo-picker.framing) #action-sheet-cancel { display: none; }
+.logo-new { align-items: stretch; } .logo-new > .logo-new-field, .logo-new > .logo-new-actions, .logo-new > .logo-frame-controls { width: 100%; align-self: stretch; }

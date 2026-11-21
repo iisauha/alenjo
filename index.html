@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121034531';</script>
+  <script>var _v = '20261121034941';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121034531">
+  <link rel="stylesheet" href="style.css?v=20261121034941">
 </head>
 <body>
 
@@ -693,7 +693,19 @@
         <label class="logo-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="logo-q" placeholder="Search a store or brand" aria-label="Search logos" enterkeyhint="search" autocomplete="off"></label>
         <div id="logo-results" class="logo-results" aria-live="polite"></div>
         <div id="logo-new" class="logo-new" hidden>
-          <span class="logo-img mine logo-new-preview"><img id="logo-new-img" alt=""></span>
+          <div class="logo-frame-wrap">
+            <div class="logo-frame" id="logo-frame" aria-label="Logo framing. Drag to move, pinch to zoom."><img id="logo-new-img" alt="" draggable="false"></div>
+            <span class="logo-frame-hint">Drag to move · pinch or slide to zoom</span>
+          </div>
+          <div class="logo-frame-controls">
+            <label class="logo-zoom"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M8 11h6"/></svg><input type="range" id="logo-zoom" min="0.4" max="4" step="0.01" value="1" aria-label="Zoom"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6"/></svg></label>
+            <div class="logo-bg" role="radiogroup" aria-label="Background">
+              <button type="button" data-bg="" role="radio" aria-checked="true">None</button>
+              <button type="button" data-bg="#ffffff" role="radio" aria-checked="false">White</button>
+              <button type="button" data-bg="#000000" role="radio" aria-checked="false">Black</button>
+              <button type="button" data-fit role="radio" aria-checked="false">Reset</button>
+            </div>
+          </div>
           <label class="logo-new-field"><span>Name it so you can find it later</span><input type="text" id="logo-new-name" maxlength="60" autocomplete="off" enterkeyhint="done"></label>
           <div class="logo-new-actions"><button type="button" id="logo-new-cancel" class="btn-secondary-sm">Cancel</button><button type="button" id="logo-new-save" class="btn-primary-sm">Save</button></div>
         </div>

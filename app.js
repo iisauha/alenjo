@@ -2233,7 +2233,7 @@ function logoImageToBlob(file) {
 async function uploadCustomLogo(file, name) {
   name = String(name || '').trim().slice(0, 60);
   if (!name) throw new Error('name');
-  var blob = await logoImageToBlob(file);
+  var blob = file instanceof Blob && file.type === 'image/png' && file.__framed ? file : await logoImageToBlob(file);
   var path = currentUser.id + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)) + '.png';
   var up = await sb.storage.from('logos').upload(path, blob, { contentType: 'image/png' });
   if (up.error) throw up.error;
@@ -4242,7 +4242,7 @@ function renderTxSheet(tx) {
 (function wireLogoPicker() {
   var btn = $('#txs-avatar-btn'), q = $('#logo-q'), out = $('#logo-results');
   if (!btn) return;
-  var timer = null, seq = 0;
+  var timer = null, seq = 0, lastResults = [];
   function tiles(results) {
     var current = merchantLogos[merchantKey(actionTx)];
     var eff = getEffectiveTx(actionTx);
@@ -4252,10 +4252,12 @@ function renderTxSheet(tx) {
     var term = q.value.trim().toLowerCase();
     var mine = customLogos.filter(function(l) { return !term || l.name.toLowerCase().indexOf(term) !== -1 || term.indexOf(l.name.toLowerCase()) !== -1; });
     var mineHtml = mine.map(function(l) {
-      return '<button type="button" class="logo-tile' + (current === 'custom:' + l.id ? ' on' : '') + '" data-domain="custom:' + esc(l.id) + '">' +
+      return '<div class="logo-tile-wrap"><button type="button" class="logo-tile' + (current === 'custom:' + l.id ? ' on' : '') + '" data-domain="custom:' + esc(l.id) + '">' +
         '<span class="logo-img mine" data-i="' + esc(l.name.charAt(0).toUpperCase()) + '">' + (l.url ? '<img src="' + esc(l.url) + '" alt="" onerror="this.remove()">' : '') + '</span>' +
-        '<span class="logo-name">' + esc(l.name) + '</span><span class="logo-domain">Your logo</span></button>';
+        '<span class="logo-name">' + esc(l.name) + '</span><span class="logo-domain">Your logo</span></button>' +
+        '<button type="button" class="logo-del" data-del-logo="' + esc(l.id) + '" aria-label="Delete ' + esc(l.name) + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
     }).join('');
+    lastResults = results;
     var upload = '<button type="button" class="logo-tile logo-upload" data-upload>' +
       '<span class="logo-img"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>' +
       '<span class="logo-name">Upload</span><span class="logo-domain">Your own image</span></button>';
@@ -4298,15 +4300,76 @@ function renderTxSheet(tx) {
   $('#logo-back').addEventListener('click', showMainOptions);
   function after() { renderTransactionMonth(); showMainOptions(); renderTxSheet(actionTx); }
   var file = $('#logo-file'), form = $('#logo-new'), nameIn = $('#logo-new-name'), prev = $('#logo-new-img'), pending = null;
-  function closeForm() { form.hidden = true; out.hidden = false; pending = null; if (prev.src) { URL.revokeObjectURL(prev.src); prev.removeAttribute('src'); } }
+  var frame = $('#logo-frame'), zoomIn = $('#logo-zoom');
+  // Framing: the circle is exactly what shows next to transactions. Zoom 1 = whole image fits.
+  var fr = { w: 1, h: 1, z: 1, x: 0, y: 0, bg: '' };
+  function S() { return frame.clientWidth || 180; }
+  function drawFrame() {
+    var base = Math.min(S() / fr.w, S() / fr.h), W = fr.w * base * fr.z, H = fr.h * base * fr.z;
+    prev.style.width = W + 'px'; prev.style.height = H + 'px';
+    prev.style.transform = 'translate(' + (fr.x - W / 2) + 'px,' + (fr.y - H / 2) + 'px)';
+    frame.style.background = fr.bg || '';
+    zoomIn.value = fr.z;
+  }
+  function setZoom(z, cx, cy) {
+    z = Math.max(0.4, Math.min(4, z));
+    // keep the point under the fingers/centre still while zooming
+    cx = cx || 0; cy = cy || 0;
+    fr.x = cx - (cx - fr.x) * (z / fr.z); fr.y = cy - (cy - fr.y) * (z / fr.z); fr.z = z;
+    drawFrame();
+  }
+  function resetFrame() { fr.z = 1; fr.x = 0; fr.y = 0; drawFrame(); }
+  function setBg(bg) {
+    fr.bg = bg;
+    Array.prototype.forEach.call(form.querySelectorAll('[data-bg]'), function(b) { b.setAttribute('aria-checked', String(b.dataset.bg === bg)); });
+    drawFrame();
+  }
+  form.querySelector('.logo-bg').addEventListener('click', function(e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-fit')) resetFrame(); else setBg(b.dataset.bg);
+  });
+  zoomIn.addEventListener('input', function() { setZoom(parseFloat(zoomIn.value)); });
+  var pts = {}, last = null;
+  function rel(e) { var r = frame.getBoundingClientRect(); return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 }; }
+  function gesture() {
+    var ids = Object.keys(pts);
+    if (ids.length >= 2) { var a = pts[ids[0]], b = pts[ids[1]]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; }
+    var p = pts[ids[0]]; return p ? { x: p.x, y: p.y, d: 0 } : null;
+  }
+  frame.addEventListener('pointerdown', function(e) { e.preventDefault(); frame.setPointerCapture(e.pointerId); pts[e.pointerId] = rel(e); last = gesture(); });
+  frame.addEventListener('pointermove', function(e) {
+    if (!pts[e.pointerId]) return;
+    pts[e.pointerId] = rel(e);
+    var g = gesture(); if (!g || !last) { last = g; return; }
+    fr.x += g.x - last.x; fr.y += g.y - last.y;
+    if (g.d && last.d) setZoom(fr.z * g.d / last.d, g.x, g.y); else drawFrame();
+    last = g;
+  });
+  function lift(e) { delete pts[e.pointerId]; last = gesture(); }
+  frame.addEventListener('pointerup', lift); frame.addEventListener('pointercancel', lift);
+  frame.addEventListener('wheel', function(e) { e.preventDefault(); var p = rel(e); setZoom(fr.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08), p.x, p.y); }, { passive: false });
+  function exportFramed() {
+    return new Promise(function(resolve, reject) {
+      var OUT = 256, k = OUT / S(), c = document.createElement('canvas'); c.width = OUT; c.height = OUT;
+      var ctx = c.getContext('2d');
+      if (fr.bg) { ctx.fillStyle = fr.bg; ctx.fillRect(0, 0, OUT, OUT); }
+      var base = Math.min(S() / fr.w, S() / fr.h), W = fr.w * base * fr.z, H = fr.h * base * fr.z;
+      ctx.drawImage(prev, (S() / 2 + fr.x - W / 2) * k, (S() / 2 + fr.y - H / 2) * k, W * k, H * k);
+      c.toBlob(function(b) { if (!b) return reject(new Error('convert')); b.__framed = true; resolve(b); }, 'image/png');
+    });
+  }
+  function closeForm() { form.hidden = true; out.hidden = false; q.closest('.logo-search').hidden = false; $('#logo-picker').classList.remove('framing'); pending = null; pts = {}; if (prev.src) { URL.revokeObjectURL(prev.src); prev.removeAttribute('src'); } }
   file.addEventListener('change', function() {
     var f = file.files && file.files[0]; file.value = '';
     if (!f) return;
     if (!/^image\//.test(f.type) || f.size > 15 * 1024 * 1024) { showToast('Pick an image under 15 MB'); return; }
-    pending = f; prev.src = URL.createObjectURL(f);
+    pending = f;
+    prev.onload = function() { fr.w = prev.naturalWidth || 1; fr.h = prev.naturalHeight || 1; setBg(''); resetFrame(); };
+    prev.onerror = function() { showToast('Couldn’t open that image'); closeForm(); };
+    prev.src = URL.createObjectURL(f);
     var eff = getEffectiveTx(actionTx);
     nameIn.value = eff.nickname || actionTx.merchant_name || q.value.trim() || (actionTx.name || '').replace(/^(to|from)\s+/i, '');
-    out.hidden = true; form.hidden = false;
+    out.hidden = true; q.closest('.logo-search').hidden = true; $('#logo-reset').hidden = true; $('#logo-picker').classList.add('framing'); form.hidden = false;
     setTimeout(function() { nameIn.focus(); nameIn.select(); }, 50);
   });
   $('#logo-new-cancel').addEventListener('click', closeForm);
@@ -4316,7 +4379,7 @@ function renderTxSheet(tx) {
     if (!name) { nameIn.focus(); return; }
     var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      var logo = await uploadCustomLogo(pending, name);
+      var logo = await uploadCustomLogo(await exportFramed(), name);
       var key = merchantKey(actionTx);
       if (key) {
         merchantLogos[key] = 'custom:' + logo.id;
@@ -4330,6 +4393,16 @@ function renderTxSheet(tx) {
   });
   out.addEventListener('click', function(e) {
     if (e.target.closest('[data-upload]')) { file.click(); return; }
+    var del = e.target.closest('[data-del-logo]');
+    if (del) {
+      if (!del.classList.contains('confirm')) {
+        del.classList.add('confirm'); del.textContent = 'Delete?';
+        setTimeout(function() { if (del.isConnected && del.classList.contains('confirm')) tiles(lastResults); }, 3000);
+        return;
+      }
+      deleteCustomLogo(del.dataset.delLogo).then(function() { showToast('Logo deleted'); tiles(lastResults); renderTxSheet(actionTx); });
+      return;
+    }
     var t = e.target.closest('.logo-tile');
     if (!t || !actionTx) return;
     var key = merchantKey(actionTx), domain = t.dataset.domain;
