@@ -2506,7 +2506,7 @@ function renderAccounts(accounts) {
   renderSection(listCredit, credits, 'credit');
   var creditSum = credits.reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
   creditTotal.textContent = (creditSum < 0 ? '-' : '') + formatMoney(Math.abs(creditSum));
-  creditTotal.className = 'section-total ' + (creditSum >= 0 ? 'balance-negative' : 'balance-positive');
+  creditTotal.className = 'section-total balance-positive';   // owing is normal, not an alarm: white
 
   if (credits.length > 0 && cachedLiabilities === null) {
     loadLiabilities().then(function() {
@@ -2518,7 +2518,7 @@ function renderAccounts(accounts) {
   renderSection($('#list-loans'), loans, 'loan');
   var loanSum = loans.reduce(function(s, a) { return s + Math.abs(getDisplayBalance(a, 'loan').amount); }, 0);
   $('#loans-total').textContent = formatMoney(loanSum);
-  $('#loans-total').className = 'section-total balance-negative';
+  $('#loans-total').className = 'section-total balance-positive';
   if (loans.length > 0 && cachedLiabilities === null) {
     loadLiabilities().then(function() { renderSection($('#list-loans'), loans, 'loan'); });
   }
@@ -2622,6 +2622,11 @@ function renderHomeInsights() {
   var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals), range = (max - min) || 1;
   var n = pts.length - 1 || 1;
   pts.forEach(function(x, idx) { x.x = idx / n * 300; x.y = 60 - ((x.available - min) / range) * 54; });
+  // Like Robinhood: green if at or above where the range started, red if below,
+  // with a dotted line at the starting value.
+  var down = pts[pts.length - 1].available < pts[0].available - 0.005;
+  chart.classList.toggle('is-down', down);
+  $('#home-trend-base').style.top = (pts[0].y / 64 * 100) + '%';
   $('#home-trend-path').setAttribute('d', pts.map(function(x, idx) { return (idx ? 'L' : 'M') + x.x.toFixed(1) + ',' + x.y.toFixed(1); }).join(' '));
   ranges.querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', +b.dataset.range === homeRange); });
   chart.hidden = false; ranges.hidden = false; label.hidden = false;
@@ -3427,9 +3432,9 @@ function accountCard(account, type) {
       '</div>' +
       '<div class="account-balance">' +
         (loanMain && loanMain.amount != null
-          ? '<div class="amount ' + (loanMain.amount > 0 ? 'balance-negative' : '') + '">' + formatMoney(loanMain.amount) + '</div><div class="label">' + esc(loanMain.label) + '</div>'
+          ? '<div class="amount balance-positive">' + formatMoney(loanMain.amount) + '</div><div class="label">' + esc(loanMain.label) + '</div>'
           : '') +
-        (loanMain && loanMain.amount != null ? '' : ('<div class="amount ' + (type === 'loan' ? 'balance-negative' : type === 'credit' ? (bal.amount < 0 ? 'balance-positive' : 'balance-negative') : 'balance-positive') + (type === 'credit' ? ' amount-bonus-trigger' : '') + '"' + (type === 'credit' ? ' data-bonus-id="' + account.id + '"' : '') + '>' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
+        (loanMain && loanMain.amount != null ? '' : ('<div class="amount ' + 'balance-positive' + (type === 'credit' ? ' amount-bonus-trigger' : '') + '"' + (type === 'credit' ? ' data-bonus-id="' + account.id + '"' : '') + '>' + (bal.amount < 0 ? '-' : '') + formatMoney(Math.abs(bal.amount)) + '</div>' +
         '<div class="label"' + (syncTs ? ' data-ts="' + syncTs + '" data-ts-prefix="Synced "' : '') + '>' + (timestamp ? 'Synced ' + timestamp : '') + '</div>')) +
       '</div>' +
     '</div>' +

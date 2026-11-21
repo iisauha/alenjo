@@ -3726,3 +3726,9 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .budget-new { margin: 0 0 12px; }
 .budget-pills { margin-bottom: 10px; }
 .act-net b:not(.good):not(.bad) { color: var(--text); }
+
+/* Home chart colour follows the change since the start of the range */
+.home-chart { color: var(--success); }
+.home-chart.is-down { color: var(--danger); }
+.home-chart .home-trend-dot { background: currentColor; }
+.home-trend-base { position: absolute; left: 0; right: 0; height: 0; border-top: 2px dotted color-mix(in srgb, var(--text-muted) 45%, transparent); pointer-events: none; }

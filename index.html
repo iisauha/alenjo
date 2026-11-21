@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121142359';</script>
+  <script>var _v = '20261121143019';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121142359">
+  <link rel="stylesheet" href="style.css?v=20261121143019">
 </head>
 <body>
 
@@ -189,9 +189,10 @@
         <p id="home-trend-label" class="home-trend-label" hidden></p>
         <div id="home-chart" class="home-chart" hidden>
           <svg id="home-trend" class="home-trend" viewBox="0 0 300 64" preserveAspectRatio="none" role="img" aria-label="Available cash over time. Drag across to see a day.">
-            <path id="home-trend-path" d="" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+            <path id="home-trend-path" d="" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
             <line id="home-trend-cursor" x1="0" x2="0" y1="0" y2="64" stroke="var(--text-muted)" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
           </svg>
+          <span id="home-trend-base" class="home-trend-base" aria-hidden="true"></span>
           <span id="home-trend-dot" class="home-trend-dot" hidden></span>
         </div>
         <div id="home-ranges" class="home-ranges" role="group" aria-label="Chart range" hidden>
