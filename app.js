@@ -627,6 +627,25 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
 });
 
 // ============================================
+// PRIVATE PHOTOS: profile photos and card images aren't public; the app asks
+// for short-lived links (7 days) that only work for the signed-in owner's files.
+// ============================================
+var signedUrlCache = {};
+async function signedUrl(bucket, path) {
+  if (!path) return null;
+  var key = bucket + '/' + path, hit = signedUrlCache[key];
+  if (hit && hit.exp > Date.now()) return hit.url;
+  var r = await sb.storage.from(bucket).createSignedUrl(path, 7 * 24 * 3600);
+  if (r.error || !r.data) return null;
+  signedUrlCache[key] = { url: r.data.signedUrl, exp: Date.now() + 6 * 24 * 3600 * 1000 };
+  return r.data.signedUrl;
+}
+function storagePathFromUrl(url, bucket) {
+  var m = String(url || '').match(new RegExp('/' + bucket + '/(.+?)(?:\\?|$)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+// ============================================
 // PROFILE
 // ============================================
 async function loadProfile() {
@@ -636,6 +655,9 @@ async function loadProfile() {
     return;
   }
   userProfile = result.data;
+  if (userProfile && userProfile.avatar_url) {
+    userProfile.avatar_url = await signedUrl('avatars', storagePathFromUrl(userProfile.avatar_url, 'avatars')) || null;
+  }
   try { if (userProfile && userProfile.display_name) localStorage.setItem('alenjo_last_name', userProfile.display_name); } catch (e) {}
   updateHeaderProfile();
   updateSettingsProfile();
@@ -697,11 +719,11 @@ $('#avatar-upload').addEventListener('change', async function(e) {
     return;
   }
 
+  // Save where the photo lives; show it with a fresh private link
   var urlResult = sb.storage.from('avatars').getPublicUrl(path);
-  var avatarUrl = urlResult.data.publicUrl + '?v=' + Date.now();
-
-  await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
-  userProfile.avatar_url = avatarUrl;
+  await sb.from('profiles').update({ avatar_url: urlResult.data.publicUrl }).eq('id', currentUser.id);
+  delete signedUrlCache['avatars/' + path];
+  userProfile.avatar_url = (await signedUrl('avatars', path)) + '&v=' + Date.now();
   updateHeaderProfile();
   updateSettingsProfile();
   showLoading(false);
@@ -718,6 +740,13 @@ async function loadCardDesigns() {
   var result = await sb.from('card_designs').select('id, storage_path, url, name, created_at').order('created_at', { ascending: false });
   if (result.error) { console.error('card designs load error', result.error); return; }
   cachedCardDesigns = result.data || [];
+  var paths = cachedCardDesigns.map(function(d) { return d.storage_path; }).filter(Boolean);
+  if (paths.length) {
+    var signed = await sb.storage.from('card-designs').createSignedUrls(paths, 7 * 24 * 3600);
+    var byPath = {};
+    (signed.data || []).forEach(function(s) { if (s.signedUrl) byPath[s.path] = s.signedUrl; });
+    cachedCardDesigns.forEach(function(d) { if (byPath[d.storage_path]) d.url = byPath[d.storage_path]; });
+  }
   renderCardDesignsSettings();
   // Re-render accounts in case they loaded first and a design was referenced
   if (cachedAccounts && cachedAccounts.some(function(a) { return a.card_design_id; })) {
@@ -1472,6 +1501,7 @@ async function finalizeDesignUpload(processedBlob) {
     name: null
   }).select('id, storage_path, url, name, created_at').single();
 
+  if (!ins.error && ins.data) ins.data.url = (await signedUrl('card-designs', path)) || ins.data.url;
   if (ins.error) {
     console.error('card design insert error', ins.error);
     await sb.storage.from('card-designs').remove([path]);
