@@ -3717,3 +3717,4 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .budget-row-amt { flex: none; display: flex; align-items: center; gap: 4px; width: 112px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .budget-row-amt input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: 500 1rem 'Inter', sans-serif; text-align: right; outline: none; }
 .budget-row.bad .budget-row-amt { border-color: var(--danger); }
+.budget-row-amt input::placeholder { color: var(--text-muted); opacity: 0.6; font-weight: 400; }

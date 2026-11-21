@@ -2957,7 +2957,7 @@ function openBudgetSheet(side, focusCat) {
     var b = budgets[side][c], sug = budgetSuggestion(c, side);
     return '<label class="budget-row" data-cat="' + esc(c) + '"><span class="budget-row-name">' + esc(c) +
       (sug ? '<small>Avg ' + wholeMoney(sug) + '/mo</small>' : '') + '</span>' +
-      '<span class="budget-row-amt"><span aria-hidden="true">$</span><input inputmode="decimal" autocomplete="off" aria-label="' + esc(c) + ' budget" value="' + (b ? esc(String(b.amount)) : '') + '" placeholder="' + (sug ? esc(String(sug)) : '') + '"></span></label>';
+      '<span class="budget-row-amt"><span aria-hidden="true">$</span><input inputmode="decimal" autocomplete="off" aria-label="' + esc(c) + ' budget" value="' + (b ? esc(String(b.amount)) : '') + '" placeholder="None"></span></label>';
   }).join('') || '<p class="act-empty-note">No categories yet.</p>';
   sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false');
   if (focusCat) {
