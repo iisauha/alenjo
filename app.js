@@ -2200,8 +2200,10 @@ function txLogoUrl(tx, eff) {
 }
 
 function getLogoUrl(account) {
-  if (!account.institution_logo_domain) return null;
-  return 'https://img.logo.dev/' + account.institution_logo_domain +
+  var d = account.institution_logo_domain;
+  // Only plain hostnames: this URL ends up inside a style attribute.
+  if (!d || !/^[a-z0-9.-]+$/i.test(d)) return null;
+  return 'https://img.logo.dev/' + encodeURIComponent(d) +
     '?token=' + LOGO_KEY + '&size=200&format=png&retina=true';
 }
 
