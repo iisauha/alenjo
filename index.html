@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121013605';</script>
+  <script>var _v = '20261121013900';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121013605">
+  <link rel="stylesheet" href="style.css?v=20261121013900">
 </head>
 <body>
 
@@ -336,39 +336,22 @@
             <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
           </div>
         </div>
+      </div>
+
+      <h2 class="set-heading">Home screen</h2>
+      <div class="set-group">
+        <div class="set-intro">
+          <b>Order and hide accounts</b>
+          <span>Open a group, then drag <span class="set-intro-icon" aria-hidden="true">≡</span> to move an account up or down on Home. Tap the eye to hide one.</span>
+        </div>
+        <div id="account-order-list"></div>
         <label class="set-row">
           <span class="set-row-text"><span>Include pending charges</span><span class="set-hint">Show what you can spend right now, not just what's posted. Tip: tap the big number on Home to switch.</span></span>
           <input type="checkbox" id="pref-after-pending" class="set-switch" role="switch">
         </label>
       </div>
 
-      <h2 class="set-heading">Security</h2>
-      <div class="set-group">
-        <div class="set-row">
-          <span class="set-row-text"><span>Face ID sign-in</span><span class="set-hint" id="faceid-status">Not set up on this device</span></span>
-          <button type="button" id="btn-setup-faceid" class="btn-secondary-sm">Set up</button>
-        </div>
-        <label class="set-row">
-          <span class="set-row-text"><span>Auto-lock</span><span class="set-hint">With Face ID set up, the app locks instead of signing you out</span></span>
-          <select id="pref-lock-minutes" class="set-select" aria-label="Auto-lock after">
-            <option value="1">1 minute</option>
-            <option value="5">5 minutes</option>
-            <option value="15">15 minutes</option>
-          </select>
-        </label>
-        <label class="set-row">
-          <span class="set-row-text"><span>Ask for Face ID on open</span><span class="set-hint">Start Face ID as soon as the app opens</span></span>
-          <input type="checkbox" id="pref-auto-faceid" class="set-switch" role="switch">
-        </label>
-      </div>
-
-      <h2 class="set-heading">Accounts</h2>
-      <div class="set-group">
-        <div id="account-order-list"></div>
-      </div>
-      <p class="set-footnote">Open a group, drag <span aria-hidden="true">≡</span> to reorder, and tap the eye to hide an account from Home.</p>
-
-      <h2 class="set-heading" id="section-accounts">Banks</h2>
+      <h2 class="set-heading" id="section-accounts">Bank connections</h2>
       <div class="set-group">
         <div id="accounts-list" class="accounts-manage-list"></div>
         <button id="btn-add-account" class="set-row set-row-action" type="button">+ Connect a bank</button>
@@ -388,7 +371,27 @@
         <input type="file" id="card-design-upload" accept="image/png,image/webp,image/jpeg" hidden>
       </div>
 
-      <h2 class="set-heading">About</h2>
+      <h2 class="set-heading">Face ID &amp; lock</h2>
+      <div class="set-group">
+        <div class="set-row">
+          <span class="set-row-text"><span>Face ID sign-in</span><span class="set-hint" id="faceid-status">Not set up on this device</span></span>
+          <button type="button" id="btn-setup-faceid" class="btn-secondary-sm">Set up</button>
+        </div>
+        <label class="set-row">
+          <span class="set-row-text"><span>Ask for Face ID on open</span><span class="set-hint">Start Face ID as soon as the app opens</span></span>
+          <input type="checkbox" id="pref-auto-faceid" class="set-switch" role="switch">
+        </label>
+        <label class="set-row">
+          <span class="set-row-text"><span>Auto-lock</span><span class="set-hint">With Face ID set up, the app locks instead of signing you out</span></span>
+          <select id="pref-lock-minutes" class="set-select" aria-label="Auto-lock after">
+            <option value="1">1 minute</option>
+            <option value="5">5 minutes</option>
+            <option value="15">15 minutes</option>
+          </select>
+        </label>
+      </div>
+
+      <h2 class="set-heading">Help &amp; about</h2>
       <div class="set-group">
         <a href="/privacy" data-info class="set-row set-row-link">Privacy policy<span aria-hidden="true">›</span></a>
         <a href="/security" data-info class="set-row set-row-link">Security<span aria-hidden="true">›</span></a>

@@ -3541,3 +3541,9 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .update-card .btn-primary { width: 100%; min-height: 50px; font-size: 1rem; }
 body.update-required { overflow: hidden; }
 @keyframes update-in { from { opacity: 0; } to { opacity: 1; } }
+/* Settings: "Home screen" intro */
+.set-intro { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.set-intro b { font-size: 0.9375rem; font-weight: 600; }
+.set-intro > span { font-size: 0.8125rem; color: var(--text-muted); line-height: 1.45; }
+.set-intro-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 4px; border-radius: 6px; background: var(--bg-elevated); color: var(--text); font-weight: 700; }
+#account-order-list + .set-row { border-top: 1px solid var(--border); }
