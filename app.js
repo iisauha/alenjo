@@ -3938,7 +3938,7 @@ function budgetStatus(b, got, side) {
   var amt = b.amount, g = Math.round(got), a = Math.round(amt);   // whole dollars, so cents never show "$0 over"
   var base = wholeMoney(g) + ' / ' + wholeMoney(a);
   // Green when at or under budget, red when over. Income: green once the expected amount is in.
-  if (side === 'in') return { sub: g > a ? base + ' · ' + wholeMoney(g - a) + ' extra' : base, cls: g >= a ? 'good' : '' };
+  if (side === 'in') return { sub: base, cls: g >= a ? 'good' : '' };
   return { sub: g > a ? base + ' · ' + wholeMoney(g - a) + ' over' : base, cls: g > a ? 'bad' : 'good' };
 }
 var CATEGORY_COLORS = [
