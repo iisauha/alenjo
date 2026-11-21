@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121175136';</script>
+  <script>var _v = '20261121175850';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121175136">
+  <link rel="stylesheet" href="style.css?v=20261121175850">
 </head>
 <body>
 
@@ -689,6 +689,24 @@
       </div>
       <p id="disconnect-error" class="auth-error" hidden></p>
       <button type="button" id="disconnect-cancel" class="action-sheet-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <div id="export-sheet" class="action-sheet-overlay" aria-hidden="true">
+    <div class="action-sheet delete-sheet" role="dialog" aria-modal="true" aria-labelledby="export-title">
+      <h2 id="export-title" class="delete-title">Export to Excel</h2>
+      <p class="delete-lead" id="export-lead">A formatted table, a summary tab and charts.</p>
+      <div class="disc-options">
+        <button type="button" class="disc-option" id="export-month">
+          <b id="export-month-label">This month</b>
+          <span id="export-month-sub"></span>
+        </button>
+        <button type="button" class="disc-option" id="export-all">
+          <b>All data</b>
+          <span id="export-all-sub"></span>
+        </button>
+      </div>
+      <button type="button" id="export-cancel" class="action-sheet-cancel">Cancel</button>
     </div>
   </div>
 

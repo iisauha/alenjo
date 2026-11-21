@@ -4568,15 +4568,14 @@ function loadXlsxBuilder() {
   });
   return xlsxLoading;
 }
-$('#btn-export-xlsx').addEventListener('click', async function() {
-  var btn = this, label = btn.textContent;
-  var cardId = $('#tx-card-filter').value;
-  var acct = buildAccountMap();
-  var rows = [];
+// Rows for the workbook: one month or everything, following the account filter, skipping ignored
+function exportRows(month) {
+  var cardId = $('#tx-card-filter').value, acct = buildAccountMap(), rows = [];
   txData.forEach(function(tx) {
     if (cardId !== 'all' && tx.plaid_account_id !== cardId) return;
     var eff = getEffectiveTx(tx);
     if (eff.actionType === 'ignored') return;
+    if (month && eff.date.slice(0, 7) !== month) return;
     var status = tx.pending ? 'Pending'
       : eff.actionType === 'reimbursed' ? 'Reimbursed'
       : eff.isAdjusted ? 'Adjusted'
@@ -4589,40 +4588,68 @@ $('#btn-export-xlsx').addEventListener('click', async function() {
       amount: -eff.amount, full: -tx.amount, status: status, note: eff.note || ''
     });
   });
-  if (!rows.length) { showToast('Nothing to export yet'); return; }
-  // Same palette as the app, biggest spending category first
-  var totals = {};
-  rows.forEach(function(r) { if (r.amount < 0 && !isTransferCategory(r.category)) totals[r.category] = (totals[r.category] || 0) - r.amount; });
-  var colors = {};
-  Object.keys(totals).sort(function(a, b) { return totals[b] - totals[a]; }).forEach(function(c, i) { colors[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
-  var bud = {};
-  Object.keys(budgets).forEach(function(m) {
-    var out = (budgets[m] && budgets[m].out) || {};
-    bud[m] = {};
-    Object.keys(out).forEach(function(c) { bud[m][c] = +out[c].amount; });
+  return rows;
+}
+function monthLabel(m) { return MONTH_LONG[parseInt(m.slice(5, 7), 10) - 1] + ' ' + m.slice(0, 4); }
+
+(function wireExport() {
+  var sheet = $('#export-sheet');
+  function close() { sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); }
+  $('#btn-export-xlsx').addEventListener('click', function() {
+    var month = $('#tx-month-filter').value;
+    var nMonth = exportRows(month).length, nAll = exportRows(null).length;
+    $('#export-month-label').textContent = monthLabel(month) + ' only';
+    $('#export-month-sub').textContent = nMonth + ' transaction' + (nMonth === 1 ? '' : 's');
+    $('#export-all-sub').textContent = nAll + ' transactions, every month, with a month-by-month summary';
+    $('#export-month').disabled = !nMonth; $('#export-all').disabled = !nAll;
+    sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false');
+    loadXlsxBuilder().catch(function() {});   // ready by the time you pick
   });
-  btn.disabled = true; btn.textContent = 'Preparing…';
-  try {
-    await loadXlsxBuilder();
-    var today = new Date();
-    var blob = window.AlenjoXlsx.build({
-      rows: rows, categories: allCategories(), colors: colors, budgets: bud,
-      exported: today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      title: cardId === 'all' ? 'Spending summary' : 'Spending summary · ' + (acct[cardId] || 'Account')
+  $('#export-cancel').addEventListener('click', close);
+  $('#export-month').addEventListener('click', function() { doExport($('#tx-month-filter').value, this); });
+  $('#export-all').addEventListener('click', function() { doExport(null, this); });
+
+  async function doExport(month, btn) {
+    var rows = exportRows(month);
+    if (!rows.length) return;
+    var cardId = $('#tx-card-filter').value, acct = buildAccountMap();
+    // Same palette as the app, biggest spending category first
+    var totals = {};
+    rows.forEach(function(r) { if (r.amount < 0 && !isTransferCategory(r.category)) totals[r.category] = (totals[r.category] || 0) - r.amount; });
+    var colors = {};
+    Object.keys(totals).sort(function(a, b) { return totals[b] - totals[a]; }).forEach(function(c, i) { colors[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+    var bud = {};
+    Object.keys(budgets).forEach(function(m) {
+      var out = (budgets[m] && budgets[m].out) || {};
+      bud[m] = {};
+      Object.keys(out).forEach(function(c) { bud[m][c] = +out[c].amount; });
     });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'alenjo-transactions-' + today.toISOString().slice(0, 10) + '.xlsx';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function() { URL.revokeObjectURL(url); }, 10000);
-  } catch (e) {
-    console.error('Export failed:', e);
-    showToast('Couldn’t make the Excel file. Try again.');
-  } finally {
-    btn.disabled = false; btn.textContent = label;
+    var label = btn.querySelector('b').textContent;
+    btn.disabled = true;
+    try {
+      if (!window.AlenjoXlsx) { btn.querySelector('b').textContent = 'Preparing…'; await loadXlsxBuilder(); }
+      var today = new Date();
+      var scope = (month ? monthLabel(month) : 'Spending summary') + (cardId === 'all' ? '' : ' · ' + (acct[cardId] || 'Account'));
+      var blob = window.AlenjoXlsx.build({
+        rows: rows, categories: allCategories(), colors: colors, budgets: bud, title: scope,
+        exported: today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      });
+      // "November 21 2026 Alenjo Transaction Data.xlsx"
+      var name = MONTH_LONG[today.getMonth()] + ' ' + today.getDate() + ' ' + today.getFullYear() + ' Alenjo Transaction Data.xlsx';
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function() { URL.revokeObjectURL(url); }, 10000);
+      close();
+    } catch (e) {
+      console.error('Export failed:', e);
+      showToast('Couldn’t make the Excel file. Try again.');
+    } finally {
+      btn.disabled = false; btn.querySelector('b').textContent = label;
+    }
   }
-});
+})();
 
 // ============================================
 // ADD MANUAL TRANSACTION
@@ -5676,7 +5703,7 @@ function flashSaved(btn) {
     var t = e.target;
     if (!t.classList || !(t.classList.contains('modal-overlay') || t.classList.contains('action-sheet-overlay'))) return;
     if (downOn !== t) { e.stopImmediatePropagation(); return; }
-    if (t.classList.contains('modal-overlay') || t.id === 'disconnect-sheet' || t.id === 'purge-sheet' || t.id === 'budget-sheet') {
+    if (t.classList.contains('modal-overlay') || t.id === 'disconnect-sheet' || t.id === 'purge-sheet' || t.id === 'budget-sheet' || t.id === 'export-sheet') {
       var cancel = t.querySelector('[id$="-cancel"]');
       if (cancel) cancel.click();
     }
