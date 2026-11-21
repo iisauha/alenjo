@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121033422';</script>
+  <script>var _v = '20261121034212';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121033422">
+  <link rel="stylesheet" href="style.css?v=20261121034212">
 </head>
 <body>
 
@@ -370,6 +370,17 @@
         <input type="file" id="card-design-upload" accept="image/png,image/webp,image/jpeg" hidden>
       </div>
 
+      <h2 class="set-heading" id="section-my-logos">Your logos</h2>
+      <div class="set-group">
+        <div class="set-row">
+          <span class="set-row-text"><span>Logos you added</span><span class="set-hint">For stores logo.dev doesn't know. Tap a transaction's logo, then Upload. They show up when you search by their name.</span></span>
+        </div>
+        <details class="set-disclosure" id="custom-logos-details" hidden>
+          <summary class="set-row"><span>Saved logos</span><span class="set-disclosure-end"><span id="custom-logos-count" class="set-hint"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+          <div id="custom-logos-list" class="mylogos"></div>
+        </details>
+      </div>
+
       <h2 class="set-heading">Face ID &amp; lock</h2>
       <div class="set-group">
         <div class="set-row">
@@ -681,6 +692,12 @@
         <p class="action-sub-title">Logo</p>
         <label class="logo-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="logo-q" placeholder="Search a store or brand" aria-label="Search logos" enterkeyhint="search" autocomplete="off"></label>
         <div id="logo-results" class="logo-results" aria-live="polite"></div>
+        <div id="logo-new" class="logo-new" hidden>
+          <span class="logo-img mine logo-new-preview"><img id="logo-new-img" alt=""></span>
+          <label class="logo-new-field"><span>Name it so you can find it later</span><input type="text" id="logo-new-name" maxlength="60" autocomplete="off" enterkeyhint="done"></label>
+          <div class="logo-new-actions"><button type="button" id="logo-new-cancel" class="btn-secondary-sm">Cancel</button><button type="button" id="logo-new-save" class="btn-primary-sm">Save</button></div>
+        </div>
+        <input type="file" id="logo-file" accept="image/*" hidden>
         <button type="button" id="logo-reset" class="signin-link" hidden>Use the automatic logo</button>
       </div>
       <div id="edit-picker" class="action-sheet-sub" hidden>

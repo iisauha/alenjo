@@ -2198,6 +2198,76 @@ async function resolveLogos() {
 // website, then logo.dev by the store's name (your rename or Plaid's merchant name).
 // Transfers and deposits with no store behind them keep the letter.
 var merchantLogos = {};   // store (bank name, lowercase) -> logo domain you picked
+
+// ---- Your own logos: uploaded images with a name, found by the logo search ----
+var customLogos = [];   // { id, name, storage_path, url }
+function customLogoById(id) { for (var i = 0; i < customLogos.length; i++) if (customLogos[i].id === id) return customLogos[i]; return null; }
+async function loadCustomLogos() {
+  var r = await sb.from('custom_logos').select('id, name, storage_path, created_at').order('name');
+  if (r.error) { console.error('custom logos load error', r.error); return; }
+  customLogos = r.data || [];
+  var paths = customLogos.map(function(l) { return l.storage_path; });
+  if (paths.length) {
+    var signed = await sb.storage.from('logos').createSignedUrls(paths, 7 * 24 * 3600);
+    var byPath = {};
+    (signed.data || []).forEach(function(x) { if (x.signedUrl) byPath[x.path] = x.signedUrl; });
+    customLogos.forEach(function(l) { l.url = byPath[l.storage_path] || null; });
+  }
+  renderCustomLogosSettings();
+}
+// Square 256px PNG, transparency kept, whole image visible
+function logoImageToBlob(file) {
+  return new Promise(function(resolve, reject) {
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function() {
+      var S = 256, c = document.createElement('canvas'); c.width = S; c.height = S;
+      var k = Math.min(S / img.naturalWidth, S / img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k;
+      c.getContext('2d').drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+      URL.revokeObjectURL(url);
+      c.toBlob(function(b) { b ? resolve(b) : reject(new Error('convert')); }, 'image/png');
+    };
+    img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('read')); };
+    img.src = url;
+  });
+}
+async function uploadCustomLogo(file, name) {
+  name = String(name || '').trim().slice(0, 60);
+  if (!name) throw new Error('name');
+  var blob = await logoImageToBlob(file);
+  var path = currentUser.id + '/' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)) + '.png';
+  var up = await sb.storage.from('logos').upload(path, blob, { contentType: 'image/png' });
+  if (up.error) throw up.error;
+  var ins = await sb.from('custom_logos').insert({ name: name, storage_path: path }).select('id, name, storage_path').single();
+  if (ins.error) { sb.storage.from('logos').remove([path]); throw ins.error; }
+  var logo = ins.data; logo.url = await signedUrl('logos', path);
+  customLogos.push(logo);
+  customLogos.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  renderCustomLogosSettings();
+  return logo;
+}
+async function deleteCustomLogo(id) {
+  var logo = customLogoById(id); if (!logo) return;
+  customLogos = customLogos.filter(function(l) { return l.id !== id; });
+  // Stores that used it go back to the automatic logo
+  Object.keys(merchantLogos).forEach(function(k) { if (merchantLogos[k] === 'custom:' + id) delete merchantLogos[k]; });
+  await sb.from('merchant_logos').delete().eq('domain', 'custom:' + id);
+  await sb.from('custom_logos').delete().eq('id', id);
+  sb.storage.from('logos').remove([logo.storage_path]);
+  renderCustomLogosSettings();
+  if (typeof renderTransactionMonth === 'function' && txData && txData.length) renderTransactionMonth();
+}
+function renderCustomLogosSettings() {
+  var list = $('#custom-logos-list'), count = $('#custom-logos-count'), det = $('#custom-logos-details');
+  if (!list) return;
+  if (count) count.textContent = customLogos.length ? String(customLogos.length) : '';
+  if (det) det.hidden = !customLogos.length;
+  list.innerHTML = customLogos.map(function(l) {
+    return '<div class="mylogo" data-id="' + esc(l.id) + '">' +
+      '<span class="logo-img mine" data-i="' + esc(l.name.charAt(0).toUpperCase()) + '">' + (l.url ? '<img src="' + esc(l.url) + '" alt="">' : '') + '</span>' +
+      '<input class="mylogo-name" value="' + esc(l.name) + '" maxlength="60" aria-label="Logo name" enterkeyhint="done">' +
+      '<button type="button" class="mylogo-del" aria-label="Delete ' + esc(l.name) + '">Delete</button></div>';
+  }).join('');
+}
 function merchantKey(tx) { return String(tx.merchant_name || tx.name || '').trim().toLowerCase().slice(0, 120); }
 function logoByDomain(domain, size) { return 'https://img.logo.dev/' + encodeURIComponent(domain) + '?token=' + LOGO_KEY + '&size=' + (size || 64) + '&retina=true&format=png&fallback=404'; }
 function txLogoUrl(tx, eff) {
@@ -2205,6 +2275,7 @@ function txLogoUrl(tx, eff) {
   // 1. A logo you picked for this store
   var picked = merchantLogos[merchantKey(tx)];
   if (picked === 'none') return null;   // you chose no logo: show the letter instead
+  if (picked && picked.indexOf('custom:') === 0) { var mine = customLogoById(picked.slice(7)); return mine ? mine.url : null; }
   if (picked) return logoByDomain(picked);
   // 2. If you renamed it, look up the new name (so "Claude" gets Claude's logo)
   if (eff.nickname) return 'https://img.logo.dev/name/' + encodeURIComponent(eff.nickname.trim()) + q;
@@ -3230,6 +3301,7 @@ async function loadTransactions() {
   var logoResult = await sb.from('merchant_logos').select('merchant_key, domain');
   merchantLogos = {};
   if (logoResult.data) logoResult.data.forEach(function(r) { merchantLogos[r.merchant_key] = r.domain; });
+  await loadCustomLogos();
   var mapResult = await sb.from('user_category_map').select('source, display');
   catMap = {};
   if (mapResult.data) mapResult.data.forEach(function(r) { catMap[r.source] = r.display; });
@@ -4177,11 +4249,22 @@ function renderTxSheet(tx) {
     var letter = ((eff.nickname || actionTx.merchant_name || actionTx.name || '?').replace(/^(to|from)\s+/i, '').trim().charAt(0) || '?').toUpperCase();
     var none = '<button type="button" class="logo-tile' + (current === 'none' ? ' on' : '') + '" data-domain="none">' +
       '<span class="logo-img" data-i="' + esc(letter) + '"></span><span class="logo-name">None</span><span class="logo-domain">Just the letter</span></button>';
-    out.innerHTML = none + (results.length ? results.map(function(r) {
+    var term = q.value.trim().toLowerCase();
+    var mine = customLogos.filter(function(l) { return !term || l.name.toLowerCase().indexOf(term) !== -1 || term.indexOf(l.name.toLowerCase()) !== -1; });
+    var mineHtml = mine.map(function(l) {
+      return '<button type="button" class="logo-tile' + (current === 'custom:' + l.id ? ' on' : '') + '" data-domain="custom:' + esc(l.id) + '">' +
+        '<span class="logo-img mine" data-i="' + esc(l.name.charAt(0).toUpperCase()) + '">' + (l.url ? '<img src="' + esc(l.url) + '" alt="" onerror="this.remove()">' : '') + '</span>' +
+        '<span class="logo-name">' + esc(l.name) + '</span><span class="logo-domain">Your logo</span></button>';
+    }).join('');
+    var upload = '<button type="button" class="logo-tile logo-upload" data-upload>' +
+      '<span class="logo-img"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>' +
+      '<span class="logo-name">Upload</span><span class="logo-domain">Your own image</span></button>';
+    var found = results;
+    out.innerHTML = none + mineHtml + upload + (found.length ? found.map(function(r) {
       return '<button type="button" class="logo-tile' + (r.domain === current ? ' on' : '') + '" data-domain="' + esc(r.domain) + '">' +
         '<span class="logo-img" data-i="' + esc((r.name || r.domain).charAt(0).toUpperCase()) + '"><img src="' + esc(logoByDomain(r.domain, 96)) + '" alt="" loading="lazy" onerror="this.remove()"></span>' +
         '<span class="logo-name">' + esc(r.name) + '</span><span class="logo-domain">' + esc(r.domain) + '</span></button>';
-    }).join('') : '<p class="logo-empty">' + (q.value.trim().length < 2 ? 'Type a store name to see logos.' : 'No logos found. Try a shorter name or the website, like “claude.ai”.') + '</p>');
+    }).join('') : (mine.length ? '' : '<p class="logo-empty">' + (q.value.trim().length < 2 ? 'Type a store name to see logos.' : 'No logos found. Upload your own, or try a shorter name or the website, like “claude.ai”.') + '</p>'));
   }
   async function search(term) {
     var my = ++seq;
@@ -4203,6 +4286,7 @@ function renderTxSheet(tx) {
   btn.addEventListener('click', function() {
     if (!actionTx) return;
     showSubPicker('#logo-picker');
+    closeForm();
     var eff = getEffectiveTx(actionTx);
     q.value = eff.nickname || actionTx.merchant_name || (actionTx.name || '').replace(/^(to|from)\s+/i, '');
     $('#logo-reset').hidden = !merchantLogos[merchantKey(actionTx)];
@@ -4213,7 +4297,39 @@ function renderTxSheet(tx) {
   q.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); search(q.value); } });
   $('#logo-back').addEventListener('click', showMainOptions);
   function after() { renderTransactionMonth(); showMainOptions(); renderTxSheet(actionTx); }
+  var file = $('#logo-file'), form = $('#logo-new'), nameIn = $('#logo-new-name'), prev = $('#logo-new-img'), pending = null;
+  function closeForm() { form.hidden = true; out.hidden = false; pending = null; if (prev.src) { URL.revokeObjectURL(prev.src); prev.removeAttribute('src'); } }
+  file.addEventListener('change', function() {
+    var f = file.files && file.files[0]; file.value = '';
+    if (!f) return;
+    if (!/^image\//.test(f.type) || f.size > 15 * 1024 * 1024) { showToast('Pick an image under 15 MB'); return; }
+    pending = f; prev.src = URL.createObjectURL(f);
+    var eff = getEffectiveTx(actionTx);
+    nameIn.value = eff.nickname || actionTx.merchant_name || q.value.trim() || (actionTx.name || '').replace(/^(to|from)\s+/i, '');
+    out.hidden = true; form.hidden = false;
+    setTimeout(function() { nameIn.focus(); nameIn.select(); }, 50);
+  });
+  $('#logo-new-cancel').addEventListener('click', closeForm);
+  $('#logo-new-save').addEventListener('click', async function() {
+    if (!pending || !actionTx) return;
+    var name = nameIn.value.trim();
+    if (!name) { nameIn.focus(); return; }
+    var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      var logo = await uploadCustomLogo(pending, name);
+      var key = merchantKey(actionTx);
+      if (key) {
+        merchantLogos[key] = 'custom:' + logo.id;
+        sb.from('merchant_logos').upsert({ merchant_key: key, domain: 'custom:' + logo.id, updated_at: new Date().toISOString() }, { onConflict: 'user_id,merchant_key' })
+          .then(function(r) { if (r.error) showToast('Couldn’t save the logo'); });
+      }
+      closeForm(); showToast('Logo saved'); after();
+    } catch (err) {
+      console.error('logo upload', err); showToast('Couldn’t upload that image');
+    } finally { btn.disabled = false; btn.textContent = 'Save'; }
+  });
   out.addEventListener('click', function(e) {
+    if (e.target.closest('[data-upload]')) { file.click(); return; }
     var t = e.target.closest('.logo-tile');
     if (!t || !actionTx) return;
     var key = merchantKey(actionTx), domain = t.dataset.domain;
@@ -4785,8 +4901,6 @@ function flashSaved(btn) {
 }
 
 
-})();
-
 // Tap outside a popup to close it, same as Cancel. Only counts when the tap also started
 // outside: a drag that begins inside (selecting text, moving a crop) and ends on the
 // backdrop must not close it.
@@ -4802,4 +4916,33 @@ function flashSaved(btn) {
       if (cancel) cancel.click();
     }
   }, true);
+})();
+
+// Settings > Your logos: rename in place, delete with a second tap
+(function wireCustomLogosSettings() {
+  var list = $('#custom-logos-list');
+  if (!list) return;
+  function save(input) {
+    var row = input.closest('.mylogo'), logo = row && customLogoById(row.dataset.id);
+    if (!logo) return;
+    var name = input.value.trim().slice(0, 60);
+    if (!name) { input.value = logo.name; return; }
+    if (name === logo.name) return;
+    logo.name = name;
+    sb.from('custom_logos').update({ name: name }).eq('id', logo.id).then(function(r) { showToast(r.error ? 'Couldn’t rename' : 'Renamed'); });
+  }
+  list.addEventListener('focusout', function(e) { if (e.target.classList.contains('mylogo-name')) save(e.target); });
+  list.addEventListener('keydown', function(e) { if (e.key === 'Enter' && e.target.classList.contains('mylogo-name')) { e.preventDefault(); e.target.blur(); } });
+  list.addEventListener('click', function(e) {
+    var del = e.target.closest('.mylogo-del');
+    if (!del) return;
+    if (!del.classList.contains('confirm')) {
+      del.classList.add('confirm'); del.textContent = 'Sure?';
+      setTimeout(function() { if (del.isConnected) { del.classList.remove('confirm'); del.textContent = 'Delete'; } }, 3000);
+      return;
+    }
+    deleteCustomLogo(del.closest('.mylogo').dataset.id).then(function() { showToast('Logo deleted'); });
+  });
+})();
+
 })();
