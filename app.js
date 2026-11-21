@@ -472,6 +472,7 @@ function refreshOnResume() {
 document.addEventListener('visibilitychange', function() {
   if (document.hidden) {
     lastHiddenAt = Date.now();
+    if (currentUser && !appLocked) saveTxView(true);
     return;
   }
   // Away longer than the auto-lock time: lock (Face ID) or sign out
@@ -514,6 +515,7 @@ function lockOrSignOut() {
 }
 function lockApp() {
   appLocked = true;
+  txViewExpired = true; // past auto-lock: open on the current month next time
   var lock = $('#lock-screen');
   if (lock) lock.hidden = false;
   $('#screen-app').setAttribute('inert', '');
@@ -3314,6 +3316,37 @@ $('#bonus-edit-save').addEventListener('click', function() {
 var txData = [];
 var txMonths = [];
 var txActions = {};
+
+// Remember which month and account you were looking at (and how far down you
+// were) so leaving for another app doesn't drop you back on this month.
+// Kept only while you're within your auto-lock time; after that, a fresh open
+// starts on the current month again.
+var TX_VIEW_KEY = 'alenjo_tx_view';
+var txViewExpired = false;
+function saveTxView(withScroll) {
+  var m = $('#tx-month-filter'), c = $('#tx-card-filter');
+  if (!m || !m.value) return;
+  var v = { month: m.value, card: c ? c.value : 'all', at: Date.now() };
+  var tabEl = document.getElementById('tab-transactions');
+  if (withScroll && tabEl) v.scroll = tabEl.scrollTop;
+  else { var old = readTxView(true); if (old && old.month === v.month && old.card === v.card) v.scroll = old.scroll; }
+  try { localStorage.setItem(TX_VIEW_KEY, JSON.stringify(v)); } catch (e) {}
+}
+function readTxView(ignoreAge) {
+  try {
+    var v = JSON.parse(localStorage.getItem(TX_VIEW_KEY) || 'null');
+    if (!v || !v.month) return null;
+    if (!ignoreAge && Date.now() - (v.at || 0) > getLockMs()) return null;
+    return v;
+  } catch (e) { return null; }
+}
+function selectIfPresent(sel, value) {
+  if (!sel || value == null) return false;
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === value) { sel.selectedIndex = i; return true; }
+  }
+  return false;
+}
 var txListenersReady = false;
 async function loadTransactions() {
   var txEmpty = $('#tx-empty');
@@ -3417,6 +3450,19 @@ async function loadTransactions() {
     cursor = cy + '-' + String(cm).padStart(2, '0');
   }
 
+  // Rebuilding the pickers resets them to this month, so note what was picked first.
+  // Already on screen (a refresh on resume): keep it, unless you were away past
+  // auto-lock. Fresh page load: use the saved view if it's still recent.
+  var prevMonthSel = $('#tx-month-filter').value;
+  var prevCardSel = $('#tx-card-filter').value;
+  var restoredView = null;
+  if (txViewExpired) { prevMonthSel = ''; prevCardSel = ''; }
+  else if (!prevMonthSel) {
+    restoredView = readTxView();
+    if (restoredView) { prevMonthSel = restoredView.month; prevCardSel = restoredView.card; }
+  }
+  txViewExpired = false;
+
   // Populate month filter — parse YYYY-MM directly to avoid timezone issues
   var filter = $('#tx-month-filter');
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -3458,8 +3504,15 @@ async function loadTransactions() {
     });
   }
 
+  selectIfPresent(filter, prevMonthSel);
+  selectIfPresent(cardFilter, prevCardSel);
+
   renderTransactionMonth();
   renderHomeInsights();
+  if (restoredView && restoredView.scroll) {
+    var txTab = document.getElementById('tab-transactions');
+    if (txTab) requestAnimationFrame(function() { txTab.scrollTop = restoredView.scroll; });
+  }
 
   // Set initial button state every load, but only bind listeners once
   var btnIgnored = $('#btn-toggle-ignored');
@@ -3570,6 +3623,7 @@ function renderTransactionMonth() {
   sizeAcctFilter();
   var month = $('#tx-month-filter').value;
   var cardId = $('#tx-card-filter').value;
+  saveTxView(false);
   if (month + '|' + cardId !== lastActKey) { activeDay = null; lastActKey = month + '|' + cardId; }
   var searchVal = ($('#tx-search').value || '').toLowerCase().trim();
   var breakdown = $('#tx-breakdown');
