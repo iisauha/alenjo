@@ -3801,7 +3801,9 @@ function openActionSheet(tx) {
   if (tx.enriched_location_city || tx.enriched_location_region) {
     detailParts.push([tx.enriched_location_city, tx.enriched_location_region].filter(Boolean).join(', '));
   }
-  if (tx.enriched_payment_channel) detailParts.push(tx.enriched_payment_channel.replace(/_/g, ' '));
+  // Payment channel only when it says something useful ("other" doesn't)
+  if (tx.enriched_payment_channel === 'online') detailParts.push('Online');
+  else if (tx.enriched_payment_channel === 'in store') detailParts.push('In store');
   if (tx.enriched_website) detailParts.push(tx.enriched_website);
   var detailEl = $('#tx-action-detail');
   if (detailEl) {

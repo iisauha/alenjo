@@ -3377,3 +3377,6 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .act-row-amt.is-in { color: var(--success); }
 .act-row-amt.is-pending { color: var(--pending); }
 .act-tag-pending { background: color-mix(in srgb, var(--pending) 16%, transparent); color: var(--pending); }
+/* Bottom sheets: never hide Cancel behind the home indicator */
+.action-sheet { max-height: calc(100dvh - max(24px, env(safe-area-inset-top))); padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+.action-sheet > .action-sheet-cancel { position: sticky; bottom: 0; z-index: 1; min-height: 48px; margin-top: 12px; background: var(--bg-elevated); color: var(--text); font-weight: 500; box-shadow: 0 -12px 16px var(--bg-card); }
