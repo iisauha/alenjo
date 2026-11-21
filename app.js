@@ -3701,6 +3701,7 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
     if (lastFocus) lastFocus.focus({ preventScroll: true });
   };
   $('#info-close').addEventListener('click', close);
+  panel.addEventListener('click', function(e) { if (e.target === panel) close(); });
   document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !panel.hidden) close(); });
 })();
 
