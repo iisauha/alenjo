@@ -4080,8 +4080,18 @@ function renderTransactionMonth() {
   $('#act-spent').textContent = (incomeMode && shownSpent > 0 && !hideMoney ? '+' : '') + formatMoney(shownSpent);
   $('#act-spent').classList.toggle('is-in', incomeMode);
   // One sentence: spent vs what came in this month (all accounts; transfers between your accounts left out)
+  // Nothing picked: spent vs made. A category picked: its share of your income.
+  // Income picked: how much of it you kept (your savings rate).
   var net = $('#act-net'), gap = Math.round(moneyIn) - Math.round(spent);
+  var pctOf = function(x) { var v = x / moneyIn * 100; return (v > 0 && v < 1 ? '<1' : Math.round(v)) + '%'; };
   if (cardId !== 'all' || (!moneyIn && !spent)) net.innerHTML = '';
+  else if (incomeMode) {
+    if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
+    else if (gap >= 0) net.innerHTML = 'You kept <b class="good">' + pctOf(gap) + '</b> of it';
+    else net.innerHTML = 'You spent <b class="bad">' + pctOf(-gap) + ' more</b> than this';
+  } else if (activeCategoryFilter) {
+    net.innerHTML = moneyIn ? '<b>' + pctOf(outByCat[activeCategoryFilter] || 0) + '</b> of your income' : 'Nothing has come in yet';
+  }
   else if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
   else if (gap > 0) net.innerHTML = '<b class="good">' + wholeMoney(gap) + ' less</b> than you made';
   else if (gap < 0) net.innerHTML = '<b class="bad">' + wholeMoney(-gap) + ' more</b> than you made';

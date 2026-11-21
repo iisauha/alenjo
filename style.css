@@ -3725,3 +3725,4 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .budget-pill.is-income.set b { color: var(--success); }
 .budget-new { margin: 0 0 12px; }
 .budget-pills { margin-bottom: 10px; }
+.act-net b:not(.good):not(.bad) { color: var(--text); }
