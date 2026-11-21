@@ -2915,23 +2915,25 @@ async function renderAccountsSettings() {
 
 // ---- Budget sheet: set, change or remove one category's budget
 
+// Average monthly amount for a category, over the months you actually have transactions for:
+// up to the last 3 full months; the current month only if it's all there is. Grows with your data.
 function budgetSuggestion(cat, side) {
-  // Average of the last 3 full months you have data for
   var cur = new Date(), curKey = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0');
-  var byMonth = {};
+  var byMonth = {}, hasData = {};
   (txData || []).forEach(function(tx) {
-    var eff = getEffectiveTx(tx);
+    var eff = getEffectiveTx(tx), k = (eff.date || tx.date || '').substring(0, 7);
+    if (k) hasData[k] = true;
     if (eff.excluded || tx.pending || isTransferCategory(baseCategory(eff.category))) return;
     if ((side === 'in') !== (eff.amount < 0)) return;
     if (normalizeCategory(eff.category) !== cat) return;
-    var k = eff.date.substring(0, 7);
-    if (k >= curKey) return;
     byMonth[k] = (byMonth[k] || 0) + Math.abs(eff.amount);
   });
-  var months = (txMonths || []).filter(function(k) { return k < curKey; }).slice(0, 3);
+  var months = Object.keys(hasData).filter(function(k) { return k < curKey; }).sort().reverse().slice(0, 3);
+  if (!months.length && hasData[curKey]) months = [curKey];
   if (!months.length) return null;
   var sum = months.reduce(function(t, k) { return t + (byMonth[k] || 0); }, 0);
-  return sum > 0 ? Math.round(sum / months.length) : null;
+  if (!(sum > 0)) return null;
+  return { avg: Math.round(sum / months.length), months: months };
 }
 // Every category you have, each with its monthly amount (blank = no budget)
 function budgetCategories(side) {
@@ -2948,6 +2950,7 @@ function budgetCategories(side) {
 // Budget sheet: category pills (like picking a transaction's category). Tap one to set or change
 // its amount for the month you're looking at; add a new category; or reuse last month's budgets.
 var budgetSheet = { side: 'out', month: '', cat: null };
+function curMonthKey() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
 function budgetMonthName(m) { var p = m.split('-'); return MONTH_LONG[+p[1] - 1]; }
 function openBudgetSheet(side, focusCat) {
   budgetSheet = { side: side, month: $('#tx-month-filter').value, cat: focusCat || null };
@@ -2974,7 +2977,9 @@ function renderBudgetSheet() {
   if (bs.cat) {
     var cur = B[bs.cat], sug = budgetSuggestion(bs.cat, bs.side);
     $('#budget-ed-name').textContent = bs.cat;
-    $('#budget-ed-avg').textContent = sug ? 'Last 3 months averaged ' + wholeMoney(sug) : '';
+    $('#budget-ed-avg').textContent = !sug ? '' : sug.months.length === 1
+      ? budgetMonthName(sug.months[0]) + (sug.months[0] === curMonthKey() ? ' so far ' : ' ') + wholeMoney(sug.avg)
+      : 'Last ' + sug.months.length + ' months averaged ' + wholeMoney(sug.avg);
     var inp = $('#budget-ed-amt');
     if (inp.dataset.cat !== bs.cat) { inp.value = cur ? String(cur.amount) : ''; inp.dataset.cat = bs.cat; }
     $('#budget-ed-clear').hidden = !cur;
