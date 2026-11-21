@@ -3479,3 +3479,21 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .txs-adj.is-split, .act-tag-split { background: color-mix(in srgb, #5B7FD6 16%, transparent); color: #5B7FD6; }
 :root[data-theme="dark"] .txs-adj.is-split, :root[data-theme="dark"] .act-tag-split { color: #8EA8EA; background: color-mix(in srgb, #8EA8EA 16%, transparent); }
 .txs-adj.is-adjusted, .act-tag-adjusted { background: var(--accent-subtle); color: var(--accent); }
+/* Logo picker */
+.txs-avatar-btn { position: relative; flex-shrink: 0; padding: 0; border: none; background: transparent; cursor: pointer; border-radius: 50%; }
+.txs-avatar-badge { position: absolute; right: -2px; bottom: -2px; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); box-shadow: 0 0 0 2px var(--bg-card); }
+.logo-search { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); margin-bottom: 10px; }
+.logo-search:focus-within { border-color: var(--accent); }
+.logo-search input { flex: 1; min-width: 0; border: none; background: transparent; color: var(--text); font: 400 max(16px, 1rem) 'Inter', sans-serif; outline: none; min-height: 42px; }
+.logo-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; min-height: 120px; transition: opacity 0.15s; }
+.logo-results.loading { opacity: 0.55; }
+.logo-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); color: var(--text); cursor: pointer; min-width: 0; font: inherit; }
+.logo-tile.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.logo-img { position: relative; width: 44px; height: 44px; border-radius: 12px; overflow: hidden; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; }
+.logo-img::before { content: attr(data-i); font-weight: 700; color: var(--text-muted); }
+.logo-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #fff; }
+.logo-name { font-size: 0.75rem; font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.logo-domain { font-size: 0.625rem; color: var(--text-muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.logo-empty { grid-column: 1 / -1; margin: 18px 0; text-align: center; font-size: 0.8125rem; color: var(--text-muted); }
+#logo-reset { display: block; margin: 10px auto 0; min-height: 40px; font-size: 0.8125rem; }
+#logo-reset[hidden] { display: none; }

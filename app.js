@@ -2004,14 +2004,22 @@ async function resolveLogos() {
 // Store logo for a transaction: Plaid's logo first, then logo.dev by the store's
 // website, then logo.dev by the store's name (your rename or Plaid's merchant name).
 // Transfers and deposits with no store behind them keep the letter.
+var merchantLogos = {};   // store (bank name, lowercase) -> logo domain you picked
+function merchantKey(tx) { return String(tx.merchant_name || tx.name || '').trim().toLowerCase().slice(0, 120); }
+function logoByDomain(domain, size) { return 'https://img.logo.dev/' + encodeURIComponent(domain) + '?token=' + LOGO_KEY + '&size=' + (size || 64) + '&retina=true&format=png&fallback=404'; }
 function txLogoUrl(tx, eff) {
-  if (tx.enriched_logo_url) return tx.enriched_logo_url;
   var q = '?token=' + LOGO_KEY + '&size=64&retina=true&format=png&fallback=404';
+  // 1. A logo you picked for this store
+  var picked = merchantLogos[merchantKey(tx)];
+  if (picked) return logoByDomain(picked);
+  // 2. If you renamed it, look up the new name (so "Claude" gets Claude's logo)
+  if (eff.nickname) return 'https://img.logo.dev/name/' + encodeURIComponent(eff.nickname.trim()) + q;
+  // 3. Plaid's logo, 4. the store's website
+  if (tx.enriched_logo_url) return tx.enriched_logo_url;
   var site = (tx.enriched_website || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[\/?#]/)[0];
-  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(site)) return 'https://img.logo.dev/' + encodeURIComponent(site) + q;
-  // Your rename, Plaid's merchant name, or the bank's description cleaned up ("To DISCOVER" → "DISCOVER")
-  var name = (eff.nickname || tx.merchant_name || (tx.name || '').replace(/^(to|from)\s+/i, '')).trim();
-  // Skip things that aren't a store: moves between your own accounts, interest, numbered addresses
+  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(site)) return logoByDomain(site);
+  // 5. The store's name ("To DISCOVER" → "DISCOVER"); skip things that aren't a store
+  var name = (tx.merchant_name || (tx.name || '').replace(/^(to|from)\s+/i, '')).trim();
   if (!name || /^\d/.test(name) || /\b(personal|joint|savings|checking|brokerage|interest|payment|deposit|transfer|cash back)\b/i.test(name)) return null;
   return 'https://img.logo.dev/name/' + encodeURIComponent(name) + q;
 }
@@ -2989,6 +2997,9 @@ async function loadTransactions() {
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
   }
+  var logoResult = await sb.from('merchant_logos').select('merchant_key, domain');
+  merchantLogos = {};
+  if (logoResult.data) logoResult.data.forEach(function(r) { merchantLogos[r.merchant_key] = r.domain; });
   var mapResult = await sb.from('user_category_map').select('source, display');
   catMap = {};
   if (mapResult.data) mapResult.data.forEach(function(r) { catMap[r.source] = r.display; });
@@ -3819,6 +3830,7 @@ function openActionSheet(tx) {
   $('#split-picker').hidden = true;
   $('#recat-picker').hidden = true;
   $('#edit-picker').hidden = true;
+  $('#logo-picker').hidden = true;
   $('#tx-action-options').hidden = false;
 
   actionSheet.classList.add('visible');
@@ -3926,6 +3938,69 @@ function renderTxSheet(tx) {
   });
 })();
 
+// Logo picker: tap the logo in the sheet, type, pick. Applies to every transaction from that store.
+(function wireLogoPicker() {
+  var btn = $('#txs-avatar-btn'), q = $('#logo-q'), out = $('#logo-results');
+  if (!btn) return;
+  var timer = null, seq = 0;
+  function tiles(results) {
+    var current = merchantLogos[merchantKey(actionTx)];
+    out.innerHTML = results.length ? results.map(function(r) {
+      return '<button type="button" class="logo-tile' + (r.domain === current ? ' on' : '') + '" data-domain="' + esc(r.domain) + '">' +
+        '<span class="logo-img" data-i="' + esc((r.name || r.domain).charAt(0).toUpperCase()) + '"><img src="' + esc(logoByDomain(r.domain, 96)) + '" alt="" loading="lazy" onerror="this.remove()"></span>' +
+        '<span class="logo-name">' + esc(r.name) + '</span><span class="logo-domain">' + esc(r.domain) + '</span></button>';
+    }).join('') : '<p class="logo-empty">' + (q.value.trim().length < 2 ? 'Type a store name to see logos.' : 'No logos found. Try a shorter name or the website, like “claude.ai”.') + '</p>';
+  }
+  async function search(term) {
+    var my = ++seq;
+    term = term.trim();
+    // Typed a website? Offer it directly.
+    var direct = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(term) ? [{ name: term, domain: term.toLowerCase() }] : [];
+    if (term.length < 2) { tiles([]); return; }
+    out.classList.add('loading');
+    try {
+      var session = (await sb.auth.getSession()).data.session;
+      var res = await fetch(SUPABASE_URL + '/functions/v1/logo-search?q=' + encodeURIComponent(term), { headers: { 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY } });
+      var data = res.ok ? await res.json() : { results: [] };
+      if (my !== seq) return;   // a newer search already started
+      var seen = {}, list = direct.concat(data.results || []).filter(function(r) { if (seen[r.domain]) return false; seen[r.domain] = true; return true; });
+      tiles(list);
+    } catch (e) { if (my === seq) tiles(direct); }
+    finally { if (my === seq) out.classList.remove('loading'); }
+  }
+  btn.addEventListener('click', function() {
+    if (!actionTx) return;
+    showSubPicker('#logo-picker');
+    var eff = getEffectiveTx(actionTx);
+    q.value = eff.nickname || actionTx.merchant_name || (actionTx.name || '').replace(/^(to|from)\s+/i, '');
+    $('#logo-reset').hidden = !merchantLogos[merchantKey(actionTx)];
+    search(q.value);
+    setTimeout(function() { q.focus(); q.select(); }, 50);
+  });
+  q.addEventListener('input', function() { clearTimeout(timer); timer = setTimeout(function() { search(q.value); }, 250); });
+  q.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); search(q.value); } });
+  $('#logo-back').addEventListener('click', showMainOptions);
+  function after() { renderTransactionMonth(); showMainOptions(); renderTxSheet(actionTx); }
+  out.addEventListener('click', function(e) {
+    var t = e.target.closest('.logo-tile');
+    if (!t || !actionTx) return;
+    var key = merchantKey(actionTx), domain = t.dataset.domain;
+    if (!key) return;
+    merchantLogos[key] = domain;
+    sb.from('merchant_logos').upsert({ merchant_key: key, domain: domain, updated_at: new Date().toISOString() }, { onConflict: 'user_id,merchant_key' })
+      .then(function(r) { if (r.error) showToast('Couldn’t save the logo'); });
+    showToast('Logo updated');
+    after();
+  });
+  $('#logo-reset').addEventListener('click', function() {
+    if (!actionTx) return;
+    var key = merchantKey(actionTx);
+    delete merchantLogos[key];
+    sb.from('merchant_logos').delete().eq('merchant_key', key).then(function() {});
+    after();
+  });
+})();
+
 // Count a transaction in another month (e.g. rent paid on the 31st that posts on the 1st)
 var MONTH_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 function shiftMonth(ym, delta) {
@@ -4007,6 +4082,7 @@ function showMainOptions() {
   $('#split-picker').hidden = true;
   $('#edit-picker').hidden = true;
   $('#recat-picker').hidden = true;
+  if ($('#logo-picker')) $('#logo-picker').hidden = true;
   // Restore detail/status rows
   var detail = $('#tx-action-detail');
   var status = $('#tx-action-status');
@@ -4020,6 +4096,7 @@ function showSubPicker(pickerId) {
   $('#split-picker').hidden = true;
   $('#edit-picker').hidden = true;
   $('#recat-picker').hidden = true;
+  if ($('#logo-picker')) $('#logo-picker').hidden = true;
   var detail = $('#tx-action-detail');
   var status = $('#tx-action-status');
   detail.dataset.wasVisible = detail.hidden ? '0' : '1';

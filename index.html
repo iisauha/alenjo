@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121003801';</script>
+  <script>var _v = '20261121004144';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121003801">
+  <link rel="stylesheet" href="style.css?v=20261121004144">
 </head>
 <body>
 
@@ -581,7 +581,7 @@
   <div id="tx-action-sheet" class="action-sheet-overlay">
     <div class="action-sheet">
       <div class="txs-head">
-        <span class="act-avatar txs-avatar" id="txs-avatar"></span>
+        <button type="button" class="txs-avatar-btn" id="txs-avatar-btn" aria-label="Change logo"><span class="act-avatar txs-avatar" id="txs-avatar"></span><span class="txs-avatar-badge" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></span></button>
         <div class="txs-title">
           <button type="button" class="txs-edit" id="txs-name-btn" aria-label="Rename"><span id="tx-action-merchant" class="txs-name"></span><span class="txs-adj" id="txs-name-adj" hidden>Adjusted</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>
           <input type="text" id="txs-name-input" class="txs-input" maxlength="80" hidden aria-label="Name">
@@ -640,6 +640,13 @@
         <p id="split-preview" class="split-preview"></p>
         <button type="button" class="btn-primary" id="split-save">Save split</button>
         <button type="button" id="split-remove" class="signin-link txs-danger" hidden>Remove split</button>
+      </div>
+      <div id="logo-picker" class="action-sheet-sub" hidden>
+        <button class="sub-picker-back" id="logo-back">Back</button>
+        <p class="action-sub-title">Logo</p>
+        <label class="logo-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="logo-q" placeholder="Search a store or brand" aria-label="Search logos" enterkeyhint="search" autocomplete="off"></label>
+        <div id="logo-results" class="logo-results" aria-live="polite"></div>
+        <button type="button" id="logo-reset" class="signin-link" hidden>Use the automatic logo</button>
       </div>
       <div id="edit-picker" class="action-sheet-sub" hidden>
         <button class="sub-picker-back" id="edit-back">Back</button>
