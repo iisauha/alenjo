@@ -846,7 +846,6 @@ $('#avatar-upload').addEventListener('change', async function(e) {
 // CARD DESIGNS
 // ============================================
 var cachedCardDesigns = [];
-var nsfwModelPromise = null;
 
 async function loadCardDesigns() {
   if (!currentUser) return;
@@ -905,20 +904,6 @@ function loadScript(src, integrity) {
     s.onerror = function() { reject(new Error('Failed to load ' + src)); };
     document.head.appendChild(s);
   });
-}
-
-function loadNsfwModel() {
-  if (nsfwModelPromise) return nsfwModelPromise;
-  nsfwModelPromise = (async function() {
-    if (!window.tf) {
-      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
-    }
-    if (!window.nsfwjs) {
-      await loadScript('https://cdn.jsdelivr.net/npm/nsfwjs@4.2.1/dist/nsfwjs.min.js');
-    }
-    return await window.nsfwjs.load();
-  })();
-  return nsfwModelPromise;
 }
 
 function setDesignStatus(msg, err) {
@@ -1583,22 +1568,6 @@ async function finalizeDesignUpload(processedBlob) {
     return;
   }
 
-  try {
-    setDesignStatus('Scanning for inappropriate content...');
-    var model = await loadNsfwModel();
-    var preds = await model.classify(img);
-    var byClass = {};
-    preds.forEach(function(p) { byClass[p.className] = p.probability; });
-    var pornish = Math.max(byClass.Porn || 0, byClass.Hentai || 0);
-    var sexy = byClass.Sexy || 0;
-    if (pornish > 0.35 || sexy > 0.7) {
-      URL.revokeObjectURL(objUrl);
-      setDesignStatus('This image appears to contain inappropriate content and cannot be uploaded.', true);
-      return;
-    }
-  } catch (err) {
-    console.warn('NSFW scan failed, continuing:', err);
-  }
   URL.revokeObjectURL(objUrl);
 
   setDesignStatus('Uploading...');
