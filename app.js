@@ -4198,10 +4198,18 @@ function openSplitPicker() {
   else if (a.split_portion > 0) setSplitFields(parseFloat(a.split_portion), null);
   else { $('#split-mine').value = ''; $('#split-theirs').value = ''; splitWaysPicked = null; updateSplitPreview(); document.querySelectorAll('.split-even button').forEach(function(b) { b.classList.remove('on'); }); }
   $('#split-remove').hidden = !(a.split_ways > 1 || a.split_portion > 0);
+  $('#split-to-adjusted').hidden = !(a.split_portion > 0 && !(a.split_ways > 1));
 }
 (function wireSplit() {
   var even = $('.split-even');
   if (!even) return;
+  // Older edits were saved as splits; this turns one into an adjusted amount
+  $('#split-to-adjusted').addEventListener('click', function() {
+    var a = txActions[actionTxId] || {};
+    if (!(a.split_portion > 0)) return;
+    saveMultiAction(actionTxId, { amount_override: parseFloat(a.split_portion), split_portion: null, split_ways: null }, { quiet: true });
+    showToast('Marked as adjusted');
+  });
   even.addEventListener('click', function(e) {
     var b = e.target.closest('button[data-ways]');
     if (!b) return;

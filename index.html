@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121004144';</script>
+  <script>var _v = '20261121004610';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121004144">
+  <link rel="stylesheet" href="style.css?v=20261121004610">
 </head>
 <body>
 
@@ -639,6 +639,7 @@
         </div>
         <p id="split-preview" class="split-preview"></p>
         <button type="button" class="btn-primary" id="split-save">Save split</button>
+        <button type="button" id="split-to-adjusted" class="signin-link" hidden>This wasn’t a split, it’s an adjusted amount</button>
         <button type="button" id="split-remove" class="signin-link txs-danger" hidden>Remove split</button>
       </div>
       <div id="logo-picker" class="action-sheet-sub" hidden>
