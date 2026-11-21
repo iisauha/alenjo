@@ -3792,53 +3792,7 @@ function openActionSheet(tx) {
   noteEl._orig = noteEl.value;
   autoGrowNote();
 
-  $('#tx-action-merchant').textContent = tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
-  $('#tx-action-amount').textContent = (tx.amount < 0 ? '+' : '-') + formatMoney(Math.abs(tx.amount));
-  $('#tx-action-amount').className = 'action-sheet-subtitle ' + (tx.amount < 0 ? 'balance-positive' : 'balance-negative');
-
-  // Show enriched details
-  var detailParts = [];
-  if (tx.enriched_location_city || tx.enriched_location_region) {
-    detailParts.push([tx.enriched_location_city, tx.enriched_location_region].filter(Boolean).join(', '));
-  }
-  // Payment channel only when it says something useful ("other" doesn't)
-  if (tx.enriched_payment_channel === 'online') detailParts.push('Online');
-  else if (tx.enriched_payment_channel === 'in store') detailParts.push('In store');
-  if (tx.enriched_website) detailParts.push(tx.enriched_website);
-  var detailEl = $('#tx-action-detail');
-  if (detailEl) {
-    detailEl.textContent = detailParts.join(' / ');
-    detailEl.hidden = detailParts.length === 0;
-  }
-
-  // Build status text
-  var statusParts = [];
-  if (action.action_type === 'ignored') statusParts.push('Ignored');
-  if (action.action_type === 'reimbursed') statusParts.push('Reimbursed');
-  if (action.split_portion > 0) statusParts.push('Split (your portion: ' + formatMoney(parseFloat(action.split_portion)) + ')');
-  else if (action.split_ways > 1) statusParts.push(action.split_ways + '-way split');
-  if (action.category_override) statusParts.push('Re-categorized');
-
-  var statusEl = $('#tx-action-status');
-  var hasActions = statusParts.length > 0;
-  statusEl.textContent = hasActions ? statusParts.join(', ') : '';
-  statusEl.hidden = !hasActions;
-  document.querySelector('.action-option-clear').hidden = !hasActions;
-
-  // Show delete button only for manual transactions
-  var deleteBtn = $('#btn-delete-tx');
-  deleteBtn.hidden = !(tx.id && tx.id.indexOf('manual_') === 0);
-
-  // Highlight active toggles
-  document.querySelectorAll('.action-toggle').forEach(function(btn) {
-    var t = btn.dataset.toggle;
-    var isActive = false;
-    if (t === 'split') isActive = action.split_ways > 1;
-    else if (t === 'recategorized') isActive = !!action.category_override;
-    else if (t === 'reimbursed') isActive = action.action_type === 'reimbursed';
-    else if (t === 'ignored') isActive = action.action_type === 'ignored';
-    btn.classList.toggle('active', isActive);
-  });
+  renderTxSheet(tx);
 
   // Reset sub-pickers
   $('#split-picker').hidden = true;
@@ -3848,6 +3802,104 @@ function openActionSheet(tx) {
 
   actionSheet.classList.add('visible');
 }
+
+// Fill the transaction sheet (called on open and after every change)
+function renderTxSheet(tx) {
+  var action = txActions[tx.id] || {}, eff = getEffectiveTx(tx);
+  var bankName = tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
+  var name = eff.nickname || bankName;
+  $('#tx-action-merchant').textContent = name;
+  $('#txs-name-btn').hidden = false; $('#txs-name-input').hidden = true;
+  var logo = txLogoUrl(tx, eff);
+  $('#txs-avatar').setAttribute('data-i', name.charAt(0).toUpperCase());
+  $('#txs-avatar').innerHTML = logo ? '<img src="' + esc(logo) + '" alt="" onerror="this.remove()">' : '';
+
+  var parts = [];
+  if (eff.nickname) parts.push('Bank: ' + bankName);
+  if (tx.enriched_location_city || tx.enriched_location_region) parts.push([tx.enriched_location_city, tx.enriched_location_region].filter(Boolean).join(', '));
+  if (tx.enriched_payment_channel === 'online') parts.push('Online');
+  else if (tx.enriched_payment_channel === 'in store') parts.push('In store');
+  $('#tx-action-detail').textContent = parts.join(' · ');
+
+  var income = tx.amount < 0, total = Math.abs(tx.amount);
+  var counted = eff.isSplit && !eff.excluded ? Math.abs(eff.amount) : total;
+  var amtEl = $('#tx-action-amount');
+  amtEl.textContent = (income ? '+' : '−') + formatMoney(counted);
+  amtEl.className = 'txs-amt ' + (tx.pending ? 'is-pending' : income ? 'is-in' : 'is-out');
+  $('#txs-amt-btn').hidden = false; $('#txs-amt-edit').hidden = true;
+  $('#txs-amt-sub').textContent = eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
+    : eff.isSplit ? 'Your share of ' + formatMoney(total) + (eff.splitWays ? ' · split ' + eff.splitWays + ' ways' : '')
+    : tx.pending ? 'Pending' : '';
+
+  $('#txs-cat-val').textContent = normalizeCategory(eff.category);
+  $('#txs-cat-dot').hidden = !action.category_override;
+  $('#txs-split-val').textContent = action.split_ways > 1 ? action.split_ways + ' ways' : action.split_portion > 0 ? 'Your share' : 'Off';
+  document.querySelectorAll('#tx-action-options .action-toggle').forEach(function(btn) {
+    btn.classList.toggle('active', action.action_type === btn.dataset.toggle);
+    btn.setAttribute('aria-pressed', action.action_type === btn.dataset.toggle);
+  });
+  var changed = !!(action.action_type || action.split_ways || action.split_portion || action.category_override || action.nickname || action.date_override || action.note);
+  document.querySelector('.action-option-clear').hidden = !changed;
+  $('#btn-delete-tx').hidden = !(tx.id && tx.id.indexOf('manual_') === 0);
+  renderMonthMove(tx);
+}
+
+// Inline edit: name
+(function() {
+  var btn = $('#txs-name-btn'), input = $('#txs-name-input');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    if (!actionTx) return;
+    input.value = getEffectiveTx(actionTx).nickname || actionTx.enriched_merchant_name || actionTx.merchant_name || actionTx.name || '';
+    btn.hidden = true; input.hidden = false; input.focus(); input.select();
+  });
+  var commit = function() {
+    if (input.hidden || !actionTx) return;
+    var v = input.value.trim(), bank = actionTx.enriched_merchant_name || actionTx.merchant_name || actionTx.name || '';
+    var cur = getEffectiveTx(actionTx).nickname || null, next = (!v || v === bank) ? null : v;
+    input.hidden = true; btn.hidden = false;
+    if (next !== cur) saveMultiAction(actionTx.id, { nickname: next }, { silent: true, quiet: true }); else renderTxSheet(actionTx);
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.hidden = true; btn.hidden = false; }
+  });
+})();
+// Inline edit: amount that counts (saved as "your share"; the bank amount stays as is)
+(function() {
+  var btn = $('#txs-amt-btn'), wrap = $('#txs-amt-edit'), input = $('#txs-amt-input');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    if (!actionTx) return;
+    var eff = getEffectiveTx(actionTx);
+    input.value = (eff.isSplit && !eff.excluded ? Math.abs(eff.amount) : Math.abs(actionTx.amount)).toFixed(2);
+    btn.hidden = true; wrap.hidden = false; input.focus(); input.select();
+  });
+  var commit = function() {
+    if (wrap.hidden || !actionTx) return;
+    var total = Math.abs(actionTx.amount), v = parseFloat(input.value);
+    wrap.hidden = true; btn.hidden = false;
+    if (isNaN(v) || v < 0) { renderTxSheet(actionTx); return; }
+    if (v > total) { showToast('Can’t be more than ' + formatMoney(total)); renderTxSheet(actionTx); return; }
+    var portion = Math.abs(v - total) < 0.005 ? null : Math.round(v * 100) / 100;
+    saveMultiAction(actionTx.id, { split_portion: portion, split_ways: null }, { silent: true, quiet: true });
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { wrap.hidden = true; btn.hidden = false; }
+  });
+})();
+(function() {
+  var cat = $('#txs-cat'), split = $('#txs-split');
+  if (cat) cat.addEventListener('click', function() { if (actionTx) showRecatPicker(); });
+  if (split) split.addEventListener('click', function() {
+    if (!actionTx) return;
+    showSubPicker('#split-picker');
+    openSplitPicker();
+  });
+})();
 
 // Count a transaction in another month (e.g. rent paid on the 31st that posts on the 1st)
 var MONTH_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -3978,9 +4030,7 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
       }
       // Show split picker
       showSubPicker('#split-picker');
-      $('#split-preview').textContent = '';
-      $('#split-custom-row').hidden = true;
-      $('#split-portion-row').hidden = true;
+      openSplitPicker();
       return;
     }
 
@@ -4022,121 +4072,105 @@ $('#btn-delete-tx').addEventListener('click', function() {
   });
 });
 
-// Split picker - quick split buttons (2-way, 3-way)
-document.querySelectorAll('#split-picker button[data-ways]').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    var ways = parseInt(btn.dataset.ways);
-    var share = Math.abs(actionTx.amount) / ways;
-    var reimburse = Math.abs(actionTx.amount) - share;
-    $('#split-preview').textContent = 'You pay ' + formatMoney(share) + ', get back ' + formatMoney(reimburse);
+// Split: type what you owe OR what you got back; the other fills in. Evenly buttons fill both.
+var splitWaysPicked = null;
+function splitTotal() { return actionTx ? Math.abs(actionTx.amount) : 0; }
+function setSplitFields(mine, ways) {
+  var total = splitTotal();
+  mine = Math.max(0, Math.min(total, mine));
+  $('#split-mine').value = mine.toFixed(2);
+  $('#split-theirs').value = (total - mine).toFixed(2);
+  splitWaysPicked = ways || null;
+  document.querySelectorAll('.split-even button').forEach(function(b) { b.classList.toggle('on', +b.dataset.ways === splitWaysPicked); });
+  updateSplitPreview();
+}
+function updateSplitPreview() {
+  var mine = parseFloat($('#split-mine').value), theirs = parseFloat($('#split-theirs').value);
+  $('#split-preview').textContent = isNaN(mine) ? '' : 'Counts ' + formatMoney(mine) + ' toward your spending' + (theirs > 0 ? ' · ' + formatMoney(theirs) + ' comes back to you' : '');
+}
+function openSplitPicker() {
+  var a = txActions[actionTxId] || {}, total = splitTotal();
+  $('#split-total').textContent = 'of ' + formatMoney(total);
+  $('#split-custom-ways').value = '';
+  if (a.split_ways > 1) setSplitFields(Math.ceil(total * 100 / a.split_ways) / 100, a.split_ways);
+  else if (a.split_portion > 0) setSplitFields(parseFloat(a.split_portion), null);
+  else { $('#split-mine').value = ''; $('#split-theirs').value = ''; splitWaysPicked = null; updateSplitPreview(); document.querySelectorAll('.split-even button').forEach(function(b) { b.classList.remove('on'); }); }
+  $('#split-remove').hidden = !(a.split_ways > 1 || a.split_portion > 0);
+}
+(function wireSplit() {
+  var even = $('.split-even');
+  if (!even) return;
+  even.addEventListener('click', function(e) {
+    var b = e.target.closest('button[data-ways]');
+    if (!b) return;
+    var ways = +b.dataset.ways;
+    $('#split-custom-ways').value = '';
+    setSplitFields(Math.ceil(splitTotal() * 100 / ways) / 100, ways);
+  });
+  $('#split-custom-ways').addEventListener('input', function() {
+    var ways = parseInt(this.value, 10);
+    if (ways >= 2 && ways <= 50) setSplitFields(Math.ceil(splitTotal() * 100 / ways) / 100, ways);
+  });
+  $('#split-mine').addEventListener('input', function() {
+    var v = parseFloat(this.value), total = splitTotal();
+    splitWaysPicked = null; document.querySelectorAll('.split-even button').forEach(function(b) { b.classList.remove('on'); });
+    $('#split-theirs').value = isNaN(v) ? '' : Math.max(0, total - v).toFixed(2);
+    updateSplitPreview();
+  });
+  $('#split-theirs').addEventListener('input', function() {
+    var v = parseFloat(this.value), total = splitTotal();
+    splitWaysPicked = null; document.querySelectorAll('.split-even button').forEach(function(b) { b.classList.remove('on'); });
+    $('#split-mine').value = isNaN(v) ? '' : Math.max(0, total - v).toFixed(2);
+    updateSplitPreview();
+  });
+  $('#split-save').addEventListener('click', function() {
+    if (!actionTxId) return;
+    var total = splitTotal(), mine = parseFloat($('#split-mine').value);
+    if (isNaN(mine)) { showToast('Enter what you owe or what you got back'); return; }
+    if (mine > total + 0.004) { showToast('Can’t be more than ' + formatMoney(total)); return; }
+    if (Math.abs(mine - total) < 0.005) { saveMultiAction(actionTxId, { split_ways: null, split_portion: null }, { quiet: true }); return; }
     var existing = txActions[actionTxId] || {};
-    var updates = { split_ways: ways, split_portion: null };
-    if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
-      updates.action_type = null;
-    }
+    var updates = splitWaysPicked ? { split_ways: splitWaysPicked, split_portion: null } : { split_ways: null, split_portion: Math.round(mine * 100) / 100 };
+    if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
     saveMultiAction(actionTxId, updates);
   });
-});
-
-// Split picker - custom N-way
-var splitCustomBtn = $('#split-custom-btn');
-if (splitCustomBtn) splitCustomBtn.addEventListener('click', function() {
-  var row = $('#split-custom-row');
-  var isOpen = !row.hidden;
-  $('#split-custom-row').hidden = isOpen;
-  $('#split-portion-row').hidden = true;
-  $('#split-preview').textContent = '';
-  if (!isOpen) {
-    $('#split-custom-ways').value = '';
-    setTimeout(function() { $('#split-custom-ways').focus(); }, 50);
-  }
-});
-
-var splitCustomApply = $('#split-custom-apply');
-if (splitCustomApply) splitCustomApply.addEventListener('click', function() {
-  var ways = parseInt($('#split-custom-ways').value);
-  if (!ways || ways < 2) return;
-  var share = Math.abs(actionTx.amount) / ways;
-  var reimburse = Math.abs(actionTx.amount) - share;
-  $('#split-preview').textContent = 'You pay ' + formatMoney(share) + ', get back ' + formatMoney(reimburse);
-  var existing = txActions[actionTxId] || {};
-  var updates = { split_ways: ways, split_portion: null };
-  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
-    updates.action_type = null;
-  }
-  saveMultiAction(actionTxId, updates);
-});
-
-var splitCustomWays = $('#split-custom-ways');
-if (splitCustomWays) splitCustomWays.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') $('#split-custom-apply').click();
-});
-
-// Split picker - my portion (dollar amount)
-var splitPortionBtn = $('#split-portion-btn');
-if (splitPortionBtn) splitPortionBtn.addEventListener('click', function() {
-  var row = $('#split-portion-row');
-  var isOpen = !row.hidden;
-  $('#split-portion-row').hidden = isOpen;
-  $('#split-custom-row').hidden = true;
-  $('#split-preview').textContent = '';
-  if (!isOpen) {
-    $('#split-portion-amount').value = '';
-    setTimeout(function() { $('#split-portion-amount').focus(); }, 50);
-  }
-});
-
-var splitPortionApply = $('#split-portion-apply');
-if (splitPortionApply) splitPortionApply.addEventListener('click', function() {
-  var portion = parseFloat($('#split-portion-amount').value);
-  if (!portion || portion <= 0 || portion >= Math.abs(actionTx.amount)) {
-    showToast('Enter an amount between $0 and ' + formatMoney(actionTx.amount));
-    return;
-  }
-  var reimburse = Math.abs(actionTx.amount) - portion;
-  $('#split-preview').textContent = 'You pay ' + formatMoney(portion) + ', get back ' + formatMoney(reimburse);
-  var existing = txActions[actionTxId] || {};
-  var updates = { split_portion: portion, split_ways: null };
-  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
-    updates.action_type = null;
-  }
-  saveMultiAction(actionTxId, updates);
-});
-
-var splitPortionAmount = $('#split-portion-amount');
-if (splitPortionAmount) splitPortionAmount.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') $('#split-portion-apply').click();
-});
+})();
 
 // Recurring picker
 
 // Re-categorize picker
+(function() {
+  var rm = $('#split-remove');
+  if (rm) rm.addEventListener('click', function() { if (actionTxId) saveMultiAction(actionTxId, { split_ways: null, split_portion: null }, { quiet: true }); });
+  var nc = $('#recat-custom-input');
+  if (nc) nc.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); $('#recat-custom-apply').click(); } });
+})();
 function showRecatPicker() {
   showSubPicker('#recat-picker');
   var list = $('#recat-list');
-
-  var allCats = {};
-  txData.forEach(function(tx) {
-    var cat = normalizeCategory(tx.enriched_category_primary || tx.category);
-    allCats[cat] = true;
-  });
-  var catList = Object.keys(allCats).sort();
-
-  list.innerHTML = catList.map(function(cat) {
-    return '<button class="recat-option" data-cat="' + esc(cat) + '">' + esc(cat) + '</button>';
-  }).join('');
-
-  list.querySelectorAll('.recat-option').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var existing = txActions[actionTxId] || {};
-      var updates = { category_override: btn.dataset.cat };
-      if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') {
-        updates.action_type = null;
-      }
-      saveMultiAction(actionTxId, updates);
-    });
-  });
-
+  var current = normalizeCategory(getEffectiveTx(actionTx).category);
+  var bankCat = normalizeCategory(actionTx.enriched_category_primary || actionTx.category);
+  var override = (txActions[actionTxId] || {}).category_override;
+  // Plaid's categories, everything you've used, and any categories you've made
+  var all = {};
+  Object.keys(CATEGORY_NAMES).forEach(function(k) { all[CATEGORY_NAMES[k]] = true; });
+  txData.forEach(function(tx) { all[normalizeCategory(tx.enriched_category_primary || tx.category)] = true; });
+  Object.keys(txActions).forEach(function(id) { var c = txActions[id] && txActions[id].category_override; if (c) all[normalizeCategory(c)] = true; });
+  var cats = Object.keys(all).filter(Boolean).sort(function(x, y) { return x.localeCompare(y); });
+  var check = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
+  list.innerHTML = (override ? '<button type="button" class="recat-option recat-reset" data-reset="1">Use bank’s category · ' + esc(bankCat) + '</button>' : '') +
+    cats.map(function(c) {
+      return '<button type="button" class="recat-option' + (c === current ? ' on' : '') + '" data-cat="' + esc(c) + '"><span>' + esc(c) + '</span>' + (c === current ? check : '') + '</button>';
+    }).join('');
+  list.onclick = function(e) {
+    var btn = e.target.closest('.recat-option');
+    if (!btn || !actionTxId) return;
+    if (btn.dataset.reset) { saveMultiAction(actionTxId, { category_override: null }, { quiet: true }); return; }
+    var existing = txActions[actionTxId] || {};
+    var updates = { category_override: btn.dataset.cat === bankCat ? null : btn.dataset.cat };
+    if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
+    saveMultiAction(actionTxId, updates, { quiet: true });
+  };
   $('#recat-custom-input').value = '';
 }
 
@@ -4190,7 +4224,7 @@ async function saveMultiAction(txId, updates, opts) {
   txActions[txId] = row;
   if (!opts.quiet) showToast(opts.silent ? 'Note saved' : 'Saved');
   renderTransactionMonth();
-  if (!opts.silent) closeActionSheet();
+  if (actionTx && actionTx.id === txId && actionSheet.classList.contains('visible')) { showMainOptions(); renderTxSheet(actionTx); }
 
   // Save to DB in background
   var previous = txActions.hasOwnProperty(txId) && existing !== row ? existing : null;
@@ -4215,7 +4249,7 @@ async function saveMultiAction(txId, updates, opts) {
 function clearTxAction(txId) {
   delete txActions[txId];
   renderTransactionMonth();
-  closeActionSheet();
+  if (actionTx && actionTx.id === txId) { $('#tx-note').value = ''; $('#tx-note')._orig = ''; showMainOptions(); renderTxSheet(actionTx); }
   // Delete from DB in background
   sb.from('transaction_actions').delete().eq('user_id', currentUser.id).eq('transaction_id', txId).then(function(result) {
     if (result.error) console.error('Clear action error:', result.error);

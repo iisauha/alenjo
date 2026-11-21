@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121000459';</script>
+  <script>var _v = '20261121001225';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121000459">
+  <link rel="stylesheet" href="style.css?v=20261121001225">
 </head>
 <body>
 
@@ -580,70 +580,66 @@
 
   <div id="tx-action-sheet" class="action-sheet-overlay">
     <div class="action-sheet">
-      <div class="action-sheet-header">
-        <span id="tx-action-merchant" class="action-sheet-title"></span>
-        <span id="tx-action-amount" class="action-sheet-subtitle"></span>
+      <div class="txs-head">
+        <span class="act-avatar txs-avatar" id="txs-avatar"></span>
+        <div class="txs-title">
+          <button type="button" class="txs-edit" id="txs-name-btn" aria-label="Rename"><span id="tx-action-merchant" class="txs-name"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>
+          <input type="text" id="txs-name-input" class="txs-input" maxlength="80" hidden aria-label="Name">
+          <span id="tx-action-detail" class="txs-sub"></span>
+        </div>
       </div>
-      <div id="tx-action-detail" class="action-sheet-detail" hidden></div>
-      <div id="tx-action-status" class="action-sheet-status" hidden></div>
+      <div class="txs-amount">
+        <button type="button" class="txs-edit" id="txs-amt-btn" aria-label="Change the amount that counts"><span id="tx-action-amount" class="txs-amt"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>
+        <span class="txs-amt-edit" id="txs-amt-edit" hidden><span>$</span><input type="number" id="txs-amt-input" class="txs-input" inputmode="decimal" step="0.01" min="0" aria-label="Amount that counts"></span>
+        <span id="txs-amt-sub" class="txs-sub"></span>
+      </div>
+      <div id="tx-action-status" hidden></div>
       <div id="tx-action-options" class="action-sheet-options">
-        <label class="tx-note-field">
-          <span class="visually-hidden">Note</span>
-          <textarea id="tx-note" rows="1" maxlength="500" placeholder="Add a note, like who it was for or why"></textarea>
-        </label>
-        <div class="tx-date-row">
-          <span class="tx-date-text"><span class="tx-date-label">Date</span><span id="tx-date-sub" class="set-hint"></span></span>
-          <span class="tx-date-actions">
-            <button type="button" id="tx-date-reset" class="signin-link" hidden>Reset</button>
-            <label class="tx-date-btn">
-              <span id="tx-date-value"></span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
-              <input type="date" id="tx-date-input" aria-label="Change the date this transaction counts on">
-            </label>
-          </span>
-        </div>
-        <p class="action-group-label">Actions</p>
-        <div class="action-toggles">
-          <button class="action-toggle" data-toggle="split">Split</button>
-          <button class="action-toggle" data-toggle="recategorized">Change Category</button>
-          <button class="action-toggle" data-toggle="edit">Rename</button>
-        </div>
-        <p class="action-group-label" style="margin-top:0.6rem">Mark as</p>
-        <div class="action-toggles">
-          <button class="action-toggle action-toggle-exclusive" data-toggle="reimbursed">Reimbursed</button>
-          <button class="action-toggle action-toggle-exclusive" data-toggle="ignored">Ignore</button>
-        </div>
-        <button class="action-option action-option-clear" data-action="clear" hidden>
-          <div class="action-option-text">
-            <span class="action-label">Clear All</span>
-            <span class="action-desc">Remove all actions from this transaction</span>
+        <div class="txs-group">
+          <button type="button" class="txs-row" id="txs-cat"><span class="txs-label">Category</span><span class="txs-val"><i id="txs-cat-dot"></i><span id="txs-cat-val"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+          <div class="txs-row tx-date-row">
+            <span class="tx-date-text"><span class="txs-label">Date</span><span id="tx-date-sub" class="txs-hint"></span></span>
+            <span class="tx-date-actions">
+              <button type="button" id="tx-date-reset" class="signin-link" hidden>Reset</button>
+              <label class="tx-date-btn">
+                <span id="tx-date-value"></span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+                <input type="date" id="tx-date-input" aria-label="Change the date this transaction counts on">
+              </label>
+            </span>
           </div>
-        </button>
-        <button class="action-option action-option-delete" id="btn-delete-tx" hidden>
-          <div class="action-option-text">
-            <span class="action-label" style="color:var(--danger)">Delete Transaction</span>
-            <span class="action-desc">Remove this manually added transaction</span>
-          </div>
-        </button>
+          <button type="button" class="txs-row" id="txs-split"><span class="txs-label">Split</span><span class="txs-val"><span id="txs-split-val"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+          <label class="txs-row txs-note">
+            <span class="visually-hidden">Note</span>
+            <textarea id="tx-note" rows="1" maxlength="500" placeholder="Add a note"></textarea>
+          </label>
+        </div>
+        <div class="txs-seg" role="group" aria-label="Leave out of spending">
+          <button type="button" class="action-toggle" data-toggle="reimbursed">Reimbursed</button>
+          <button type="button" class="action-toggle" data-toggle="ignored">Ignore</button>
+        </div>
+        <div class="txs-links">
+          <button type="button" class="signin-link action-option-clear" data-action="clear" hidden>Undo all my changes</button>
+          <button type="button" class="signin-link txs-danger" id="btn-delete-tx" hidden>Delete transaction</button>
+        </div>
       </div>
       <div id="split-picker" class="action-sheet-sub" hidden>
         <button class="sub-picker-back" id="split-back">Back</button>
-        <p class="action-sub-title">How do you want to split?</p>
-        <div class="split-buttons">
-          <button data-ways="2">2-way</button>
-          <button data-ways="3">3-way</button>
-          <button id="split-custom-btn">Custom</button>
-          <button id="split-portion-btn">My portion</button>
+        <p class="action-sub-title">Split <span class="split-total" id="split-total"></span></p>
+        <div class="split-even" role="group" aria-label="Split evenly">
+          <span>Evenly</span>
+          <button type="button" data-ways="2">2</button>
+          <button type="button" data-ways="3">3</button>
+          <button type="button" data-ways="4">4</button>
+          <input type="number" id="split-custom-ways" inputmode="numeric" min="2" max="20" placeholder="#" aria-label="Number of people">
         </div>
-        <div id="split-custom-row" class="split-custom-input" hidden>
-          <input id="split-custom-ways" type="number" inputmode="numeric" min="2" max="20" placeholder="# of people">
-          <button class="btn-primary" id="split-custom-apply">Apply</button>
-        </div>
-        <div id="split-portion-row" class="split-custom-input" hidden>
-          <input id="split-portion-amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="$ Amount you owe">
-          <button class="btn-primary" id="split-portion-apply">Apply</button>
+        <div class="split-amounts">
+          <label class="split-field"><span>You owe</span><span class="split-money">$<input type="number" id="split-mine" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></span></label>
+          <label class="split-field"><span>Paid back to you</span><span class="split-money">$<input type="number" id="split-theirs" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></span></label>
         </div>
         <p id="split-preview" class="split-preview"></p>
+        <button type="button" class="btn-primary" id="split-save">Save split</button>
+        <button type="button" id="split-remove" class="signin-link txs-danger" hidden>Remove split</button>
       </div>
       <div id="edit-picker" class="action-sheet-sub" hidden>
         <button class="sub-picker-back" id="edit-back">Back</button>
@@ -656,14 +652,14 @@
       </div>
       <div id="recat-picker" class="action-sheet-sub" hidden>
         <button class="sub-picker-back" id="recat-back">Back</button>
-        <p class="action-sub-title">Choose category</p>
-        <div id="recat-list" class="recat-list"></div>
-        <div class="recat-custom">
-          <input type="text" id="recat-custom-input" class="app-input" placeholder="New category name...">
-          <button class="btn-primary" id="recat-custom-apply" style="width:100%;margin-top:0.35rem">Add Category</button>
+        <p class="action-sub-title">Category</p>
+        <div class="recat-new">
+          <input type="text" id="recat-custom-input" class="app-input" maxlength="40" placeholder="New category" enterkeyhint="done">
+          <button class="btn-primary" id="recat-custom-apply" type="button">Add</button>
         </div>
+        <div id="recat-list" class="recat-list"></div>
       </div>
-      <button class="action-sheet-cancel" id="action-sheet-cancel">Cancel</button>
+      <button class="action-sheet-cancel" id="action-sheet-cancel">Done</button>
     </div>
   </div>
 
