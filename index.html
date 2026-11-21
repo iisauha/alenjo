@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121044439';</script>
+  <script>var _v = '20261121051722';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121044439">
+  <link rel="stylesheet" href="style.css?v=20261121051722">
 </head>
 <body>
 
@@ -364,6 +364,14 @@
         <button id="btn-add-account" class="set-row set-row-action" type="button">+ Add an institution</button>
       </div>
 
+      <div id="closed-section" hidden>
+        <h2 class="set-heading">Closed accounts</h2>
+        <div class="set-group">
+          <div class="set-row"><span class="set-row-text"><span>History kept</span><span class="set-hint">These were disconnected. Their transactions still count in Activity, but they're left out of your Home totals.</span></span></div>
+          <div id="closed-list"></div>
+        </div>
+      </div>
+
       <h2 class="set-heading" id="section-card-designs">Card designs</h2>
       <div class="set-group">
         <div class="set-row">
@@ -602,6 +610,34 @@
       <button type="button" id="info-close" class="info-back" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
     </div>
     <iframe id="info-frame" title="Info" tabindex="0"></iframe>
+  </div>
+
+  <div id="disconnect-sheet" class="action-sheet-overlay" aria-hidden="true">
+    <div class="action-sheet delete-sheet" role="dialog" aria-modal="true" aria-labelledby="disconnect-title">
+      <h2 id="disconnect-title" class="delete-title">Disconnect?</h2>
+      <p class="delete-lead" id="disconnect-lead"></p>
+      <div class="disc-options">
+        <button type="button" class="disc-option" id="disconnect-keep">
+          <b>Disconnect, keep history</b>
+          <span>Stops syncing and the Plaid fee. Transactions, notes and splits stay in Activity. The accounts move to Closed accounts and leave your Home totals.</span>
+        </button>
+        <button type="button" class="disc-option danger" id="disconnect-delete">
+          <b>Disconnect and delete everything</b>
+          <span>Also deletes the accounts, all their transactions and your notes, splits and edits on them. Can't be undone.</span>
+        </button>
+      </div>
+      <p id="disconnect-error" class="auth-error" hidden></p>
+      <button type="button" id="disconnect-cancel" class="action-sheet-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <div id="purge-sheet" class="action-sheet-overlay" aria-hidden="true">
+    <div class="action-sheet delete-sheet" role="dialog" aria-modal="true" aria-labelledby="purge-title">
+      <h2 id="purge-title" class="delete-title">Delete this history?</h2>
+      <p class="delete-lead" id="purge-lead"></p>
+      <button type="button" id="purge-confirm" class="delete-btn">Delete history</button>
+      <button type="button" id="purge-cancel" class="action-sheet-cancel">Cancel</button>
+    </div>
   </div>
 
   <div id="delete-sheet" class="action-sheet-overlay" aria-hidden="true">

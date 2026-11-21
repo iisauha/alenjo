@@ -1708,7 +1708,7 @@ function renderAccountOrderList() {
   if (!list) return;
   if (!cachedAccounts || !cachedAccounts.length) { list.innerHTML = '<p class="set-empty">No accounts yet</p>'; return; }
   var groups = {};
-  cachedAccounts.forEach(function(a) { (groups[accountKind(a)] = groups[accountKind(a)] || []).push(a); });
+  cachedAccounts.forEach(function(a) { if (!a.closed_at) (groups[accountKind(a)] = groups[accountKind(a)] || []).push(a); });
   var html = '';
   ['Banks', 'Credit cards', 'Savings', 'Investments', 'Loans'].forEach(function(kind) {
     var items = (groups[kind] || []).slice().sort(function(x, y) {
@@ -2378,7 +2378,7 @@ function getDisplayBalance(account, type) {
 function inTotals(a) { return !a.exclude_from_totals; }
 
 function renderAccounts(accounts) {
-  accounts = accounts.filter(function(a) { return !a.is_hidden; });
+  accounts = accounts.filter(function(a) { return !a.is_hidden && !a.closed_at; });
   var banks = accounts.filter(function(a) { return a.type === 'depository' && a.subtype !== 'savings'; });
   var savings = accounts.filter(function(a) { return a.type === 'depository' && a.subtype === 'savings'; });
   var credits = accounts.filter(function(a) { return a.type === 'credit'; });
@@ -2478,7 +2478,7 @@ function renderHomeInsights() {
   }
   var kind = {}, assets = 0, liabs = 0;
   cachedAccounts.forEach(function(a) {
-    if (a.is_hidden || a.exclude_from_totals) return;
+    if (a.is_hidden || a.exclude_from_totals || a.closed_at) return;
     if (a.type === 'credit') { liabs += Math.max(0, getDisplayBalance(a, 'credit').amount); if (a.plaid_account_id) kind[a.plaid_account_id] = 'credit'; }
     else if (a.type === 'loan') liabs += Math.abs(getDisplayBalance(a, 'loan').amount);
     else if (a.type === 'investment') assets += getInvestmentValue(a);
@@ -2582,7 +2582,7 @@ function renderBalanceSplit() {
   if (!aEl || !lEl || !cachedAccounts) return;
   var assets = 0, liabs = 0;
   cachedAccounts.forEach(function(a) {
-    if (a.is_hidden || a.exclude_from_totals) return;
+    if (a.is_hidden || a.exclude_from_totals || a.closed_at) return;
     if (a.type === 'credit') liabs += Math.max(0, getDisplayBalance(a, 'credit').amount);
     else if (a.type === 'loan') liabs += Math.abs(getDisplayBalance(a, 'loan').amount);
     else if (a.type === 'investment') assets += getInvestmentValue(a);
@@ -2665,16 +2665,34 @@ function updateInvestmentTotals(savings, investments) {
 }
 
 
+function renderClosedAccounts() {
+  var sec = $('#closed-section'), list = $('#closed-list');
+  if (!sec || !list) return;
+  var closed = (cachedAccounts || []).filter(function(a) { return a.closed_at; });
+  sec.hidden = !closed.length;
+  var byItem = {};
+  closed.forEach(function(a) { (byItem[a.plaid_item_id] = byItem[a.plaid_item_id] || []).push(a); });
+  list.innerHTML = Object.keys(byItem).map(function(itemId) {
+    var g = byItem[itemId], inst = g[0].institution || 'Closed';
+    var names = g.map(function(a) { return (a.nickname || a.name || 'Account').replace(/\s*[*•]+\s*\d{2,4}\s*$/, ''); }).join(', ');
+    var when = new Date(g[0].closed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return '<div class="closed-row"><span class="set-row-text"><span>' + esc(inst) + '</span><span class="set-hint">' + esc(names) + ' · closed ' + esc(when) + '</span></span>' +
+      '<button type="button" class="closed-del" data-purge="' + esc(itemId) + '">Delete history</button></div>';
+  }).join('');
+}
+
 async function renderAccountsSettings() {
   var list = $('#accounts-list');
-  if (!cachedAccounts || cachedAccounts.length === 0) {
-    list.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">No banks connected</p>';
+  renderClosedAccounts();
+  var open = (cachedAccounts || []).filter(function(a) { return !a.closed_at; });
+  if (open.length === 0) {
+    list.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">No institutions connected</p>';
     return;
   }
 
   // Group active accounts by plaid_item_id for disconnect buttons
   var byItem = {};
-  cachedAccounts.forEach(function(a) {
+  open.forEach(function(a) {
     var key = a.plaid_item_id || 'unknown';
     if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', accounts: [] };
     byItem[key].accounts.push(a);
@@ -2738,51 +2756,104 @@ async function renderAccountsSettings() {
   }
 }
 
-document.addEventListener('click', async function(e) {
-  var btn = e.target.closest('.btn-disconnect-inst');
-  if (!btn) return;
-  var itemId = btn.dataset.item;
-  var group = cachedAccounts.filter(function(a) { return a.plaid_item_id === itemId; });
-  var instName = group.length > 0 ? (group[0].institution || 'this institution') : 'this institution';
-  var acctCount = group.length;
-  if (!confirm('Disconnect ' + instName + '? This will remove ' + (acctCount === 1 ? 'this account' : 'all ' + acctCount + ' accounts') + ' and delete their transaction history.')) return;
-  btn.disabled = true;
-  btn.textContent = '...';
-  try {
-    var sessionResult = await sb.auth.getSession();
-    var session = sessionResult.data.session;
-    var res = await fetch(SUPABASE_URL + '/functions/v1/cleanup-items', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-        'apikey': SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ item_id: itemId })
-    });
-    var data = await res.json();
-    if (data.removed) {
-      cachedAccounts = cachedAccounts.filter(function(a) { return a.plaid_item_id !== itemId; });
-      if (txData.length) {
-        txData = txData.filter(function(t) { return t.plaid_item_id !== itemId; });
-        var cf = $('#tx-card-filter');
-        if (cf) Array.prototype.slice.call(cf.options).forEach(function(o) {
-          if (o.value !== 'all' && !cachedAccounts.some(function(a) { return a.plaid_account_id === o.value; })) o.remove();
-        });
-        if ($('#tx-month-filter').value) renderTransactionMonth();
+// Disconnect: keep the history (default) or delete everything. Plaid is disconnected either way.
+(function wireDisconnect() {
+  var sheet = $('#disconnect-sheet'), keepBtn = $('#disconnect-keep'), delBtn = $('#disconnect-delete'), err = $('#disconnect-error');
+  var itemId = null, sourceBtn = null;
+  function close() { sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); itemId = null; keepBtn.disabled = delBtn.disabled = false; err.hidden = true; }
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-disconnect-inst');
+    if (!btn) return;
+    itemId = btn.dataset.item; sourceBtn = btn;
+    var group = cachedAccounts.filter(function(a) { return a.plaid_item_id === itemId; });
+    var instName = group.length ? (group[0].institution || 'this institution') : 'this institution';
+    $('#disconnect-title').textContent = 'Disconnect ' + instName + '?';
+    $('#disconnect-lead').textContent = group.length === 1 ? '1 account: ' + (group[0].nickname || group[0].name || 'Account') : group.length + ' accounts';
+    err.hidden = true;
+    sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false');
+  });
+  $('#disconnect-cancel').addEventListener('click', close);
+  async function go(keep) {
+    if (!itemId) return;
+    var id = itemId;
+    keepBtn.disabled = delBtn.disabled = true;
+    try {
+      var session = (await sb.auth.getSession()).data.session;
+      var res = await fetch(SUPABASE_URL + '/functions/v1/cleanup-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ item_id: id, keep_history: keep })
+      });
+      var data = await res.json();
+      if (!data.removed) throw new Error(data.error || 'failed');
+      if (keep) {
+        var now = new Date().toISOString();
+        cachedAccounts.forEach(function(a) { if (a.plaid_item_id === id) a.closed_at = now; });
+        refreshAccountNames();
+      } else {
+        dropItemLocally(id);
       }
-      cachedHoldings = null;
-      cachedLiabilities = null;
+      cachedHoldings = null; cachedLiabilities = null;
       renderAccounts(cachedAccounts);
-    } else {
-      btn.textContent = 'Failed';
-      btn.disabled = false;
+      if (txData && txData.length) renderTransactionMonth();
+      close();
+      showToast(keep ? 'Disconnected · history kept' : 'Disconnected and deleted');
+    } catch (e2) {
+      keepBtn.disabled = delBtn.disabled = false;
+      err.textContent = 'Couldn’t disconnect. Check your connection and try again.'; err.hidden = false;
     }
-  } catch (err) {
-    btn.textContent = 'Failed';
-    btn.disabled = false;
   }
-});
+  keepBtn.addEventListener('click', function() { go(true); });
+  delBtn.addEventListener('click', function() { go(false); });
+})();
+
+// Remove a connection's accounts and transactions from what's on screen
+function dropItemLocally(itemId) {
+  var gone = {};
+  cachedAccounts.forEach(function(a) { if (a.plaid_item_id === itemId && a.plaid_account_id) gone[a.plaid_account_id] = true; });
+  cachedAccounts = cachedAccounts.filter(function(a) { return a.plaid_item_id !== itemId; });
+  if (txData && txData.length) {
+    txData = txData.filter(function(t) { return t.plaid_item_id !== itemId && !gone[t.plaid_account_id]; });
+    var cf = $('#tx-card-filter');
+    if (cf) Array.prototype.slice.call(cf.options).forEach(function(o) { if (gone[o.value]) o.remove(); });
+  }
+}
+
+// Closed accounts: delete their saved history later
+(function wirePurge() {
+  var sheet = $('#purge-sheet'), btn = $('#purge-confirm'), itemId = null;
+  function close() { sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); itemId = null; btn.disabled = false; btn.textContent = 'Delete history'; }
+  document.addEventListener('click', function(e) {
+    var b = e.target.closest('[data-purge]');
+    if (!b) return;
+    itemId = b.dataset.purge;
+    var g = cachedAccounts.filter(function(a) { return a.plaid_item_id === itemId; });
+    var accIds = {}; g.forEach(function(a) { if (a.plaid_account_id) accIds[a.plaid_account_id] = true; });
+    var n = txData ? txData.filter(function(t) { return t.plaid_item_id === itemId || accIds[t.plaid_account_id]; }).length : 0;
+    $('#purge-title').textContent = 'Delete ' + ((g[0] && g[0].institution) || 'this') + ' history?';
+    $('#purge-lead').textContent = 'Deletes ' + (g.length === 1 ? 'this closed account' : 'these ' + g.length + ' closed accounts') + (n ? ', ' + n + ' transaction' + (n === 1 ? '' : 's') : '') + ' and your notes and splits on them. Can’t be undone.';
+    sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false');
+  });
+  $('#purge-cancel').addEventListener('click', close);
+  btn.addEventListener('click', async function() {
+    if (!itemId) return;
+    var id = itemId; btn.disabled = true; btn.textContent = 'Deleting…';
+    try {
+      var session = (await sb.auth.getSession()).data.session;
+      var res = await fetch(SUPABASE_URL + '/functions/v1/cleanup-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ purge_item_id: id })
+      });
+      var data = await res.json();
+      if (!data.purged) throw new Error('failed');
+      dropItemLocally(id);
+      renderAccounts(cachedAccounts);
+      if (txData && txData.length) renderTransactionMonth();
+      close(); showToast('History deleted');
+    } catch (e2) { btn.disabled = false; btn.textContent = 'Delete history'; showToast('Couldn’t delete. Try again.'); }
+  });
+})();
 
 // + Add card to an existing institution (Plaid update mode with account selection)
 document.addEventListener('click', async function(e) {
@@ -3499,7 +3570,7 @@ async function loadTransactions() {
     txData.forEach(function(t) { if (t.plaid_account_id) usedAcct[t.plaid_account_id] = true; });
     cachedAccounts.forEach(function(a) {
       if (a.plaid_account_id && usedAcct[a.plaid_account_id]) {
-        cardFilter.innerHTML += '<option value="' + esc(a.plaid_account_id) + '">' + esc(a.nickname || a.name || 'Account') + '</option>';
+        cardFilter.innerHTML += '<option value="' + esc(a.plaid_account_id) + '">' + esc((a.nickname || a.name || 'Account') + (a.closed_at ? ' (closed)' : '')) + '</option>';
       }
     });
   }
@@ -3599,7 +3670,7 @@ var CATEGORY_COLORS = [
 function refreshAccountNames() {
   if (!cachedAccounts) return;
   var byPlaid = {};
-  cachedAccounts.forEach(function(a) { if (a.plaid_account_id) byPlaid[a.plaid_account_id] = a.nickname || a.name || 'Account'; });
+  cachedAccounts.forEach(function(a) { if (a.plaid_account_id) byPlaid[a.plaid_account_id] = (a.nickname || a.name || 'Account') + (a.closed_at ? ' (closed)' : ''); });
   ['#tx-card-filter', '#add-tx-account'].forEach(function(sel) {
     var el = $(sel); if (!el) return;
     Array.prototype.forEach.call(el.options, function(o) { if (byPlaid[o.value]) o.textContent = byPlaid[o.value]; });
@@ -4189,7 +4260,7 @@ $('#btn-add-tx').addEventListener('click', function() {
     var usedAcct = {};
     txData.forEach(function(t) { if (t.plaid_account_id) usedAcct[t.plaid_account_id] = true; });
     cachedAccounts.forEach(function(a) {
-      if (a.plaid_account_id && usedAcct[a.plaid_account_id]) {
+      if (a.plaid_account_id && usedAcct[a.plaid_account_id] && !a.closed_at) {
         var opt = document.createElement('option');
         opt.value = a.plaid_account_id;
         opt.textContent = a.nickname || a.name || 'Account';
@@ -5200,7 +5271,7 @@ function flashSaved(btn) {
     var t = e.target;
     if (!t.classList || !(t.classList.contains('modal-overlay') || t.classList.contains('action-sheet-overlay'))) return;
     if (downOn !== t) { e.stopImmediatePropagation(); return; }
-    if (t.classList.contains('modal-overlay')) {
+    if (t.classList.contains('modal-overlay') || t.id === 'disconnect-sheet' || t.id === 'purge-sheet') {
       var cancel = t.querySelector('[id$="-cancel"]');
       if (cancel) cancel.click();
     }

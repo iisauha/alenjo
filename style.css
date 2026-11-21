@@ -3662,3 +3662,16 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 /* Account filter sizes to its label (set in JS); this is just the fallback */
 .act-acct { width: auto; min-width: 0; }
 @media (min-width: 900px) { .act-acct { max-width: 280px; } }
+
+/* Disconnect sheet: two clear choices */
+.disc-options { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 12px; }
+.disc-option { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; min-height: 44px; text-align: left; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); color: var(--text); font: inherit; cursor: pointer; }
+.disc-option b { font-size: 1rem; font-weight: 600; }
+.disc-option span { font-size: 0.8125rem; color: var(--text-muted); line-height: 1.45; }
+.disc-option.danger b { color: var(--danger); }
+.disc-option:disabled { opacity: 0.5; cursor: default; }
+#disconnect-sheet .delete-btn, #purge-sheet .delete-btn { width: 100%; margin-bottom: 8px; }
+/* Closed accounts in Settings */
+.closed-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 14px; border-top: 1px solid var(--border); }
+.closed-row .set-row-text { flex: 1; min-width: 0; }
+.closed-del { flex: none; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--danger); font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
