@@ -4554,64 +4554,74 @@ window._clearCatFilter = function() {
   renderTransactionMonth();
 };
 
-// CSV Export — exports categorized transactions (excludes ignored)
-$('#btn-export-csv').addEventListener('click', function() {
-  var month = $('#tx-month-filter').value;
+// Excel export: a formatted workbook (table with category and status chips,
+// a Summary tab with live monthly totals, and charts). The builder loads only
+// when you tap Export. Covers every month; follows the account filter.
+var xlsxLoading = null;
+function loadXlsxBuilder() {
+  if (window.AlenjoXlsx) return Promise.resolve();
+  if (!xlsxLoading) xlsxLoading = new Promise(function(res, rej) {
+    var sc = document.createElement('script');
+    sc.src = '/xlsx-export.js?v=' + (typeof _v !== 'undefined' ? _v : '');
+    sc.onload = res; sc.onerror = function() { xlsxLoading = null; rej(new Error('load')); };
+    document.head.appendChild(sc);
+  });
+  return xlsxLoading;
+}
+$('#btn-export-xlsx').addEventListener('click', async function() {
+  var btn = this, label = btn.textContent;
   var cardId = $('#tx-card-filter').value;
-
-  var filtered = txData.filter(function(tx) {
-    return getEffectiveTx(tx).date.substring(0, 7) === month;
-  });
-  if (cardId !== 'all') {
-    filtered = filtered.filter(function(tx) { return tx.plaid_account_id === cardId; });
-  }
-  if (activeCategoryFilter) {
-    filtered = filtered.filter(function(tx) {
-      var eff = getEffectiveTx(tx);
-      return normalizeCategory(eff.category) === activeCategoryFilter;
+  var acct = buildAccountMap();
+  var rows = [];
+  txData.forEach(function(tx) {
+    if (cardId !== 'all' && tx.plaid_account_id !== cardId) return;
+    var eff = getEffectiveTx(tx);
+    if (eff.actionType === 'ignored') return;
+    var status = tx.pending ? 'Pending'
+      : eff.actionType === 'reimbursed' ? 'Reimbursed'
+      : eff.isAdjusted ? 'Adjusted'
+      : eff.isSplit ? (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split')
+      : !tx.plaid_account_id ? 'Manual' : '';
+    rows.push({
+      date: eff.date, name: eff.nickname || tx.merchant_name || tx.name || 'Unknown',
+      category: normalizeCategory(eff.category),
+      account: tx.plaid_account_id ? acct[tx.plaid_account_id] || 'Account' : 'Cash',
+      amount: -eff.amount, full: -tx.amount, status: status, note: eff.note || ''
     });
+  });
+  if (!rows.length) { showToast('Nothing to export yet'); return; }
+  // Same palette as the app, biggest spending category first
+  var totals = {};
+  rows.forEach(function(r) { if (r.amount < 0 && !isTransferCategory(r.category)) totals[r.category] = (totals[r.category] || 0) - r.amount; });
+  var colors = {};
+  Object.keys(totals).sort(function(a, b) { return totals[b] - totals[a]; }).forEach(function(c, i) { colors[c] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+  var bud = {};
+  Object.keys(budgets).forEach(function(m) {
+    var out = (budgets[m] && budgets[m].out) || {};
+    bud[m] = {};
+    Object.keys(out).forEach(function(c) { bud[m][c] = +out[c].amount; });
+  });
+  btn.disabled = true; btn.textContent = 'Preparing…';
+  try {
+    await loadXlsxBuilder();
+    var today = new Date();
+    var blob = window.AlenjoXlsx.build({
+      rows: rows, categories: allCategories(), colors: colors, budgets: bud,
+      exported: today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      title: cardId === 'all' ? 'Spending summary' : 'Spending summary · ' + (acct[cardId] || 'Account')
+    });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'alenjo-transactions-' + today.toISOString().slice(0, 10) + '.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 10000);
+  } catch (e) {
+    console.error('Export failed:', e);
+    showToast('Couldn’t make the Excel file. Try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = label;
   }
-
-  // Exclude ignored transactions
-  filtered = filtered.filter(function(tx) {
-    var eff = getEffectiveTx(tx);
-    return eff.actionType !== 'ignored';
-  });
-
-  if (filtered.length === 0) return;
-
-  // Sort by category, then by date
-  filtered.sort(function(a, b) {
-    var catA = normalizeCategory(getEffectiveTx(a).category);
-    var catB = normalizeCategory(getEffectiveTx(b).category);
-    if (catA !== catB) return catA.localeCompare(catB);
-    return a.date > b.date ? 1 : a.date < b.date ? -1 : 0;
-  });
-
-  var csvRows = ['Category,Date,Merchant,Account,Amount,Your Share,Type,Split,Reimbursed,Note'];
-  var csvAcct = buildAccountMap();
-  var cell = function(v) { return String(v || '').replace(/"/g, '""').replace(/^[=+\-@]/, "'$&"); };
-  filtered.forEach(function(tx) {
-    var eff = getEffectiveTx(tx);
-    var cat = cell(normalizeCategory(eff.category));
-    var merchant = cell(eff.nickname || tx.merchant_name || tx.name || 'Unknown') + '","' + cell(tx.plaid_account_id ? csvAcct[tx.plaid_account_id] || 'Account' : 'Cash');
-    var type = tx.amount < 0 ? 'Income' : 'Expense';
-    var splitInfo = eff.isAdjusted ? 'Adjusted by hand' : eff.isSplit ? (eff.splitWays ? eff.splitWays + '-way' : 'Custom') : '';
-    var reimbursed = eff.actionType === 'reimbursed' ? 'Yes' : '';
-    csvRows.push(
-      '"' + cat + '",' + eff.date + ',"' + merchant + '",' +
-      tx.amount.toFixed(2) + ',' + eff.amount.toFixed(2) + ',' +
-      type + ',' + splitInfo + ',' + reimbursed + ',"' + (eff.note || '').replace(/"/g, '""').replace(/^[=+\-@]/, "'$&") + '"'
-    );
-  });
-
-  var blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'transactions-' + month + '.csv';
-  a.click();
-  URL.revokeObjectURL(url);
 });
 
 // ============================================
