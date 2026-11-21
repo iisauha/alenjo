@@ -3937,9 +3937,9 @@ function wholeMoney(v) { return formatMoney(v); }   // keeps the cents
 function budgetStatus(b, got, side) {
   var amt = b.amount, g = Math.round(got * 100) / 100, a = Math.round(amt * 100) / 100;   // exact to the cent
   var base = wholeMoney(g) + ' / ' + wholeMoney(a);
-  // Green when at or under budget, red when over. Income: green once the expected amount is in.
+  // Spending: red only when over. Income: green once the expected amount is in.
   if (side === 'in') return { sub: base, cls: g >= a ? 'good' : '' };
-  return { sub: g > a ? base + ' · ' + wholeMoney(g - a) + ' over' : base, cls: g > a ? 'bad' : 'good' };
+  return { sub: g > a ? base + ' · ' + wholeMoney(g - a) + ' over' : base, cls: g > a ? 'bad' : '' };   // on track is the normal state: only over budget gets a colour
 }
 // Spending categories never use green: green means income
 var CATEGORY_COLORS = [
