@@ -36,14 +36,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121053255';</script>
+  <script>var _v = '20261121060114';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121053255">
+  <link rel="stylesheet" href="style.css?v=20261121060114">
 </head>
 <body>
 
@@ -287,6 +287,7 @@
             <div class="act-spent">
               <span class="act-stat-label" id="act-spent-label">Spent</span>
               <span id="act-spent" class="act-spent-value"></span>
+              <div id="act-budget" class="act-budget" hidden></div>
               <span class="act-sub"><button type="button" id="act-switch" class="act-switch" aria-label="Show money in"></button><span id="act-daily-note"></span></span>
             </div>
             <div id="act-bars" class="act-bars" role="group" aria-label="Spending by day. Tap a day to see its transactions."></div>
@@ -610,6 +611,18 @@
       <button type="button" id="info-close" class="info-back" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
     </div>
     <iframe id="info-frame" title="Info" tabindex="0"></iframe>
+  </div>
+
+  <div id="budget-sheet" class="action-sheet-overlay" aria-hidden="true">
+    <div class="action-sheet delete-sheet budget-sheet" role="dialog" aria-modal="true" aria-labelledby="budget-title">
+      <h2 id="budget-title" class="delete-title">Monthly budgets</h2>
+      <p id="budget-help" class="delete-lead"></p>
+      <div id="budget-list" class="budget-list"></div>
+      <div class="budget-actions">
+        <button type="button" id="budget-cancel" class="budget-btn">Cancel</button>
+        <button type="button" id="budget-save" class="budget-btn primary">Save</button>
+      </div>
+    </div>
   </div>
 
   <div id="disconnect-sheet" class="action-sheet-overlay" aria-hidden="true">

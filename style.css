@@ -3675,3 +3675,45 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .closed-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 14px; border-top: 1px solid var(--border); }
 .closed-row .set-row-text { flex: 1; min-width: 0; }
 .closed-del { flex: none; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--danger); font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+
+/* ---- Budgets in Activity ---- */
+.act-budget { display: flex; flex-direction: column; gap: 7px; margin: 10px 0 4px; }
+.act-budget[hidden] { display: none; }
+.act-budget-row { display: flex; justify-content: space-between; gap: 12px; font-size: 0.8125rem; color: var(--text-muted); }
+.act-budget-row b { font-weight: 600; white-space: nowrap; }
+.act-budget-bar { position: relative; height: 6px; border-radius: 3px; background: var(--track); }
+.act-budget-bar i { display: block; height: 6px; border-radius: 3px; background: var(--success); }
+.act-budget-bar em { position: absolute; top: -4px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--text); }
+.act-budget-note { font-size: 0.75rem; color: var(--text-muted); }
+.act-budget .ok, .act-budget-row b.ok { color: var(--success); }
+.act-budget .warn, .act-budget-row b.warn { color: var(--pending, #D9973F); }
+.act-budget .over, .act-budget-row b.over { color: var(--danger); }
+.act-budget-bar i.ok { background: var(--success); }
+.act-budget-bar i.warn { background: var(--pending, #D9973F); }
+.act-budget-bar i.over { background: var(--danger); }
+/* Pills with a budget line and a thin bar along the bottom */
+.act-cat.two { flex-direction: column; align-items: stretch; gap: 4px; min-height: 0; padding: 9px 13px 0; border-radius: 16px; overflow: hidden; white-space: nowrap; }
+.act-cat.two .act-cat-top { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 0.875rem; }
+.act-cat.two small { padding-left: 15px; font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.act-cat.two .act-cat-bar { display: block; height: 3px; margin: 4px -13px 0; text-decoration: none; }
+.act-cat.two .act-cat-bar s { display: block; height: 3px; background: var(--success); text-decoration: none; }
+.act-cat.two.b-ok .act-cat-bar, .act-cat.two.b-warn .act-cat-bar, .act-cat.two.b-due .act-cat-bar { background: var(--track); }
+.act-cat.two.b-warn .act-cat-bar s { background: var(--pending, #D9973F); }
+.act-cat.two.b-warn small { color: var(--pending, #D9973F); }
+.act-cat.two.b-over { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.act-cat.two.b-over small { color: var(--danger); font-weight: 600; }
+.act-cat.two.b-over .act-cat-bar, .act-cat.two.b-over .act-cat-bar s { background: var(--danger); }
+.act-cat.two.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.act-cat.two.on small { color: var(--bg); opacity: 0.75; }
+/* Budget sheet */
+.budget-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.budget-btn { min-height: 48px; border: 0; border-radius: 14px; background: var(--bg-elevated); color: var(--text); font: 600 1rem 'Inter', sans-serif; cursor: pointer; }
+.budget-btn.primary { background: var(--accent); color: var(--bg); }
+
+.budget-list { max-height: min(52vh, 460px); overflow-y: auto; margin: 6px -4px 14px; padding: 0 4px; -webkit-overflow-scrolling: touch; }
+.budget-row { display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid var(--border); }
+.budget-row-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.9375rem; font-weight: 500; }
+.budget-row-name small { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); }
+.budget-row-amt { flex: none; display: flex; align-items: center; gap: 4px; width: 112px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.budget-row-amt input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: 500 1rem 'Inter', sans-serif; text-align: right; outline: none; }
+.budget-row.bad .budget-row-amt { border-color: var(--danger); }

@@ -2913,6 +2913,81 @@ async function renderAccountsSettings() {
   delBtn.addEventListener('click', function() { go(false); });
 })();
 
+// ---- Budget sheet: set, change or remove one category's budget
+
+function budgetSuggestion(cat, side) {
+  // Average of the last 3 full months you have data for
+  var cur = new Date(), curKey = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0');
+  var byMonth = {};
+  (txData || []).forEach(function(tx) {
+    var eff = getEffectiveTx(tx);
+    if (eff.excluded || tx.pending || isTransferCategory(baseCategory(eff.category))) return;
+    if ((side === 'in') !== (eff.amount < 0)) return;
+    if (normalizeCategory(eff.category) !== cat) return;
+    var k = eff.date.substring(0, 7);
+    if (k >= curKey) return;
+    byMonth[k] = (byMonth[k] || 0) + Math.abs(eff.amount);
+  });
+  var months = (txMonths || []).filter(function(k) { return k < curKey; }).slice(0, 3);
+  if (!months.length) return null;
+  var sum = months.reduce(function(t, k) { return t + (byMonth[k] || 0); }, 0);
+  return sum > 0 ? Math.round(sum / months.length) : null;
+}
+// Every category you have, each with its monthly amount (blank = no budget)
+function budgetCategories(side) {
+  if (side === 'out') return allCategories().filter(function(c) { return !isTransferCategory(c) && c !== 'Income'; });
+  var seen = {};
+  (txData || []).forEach(function(tx) {
+    var eff = getEffectiveTx(tx);
+    if (eff.excluded || eff.amount >= 0 || isTransferCategory(baseCategory(eff.category))) return;
+    seen[normalizeCategory(eff.category)] = true;
+  });
+  Object.keys(budgets.in).forEach(function(c) { seen[c] = true; });
+  return Object.keys(seen).filter(function(c) { return c && c !== 'Uncategorized'; }).sort(function(x, y) { return x.localeCompare(y); });
+}
+var budgetSheetSide = 'out';
+function openBudgetSheet(side, focusCat) {
+  budgetSheetSide = side;
+  var sheet = $('#budget-sheet'), list = $('#budget-list');
+  $('#budget-title').textContent = side === 'in' ? 'Expected income' : 'Monthly budgets';
+  $('#budget-help').textContent = side === 'in'
+    ? 'What you expect to come in each month, per category. Leave blank for none.'
+    : 'A monthly amount for each category. Everything in that category counts toward it. Leave blank for no budget.';
+  list.innerHTML = budgetCategories(side).map(function(c) {
+    var b = budgets[side][c], sug = budgetSuggestion(c, side);
+    return '<label class="budget-row" data-cat="' + esc(c) + '"><span class="budget-row-name">' + esc(c) +
+      (sug ? '<small>Avg ' + wholeMoney(sug) + '/mo</small>' : '') + '</span>' +
+      '<span class="budget-row-amt"><span aria-hidden="true">$</span><input inputmode="decimal" autocomplete="off" aria-label="' + esc(c) + ' budget" value="' + (b ? esc(String(b.amount)) : '') + '" placeholder="' + (sug ? esc(String(sug)) : '') + '"></span></label>';
+  }).join('') || '<p class="act-empty-note">No categories yet.</p>';
+  sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false');
+  if (focusCat) {
+    var row = list.querySelector('.budget-row[data-cat="' + CSS.escape(focusCat) + '"]');
+    if (row) { row.scrollIntoView({ block: 'center' }); setTimeout(function() { row.querySelector('input').focus(); }, 250); }
+  } else list.scrollTop = 0;
+}
+(function wireBudgetSheet() {
+  var sheet = $('#budget-sheet');
+  if (!sheet) return;
+  function close() { sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); }
+  $('#budget-cancel').addEventListener('click', close);
+  $('#budget-save').addEventListener('click', function() {
+    var side = budgetSheetSide, ups = [], dels = [], bad = false;
+    Array.prototype.forEach.call($('#budget-list').querySelectorAll('.budget-row'), function(row) {
+      var c = row.dataset.cat, raw = row.querySelector('input').value.replace(/[$,\s]/g, ''), cur = budgets[side][c];
+      if (raw === '') { if (cur) { dels.push(c); delete budgets[side][c]; } return; }
+      var v = Math.round(parseFloat(raw) * 100) / 100;
+      if (!(v > 0) || v >= 1e7) { bad = true; row.classList.add('bad'); return; }
+      row.classList.remove('bad');
+      if (!cur || cur.amount !== v) { budgets[side][c] = { kind: 'limit', amount: v }; ups.push({ category: c, direction: side, kind: 'limit', amount: v, updated_at: new Date().toISOString() }); }
+    });
+    if (bad) { showToast('Check the highlighted amounts'); return; }
+    if (ups.length) sb.from('category_budgets').upsert(ups, { onConflict: 'user_id,direction,category' }).then(function(r) { if (r.error) showToast('Couldn’t save budgets'); });
+    if (dels.length) sb.from('category_budgets').delete().eq('direction', side).in('category', dels).then(function() {});
+    close(); renderTransactionMonth();
+    if (ups.length || dels.length) showToast(side === 'in' ? 'Expected income saved' : 'Budgets saved');
+  });
+})();
+
 // Remove a connection's accounts and transactions from what's on screen
 function dropItemLocally(itemId) {
   var gone = {};
@@ -3611,6 +3686,7 @@ async function loadTransactions() {
   var mapResult = await sb.from('user_category_map').select('source, display');
   catMap = {};
   if (mapResult.data) mapResult.data.forEach(function(r) { catMap[r.source] = r.display; });
+  await loadBudgets();
 
   // Build month range from data start date to current month
   var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -3766,6 +3842,27 @@ function getEffectiveTx(tx) {
 var activeCategoryFilter = null;
 var showIgnoredTx = localStorage.getItem('alenjo_show_ignored') === 'true';
 
+// ---- Budgets: per category, per month. Money out is a spending limit (judged against an even
+// pace through the month) or a fixed bill (paid vs expected). Money in is what you expect to receive.
+var budgets = { out: {}, in: {} };
+async function loadBudgets() {
+  var r = await sb.from('category_budgets').select('category, kind, amount, direction');
+  budgets = { out: {}, in: {} };
+  (r.data || []).forEach(function(b) { budgets[b.direction][b.category] = { kind: b.kind, amount: parseFloat(b.amount) }; });
+}
+function wholeMoney(v) { return formatMoney(v).replace(/\.\d\d$/, ''); }
+// One category: the line under its name, how full its bar is, and its colour state.
+// A budget is just a monthly amount for a category; everything in that category counts toward it.
+function budgetStatus(b, got, side, frac, isPast) {
+  var amt = b.amount, pct = Math.max(0, Math.min(1, got / amt));
+  if (side === 'in') {
+    if (got > amt * 1.02) return { sub: wholeMoney(got) + ' · ' + wholeMoney(got - amt) + ' extra', cls: 'ok', pct: 1 };
+    if (got >= amt * 0.98) return { sub: wholeMoney(got) + ' · all in', cls: 'ok', pct: 1 };
+    return { sub: wholeMoney(got) + ' / ' + wholeMoney(amt) + (isPast ? ' · ' + wholeMoney(amt - got) + ' short' : ''), cls: isPast ? 'warn' : 'ok', pct: pct };
+  }
+  if (got > amt) return { sub: wholeMoney(got) + ' · ' + wholeMoney(got - amt) + ' over', cls: 'over', pct: 1 };
+  return { sub: wholeMoney(got) + ' / ' + wholeMoney(amt), cls: got >= amt * 0.9 ? 'warn' : 'ok', pct: pct };
+}
 var CATEGORY_COLORS = [
   '#2E8B57', '#4F6BD8', '#D98A2B', '#8A5CC2', '#C2524A',
   '#2A9AA8', '#7A8B2E', '#B0679A', '#5E7FA3', '#A6782E',
@@ -3962,11 +4059,47 @@ function renderTransactionMonth() {
   else { barsEl._focusDay = activeDay || lastDay; scrollBarsToFocus(); }
   barsEl.dataset.month = month; barsEl.dataset.vis = String(vis);
   $('#act-range').querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', Math.min(+b.dataset.range, daysInMonth) === vis); });
+  // ---- Budgets (whole month, all accounts; not for a single day)
+  var bSide = incomeMode ? 'in' : 'out', B = budgets[bSide] || {};
+  var budgetOn = cardId === 'all' && !activeDay && Object.keys(B).length > 0;
+  var monthFrac = isThisMonth ? now.getDate() / daysInMonth : 1, monthPast = !isThisMonth;
+  var bEl = $('#act-budget');
+  if (bEl) {
+    var bHtml = '';
+    if (budgetOn && activeCategoryFilter && B[activeCategoryFilter]) {
+      var one = budgetStatus(B[activeCategoryFilter], byCategory[activeCategoryFilter] || 0, bSide, monthFrac, monthPast);
+      bHtml = '<div class="act-budget-row"><span>' + (bSide === 'in' ? 'Expected ' : 'Budget ') + wholeMoney(B[activeCategoryFilter].amount) + '</span><b class="' + one.cls + '">' + esc(one.sub.split(' · ')[1] || one.sub) + '</b></div>' +
+        '<div class="act-budget-bar"><i class="' + one.cls + '" style="width:' + (one.pct * 100).toFixed(1) + '%"></i></div>';
+    } else if (budgetOn && !activeCategoryFilter) {
+      var cats = Object.keys(B), tot = 0, got = 0, kept = 0, overNames = [];
+      cats.forEach(function(c) {
+        var g = byCategory[c] || 0, b = B[c];
+        tot += b.amount; got += g;
+        var st = budgetStatus(b, g, bSide, monthFrac, monthPast);
+        if (st.cls === 'over' || (bSide === 'in' && monthPast && g < b.amount * 0.98)) overNames.push(c); else kept++;
+      });
+      var diff = tot - got, right, rcls;
+      if (bSide === 'in') { right = diff > 0 ? (monthPast ? wholeMoney(diff) + ' short' : wholeMoney(diff) + ' to go') : diff < 0 ? wholeMoney(-diff) + ' extra' : 'all in'; rcls = monthPast && diff > tot * 0.02 ? 'warn' : 'ok'; }
+      else { right = diff >= 0 ? (monthPast ? 'Finished ' + wholeMoney(diff) + ' under' : wholeMoney(diff) + ' left') : wholeMoney(-diff) + ' over'; rcls = diff < 0 ? 'over' : got >= tot * 0.9 ? 'warn' : 'ok'; }
+      var note = monthPast
+        ? kept + ' of ' + cats.length + (bSide === 'in' ? ' came in as expected' : ' budgets kept') + (overNames.length ? ' · ' + overNames.slice(0, 2).join(', ') + (bSide === 'in' ? ' came in short' : ' went over') : '')
+        : (overNames.length ? overNames.slice(0, 2).join(', ') + ' over · ' : '') + (daysInMonth - now.getDate()) + ' days left';
+      bHtml = '<div class="act-budget-row"><span>' + (bSide === 'in' ? 'Expected · ' : 'Budgets · ') + wholeMoney(got) + ' of ' + wholeMoney(tot) + '</span><b class="' + rcls + '">' + right + '</b></div>' +
+        '<div class="act-budget-bar"><i class="' + rcls + '" style="width:' + (Math.min(1, got / tot) * 100).toFixed(1) + '%"></i></div>' +
+        '<span class="act-budget-note">' + esc(note) + '</span>';
+    }
+    bEl.innerHTML = bHtml;
+    bEl.hidden = !bHtml;
+  }
+
   if (activeDay) {
     var dayAmt = dayTotal(activeDay);
     $('#act-spent-label').textContent = new Date(y, m - 1, activeDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + (activeCategoryFilter ? ' · ' + activeCategoryFilter : '');
     $('#act-spent').textContent = formatMoney(dayAmt);
     $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-clear-day">Show all of ' + MONTH_LONG[m - 1] + '</button>';
+  } else if (cardId === 'all') {
+    var anyB = Object.keys(budgets[incomeMode ? 'in' : 'out']).length > 0;
+    $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-set-budget">' + (incomeMode ? (anyB ? 'Edit expected' : 'Set expected') : (anyB ? 'Edit budgets' : 'Set budgets')) + '</button>';
   } else {
     $('#act-daily-note').textContent = '';
   }
@@ -3977,9 +4110,22 @@ function renderTransactionMonth() {
   if (activeDay) {
     var od = byDay[activeDay] || {};
     pillEntries = Object.keys(od).map(function(k) { return [k, od[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  } else if (budgetOn) {
+    // Budgeted categories with nothing yet this month still get a pill (e.g. rent not paid yet)
+    var extra = Object.keys(B).filter(function(c) { return !byCategory[c]; });
+    extra.forEach(function(c, j) { categoryColorMap[c] = CATEGORY_COLORS[(catEntries.length + j) % CATEGORY_COLORS.length]; });
+    pillEntries = catEntries.concat(extra.map(function(c) { return [c, 0]; }));
   }
+  legend.classList.toggle('with-budgets', budgetOn);
   legend.innerHTML = pillEntries.length ? pillEntries.map(function(e) {
     var on = activeCategoryFilter === e[0];
+    if (budgetOn) {
+      var bb = B[e[0]], st = bb ? budgetStatus(bb, e[1], bSide, monthFrac, monthPast) : null;
+      return '<button type="button" class="act-cat two' + (on ? ' on' : '') + (st ? ' b-' + st.cls : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
+        '<span class="act-cat-top"><i style="background:' + categoryColorMap[e[0]] + '"></i><span>' + esc(e[0]) + '</span></span>' +
+        '<small>' + esc(st ? st.sub : wholeMoney(e[1])) + '</small>' +
+        '<s class="act-cat-bar">' + (st ? '<s style="width:' + (st.pct * 100).toFixed(1) + '%"></s>' : '') + '</s></button>';
+    }
     return '<button type="button" class="act-cat' + (on ? ' on' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
       '<i style="background:' + categoryColorMap[e[0]] + '"></i><span>' + esc(e[0]) + '</span><b>' + formatMoney(e[1]).replace(/\.\d\d$/, '') + '</b></button>';
   }).join('') : '<p class="act-empty-note">' + (incomeMode ? (activeDay ? 'No money in this day.' : 'No money in this month yet.') : (activeDay ? 'No spending this day.' : 'No spending this month yet.')) + '</p>';
@@ -4175,6 +4321,7 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
   });
   note.addEventListener('click', function(e) {
     if (e.target.id === 'act-clear-day') { activeDay = null; renderTransactionMonth(); }
+    if (e.target.id === 'act-set-budget') openBudgetSheet(incomeMode ? 'in' : 'out', activeCategoryFilter);
   });
 })();
 
@@ -5092,6 +5239,13 @@ function renameCategory(oldName, newName) {
   Object.keys(catMap).forEach(function(s) { if (s !== oldName && catMap[s] !== null && normalizeCategory(s) === oldName) rows.push({ source: s, display: newName }); });
   if (!catMap.hasOwnProperty(newName) || catMap[newName] === null) rows.push({ source: newName, display: newName });
   saveCatMap(rows);
+  ['out', 'in'].forEach(function(d) {
+    var b = budgets[d][oldName];
+    if (!b || budgets[d][newName]) return;
+    budgets[d][newName] = b; delete budgets[d][oldName];
+    sb.from('category_budgets').upsert({ category: newName, direction: d, kind: b.kind, amount: b.amount, updated_at: new Date().toISOString() }, { onConflict: 'user_id,direction,category' })
+      .then(function() { return sb.from('category_budgets').delete().eq('direction', d).eq('category', oldName); });
+  });
 }
 // Delete: anything in that category shows as Uncategorized
 function deleteCategory(name) {
@@ -5103,6 +5257,10 @@ function deleteCategory(name) {
   Object.keys(catMap).forEach(function(k) { probe[k] = true; });
   Object.keys(probe).forEach(function(s) { if (s !== name && normalizeCategory(s) === name) sources.push(s); });
   saveCatMap(sources.map(function(s) { return { source: s, display: null }; }));
+  if (budgets.out[name] || budgets.in[name]) {
+    delete budgets.out[name]; delete budgets.in[name];
+    sb.from('category_budgets').delete().eq('category', name).then(function() {});
+  }
 }
 var catEditMode = false, catPendingDelete = null;
 function showRecatPicker() {
@@ -5377,7 +5535,7 @@ function flashSaved(btn) {
     var t = e.target;
     if (!t.classList || !(t.classList.contains('modal-overlay') || t.classList.contains('action-sheet-overlay'))) return;
     if (downOn !== t) { e.stopImmediatePropagation(); return; }
-    if (t.classList.contains('modal-overlay') || t.id === 'disconnect-sheet' || t.id === 'purge-sheet') {
+    if (t.classList.contains('modal-overlay') || t.id === 'disconnect-sheet' || t.id === 'purge-sheet' || t.id === 'budget-sheet') {
       var cancel = t.querySelector('[id$="-cancel"]');
       if (cancel) cancel.click();
     }
