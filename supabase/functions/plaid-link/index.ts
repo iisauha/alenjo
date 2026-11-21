@@ -3,10 +3,12 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { plaidRequest, webhookUrl } from "./plaid.js";
 
 const PLAID_MAX_DAYS = 730;
-// SA-016: each connected bank adds a monthly Plaid fee, so cap them per account
-const MAX_CONNECTIONS = 10;
+// SA-016: each connected bank adds a monthly Plaid fee. Off while Alenjo is single-user;
+// set a number (e.g. 10) before opening signups to cap connections per account.
+const MAX_CONNECTIONS = null;
 const LIMIT_MESSAGE = 'You can connect up to ' + MAX_CONNECTIONS + ' banks. Disconnect one in Settings first.';
 async function atConnectionLimit(adminClient, userId) {
+  if (MAX_CONNECTIONS == null) return false;
   const { count } = await adminClient.from('plaid_items').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'active');
   return (count || 0) >= MAX_CONNECTIONS;
 }
