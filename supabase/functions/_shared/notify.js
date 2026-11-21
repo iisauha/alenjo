@@ -56,6 +56,16 @@ export function buildMessages(items, overnight) {
   return [{ title, body: shown + (items.length > 3 ? ' + ' + (items.length - 3) + ' more' : ''), tag: 'tx-group-' + Date.now(), url }];
 }
 
+// SA-011: only ever POST to real browser push services
+const PUSH_HOSTS = ['web.push.apple.com', 'fcm.googleapis.com', 'updates.push.services.mozilla.com'];
+export function isPushService(endpoint) {
+  try {
+    const u = new URL(endpoint);
+    const h = u.hostname.toLowerCase();
+    return u.protocol === 'https:' && !u.port && (PUSH_HOSTS.includes(h) || h.endsWith('.push.apple.com') || h.endsWith('.notify.windows.com'));
+  } catch (_) { return false; }
+}
+
 export async function sendToUser(admin, userId, messages, onlyEndpoint) {
   if (!messages.length) return { sent: 0, devices: 0 };
   const vapid = await vapidConfig(admin);
@@ -64,6 +74,7 @@ export async function sendToUser(admin, userId, messages, onlyEndpoint) {
   const { data: devices } = await q;
   let sent = 0;
   for (const d of devices || []) {
+    if (!isPushService(d.endpoint)) { console.error('skipped non-push endpoint'); continue; }
     for (const m of messages) {
       try {
         const status = await sendPush(d, m, vapid);
