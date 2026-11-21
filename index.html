@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261121175850';</script>
+  <script>var _v = '20261121204255';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261121175850">
+  <link rel="stylesheet" href="style.css?v=20261121204255">
 </head>
 <body>
 
@@ -380,6 +380,35 @@
             <button type="button" data-theme-choice="adaptive" aria-pressed="true">Adaptive</button>
           </div>
           <p class="theme-note" id="theme-note" hidden></p>
+        </div>
+      </div>
+
+      <h2 class="set-heading">Notifications</h2>
+      <div class="set-group" id="notif-group">
+        <div class="set-intro">
+          <b id="notif-title">New purchases and deposits</b>
+          <span id="notif-status">A heads-up when something new shows up in Activity.</span>
+        </div>
+        <button type="button" class="set-row set-row-action" id="notif-enable" hidden>Allow notifications on this device</button>
+        <div id="notif-options" hidden>
+          <label class="set-row">
+            <span class="set-row-text"><span>New purchases</span><span class="set-hint">Store, amount and card. Three or more at once come as one.</span></span>
+            <input type="checkbox" id="notif-purchases" class="set-switch" role="switch">
+          </label>
+          <label class="set-row">
+            <span class="set-row-text"><span>Deposits</span><span class="set-hint">Paychecks and other money coming in.</span></span>
+            <input type="checkbox" id="notif-deposits" class="set-switch" role="switch">
+          </label>
+          <label class="set-row">
+            <span class="set-row-text"><span>Only amounts of at least</span><span class="set-hint">$0 means everything.</span></span>
+            <span class="notif-min"><span>$</span><input type="text" id="notif-min" class="app-input" inputmode="decimal" placeholder="0" maxlength="8"></span>
+          </label>
+          <label class="set-row">
+            <span class="set-row-text"><span>Quiet hours, 10 PM to 7 AM</span><span class="set-hint">Anything overnight arrives as one summary at 7 AM.</span></span>
+            <input type="checkbox" id="notif-quiet" class="set-switch" role="switch">
+          </label>
+          <button type="button" class="set-row set-row-action" id="notif-test">Send a test notification</button>
+          <div id="notif-devices"></div>
         </div>
       </div>
 

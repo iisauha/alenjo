@@ -615,6 +615,7 @@ function autoFaceIdEnabled() {
 
 function switchTab(tabName) {
   if (tabName === 'settings' && typeof updateFaceIdSetting === 'function') updateFaceIdSetting();
+  if (tabName === 'settings' && typeof renderNotifications === 'function') renderNotifications().catch(function(e) { console.error(e); });
   document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
   var tab = $('#tab-' + tabName);
@@ -2043,6 +2044,162 @@ document.querySelectorAll('[data-theme-choice]').forEach(function(b) {
   });
 });
 applyTheme();
+
+// ============================================
+// NOTIFICATIONS (Web Push)
+// New purchases and deposits, sent by the server when Plaid finds them.
+// Works from the Home Screen app on iPhone (iOS 16.4+) and in desktop browsers.
+// ============================================
+var PUSH_PUBLIC_KEY = 'BACReZ7JYvEw8jlTIm77fJSW2tpeurQwVBQPDc5SQvzHwZhynS6vfill2In-UFei2raSTUzcc0FsFqiUHAJTbts';
+var pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+var swReady = pushSupported ? navigator.serviceWorker.register('/sw.js').then(function() { return navigator.serviceWorker.ready; }).catch(function(e) { console.error('SW register failed', e); return null; }) : Promise.resolve(null);
+
+// Tapping a notification: open the tab it points to
+function tabFromUrl(u) { try { return new URL(u, location.origin).searchParams.get('tab'); } catch (e) { return null; } }
+(function() {
+  var t = tabFromUrl(location.href);
+  if (t === 'transactions' || t === 'snapshot') { try { localStorage.setItem('alenjo_active_tab', t); } catch (e) {} }
+  if (t) history.replaceState(null, '', location.pathname);
+})();
+if (pushSupported) navigator.serviceWorker.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'alenjo-open') return;
+  var t = tabFromUrl(e.data.url);
+  if (!t) return;
+  if (t === 'transactions' || t === 'snapshot') { try { localStorage.setItem('alenjo_active_tab', t); } catch (x) {} }
+  if (currentUser && !appLocked && $('#screen-app').classList.contains('active')) {
+    if (t === 'transactions') { switchTab('transactions'); loadTransactions(); } else switchTab(t);
+  }
+});
+
+function b64uToBytes(s) {
+  var b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+  return Uint8Array.from(b, function(c) { return c.charCodeAt(0); });
+}
+function deviceLabel() {
+  var ua = navigator.userAgent;
+  var d = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Browser';
+  var b = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) && !/Edg\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : 'Safari';
+  return (d === 'iPhone' || d === 'iPad') && isStandalone ? d : d + ' · ' + b;
+}
+async function currentSubscription() {
+  var reg = await swReady;
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+
+var notifSettings = null;
+async function renderNotifications() {
+  if (!currentUser) return;
+  var status = $('#notif-status'), enable = $('#notif-enable'), opts = $('#notif-options');
+  if (!status) return;
+  if (!pushSupported) {
+    enable.hidden = true; opts.hidden = true;
+    status.textContent = isIOS && !isStandalone
+      ? 'To turn these on, add Alenjo to your Home Screen (Share → Add to Home Screen) and open it from there.'
+      : 'This browser can’t show notifications.';
+    return;
+  }
+  var sub = await currentSubscription();
+  var res = await sb.from('push_devices').select('id, endpoint, label, created_at, last_success_at').order('created_at');
+  var devices = res.data || [];
+  var here = sub && devices.some(function(d) { return d.endpoint === sub.endpoint; });
+  if (Notification.permission === 'denied') {
+    status.textContent = isIOS ? 'Notifications are blocked for Alenjo. Turn them on in iPhone Settings → Notifications → Alenjo, then come back here.' : 'Notifications are blocked for this site in your browser settings.';
+    enable.hidden = true;
+  } else {
+    status.textContent = here ? 'On for this device. You’ll get a heads-up when something new shows up in Activity.' : 'A heads-up when something new shows up in Activity. Turn it on for each phone or computer you use.';
+    enable.hidden = !!here;
+  }
+  opts.hidden = devices.length === 0;
+  $('#notif-test').hidden = !here;
+  var st = await sb.from('notification_settings').select('*').maybeSingle();
+  notifSettings = st.data || { purchases: true, deposits: true, min_amount: 0, quiet: true };
+  $('#notif-purchases').checked = !!notifSettings.purchases;
+  $('#notif-deposits').checked = !!notifSettings.deposits;
+  $('#notif-quiet').checked = !!notifSettings.quiet;
+  if (document.activeElement !== $('#notif-min')) $('#notif-min').value = Number(notifSettings.min_amount) ? String(+notifSettings.min_amount) : '';
+  $('#notif-devices').innerHTML = devices.map(function(d) {
+    var mine = sub && d.endpoint === sub.endpoint;
+    var when = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return '<div class="notif-device"><span><b>' + esc(d.label || 'Device') + (mine ? ' (this one)' : '') + '</b><span class="set-hint">Added ' + esc(when) + '</span></span>' +
+      '<button type="button" data-remove-device="' + esc(d.id) + '"' + (mine ? ' data-mine="1"' : '') + '>Remove</button></div>';
+  }).join('');
+}
+
+async function saveNotifSettings(patch) {
+  if (!currentUser) return;
+  notifSettings = Object.assign({}, notifSettings || {}, patch);
+  var tz = 'America/New_York';
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) {}
+  var row = Object.assign({ user_id: currentUser.id, tz: tz, updated_at: new Date().toISOString() }, patch);
+  var r = await sb.from('notification_settings').upsert(row, { onConflict: 'user_id' });
+  if (r.error) { showToast('Couldn’t save that. Try again.'); renderNotifications(); }
+}
+
+async function sendTestPush(endpoint) {
+  var session = (await sb.auth.getSession()).data.session;
+  var r = await fetch(SUPABASE_URL + '/functions/v1/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify({ action: 'test', endpoint: endpoint })
+  });
+  return r.json().catch(function() { return {}; });
+}
+
+(function wireNotifications() {
+  var enable = $('#notif-enable');
+  if (!enable) return;
+  enable.addEventListener('click', async function() {
+    var btn = this;
+    // iOS only shows the permission prompt straight from a tap, so ask first
+    var perm = await Notification.requestPermission();
+    if (perm !== 'granted') { renderNotifications(); return; }
+    btn.disabled = true; btn.textContent = 'Turning on…';
+    try {
+      var reg = await swReady;
+      if (!reg) throw new Error('no service worker');
+      var sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(PUSH_PUBLIC_KEY) });
+      var j = sub.toJSON();
+      var r = await sb.rpc('register_push_device', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_label: deviceLabel() });
+      if (r.error) throw r.error;
+      await saveNotifSettings({});
+      sendTestPush(j.endpoint);
+      showToast('Notifications are on');
+    } catch (e) {
+      console.error('Enable notifications failed', e);
+      showToast('Couldn’t turn on notifications. Try again.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Allow notifications on this device';
+      renderNotifications();
+    }
+  });
+  $('#notif-purchases').addEventListener('change', function() { saveNotifSettings({ purchases: this.checked }); });
+  $('#notif-deposits').addEventListener('change', function() { saveNotifSettings({ deposits: this.checked }); });
+  $('#notif-quiet').addEventListener('change', function() { saveNotifSettings({ quiet: this.checked }); });
+  $('#notif-min').addEventListener('change', function() {
+    var v = parseFloat(String(this.value).replace(/[^0-9.]/g, ''));
+    if (!isFinite(v) || v < 0) v = 0;
+    v = Math.round(v * 100) / 100;
+    this.value = v ? String(v) : '';
+    saveNotifSettings({ min_amount: v });
+  });
+  $('#notif-test').addEventListener('click', async function() {
+    var btn = this; btn.disabled = true;
+    var sub = await currentSubscription();
+    var r = await sendTestPush(sub ? sub.endpoint : undefined);
+    btn.disabled = false;
+    showToast(r.sent ? 'Sent. Check your notifications.' : 'Couldn’t send. Try turning notifications off and on.');
+  });
+  $('#notif-devices').addEventListener('click', async function(e) {
+    var b = e.target.closest('[data-remove-device]');
+    if (!b) return;
+    b.disabled = true;
+    await sb.from('push_devices').delete().eq('id', b.dataset.removeDevice);
+    if (b.dataset.mine) { try { var s = await currentSubscription(); if (s) await s.unsubscribe(); } catch (x) {} }
+    renderNotifications();
+  });
+})();
 
 // Personal greeting on the sign-in screen
 function renderLoginGreeting() {
