@@ -2094,6 +2094,22 @@ async function refreshStalePush() {
 }
 
 var notifSettings = null;
+var NOTIF_CACHE = 'alenjo_notif_settings';
+function cachedNotifSettings() {
+  if (notifSettings) return notifSettings;
+  try { return JSON.parse(localStorage.getItem(NOTIF_CACHE) || 'null'); } catch (e) { return null; }
+}
+// Set the switches without their slide animation, so opening Settings never shows them flip
+function paintNotifSettings(s) {
+  var opts = $('#notif-options');
+  opts.classList.add('no-anim');
+  $('#notif-purchases').checked = !!s.purchases;
+  $('#notif-deposits').checked = !!s.deposits;
+  $('#notif-quiet').checked = !!s.quiet;
+  if (document.activeElement !== $('#notif-min')) $('#notif-min').value = Number(s.min_amount) ? String(+s.min_amount) : '';
+  void opts.offsetWidth;
+  requestAnimationFrame(function() { requestAnimationFrame(function() { opts.classList.remove('no-anim'); }); });
+}
 async function renderNotifications() {
   if (!currentUser) return;
   var status = $('#notif-status'), enable = $('#notif-enable'), opts = $('#notif-options');
@@ -2105,6 +2121,8 @@ async function renderNotifications() {
       : 'This browser can’t show notifications.';
     return;
   }
+  var cached = cachedNotifSettings();
+  if (cached) paintNotifSettings(cached);
   var sub = await currentSubscription();
   var res = await sb.from('push_devices').select('id, endpoint, label, created_at, last_success_at').order('created_at');
   var devices = res.data || [];
@@ -2117,13 +2135,11 @@ async function renderNotifications() {
     status.textContent = here ? 'On for this ' + (deviceLabel().split(' ·')[0].replace('Browser', 'device')) + '. Works even when Alenjo is closed.' : 'Get a heads-up when something new shows up in Activity.';
     enable.hidden = !!here;
   }
-  opts.hidden = devices.length === 0;
   var st = await sb.from('notification_settings').select('*').maybeSingle();
   notifSettings = st.data || { purchases: true, deposits: true, min_amount: 0, quiet: true };
-  $('#notif-purchases').checked = !!notifSettings.purchases;
-  $('#notif-deposits').checked = !!notifSettings.deposits;
-  $('#notif-quiet').checked = !!notifSettings.quiet;
-  if (document.activeElement !== $('#notif-min')) $('#notif-min').value = Number(notifSettings.min_amount) ? String(+notifSettings.min_amount) : '';
+  try { localStorage.setItem(NOTIF_CACHE, JSON.stringify(notifSettings)); } catch (e) {}
+  paintNotifSettings(notifSettings);
+  opts.hidden = devices.length === 0;   // shown only once the switches hold the real values
   $('#notif-devices').innerHTML = devices.map(function(d) {
     var mine = sub && d.endpoint === sub.endpoint;
     var when = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -2136,6 +2152,7 @@ async function renderNotifications() {
 async function saveNotifSettings(patch) {
   if (!currentUser) return;
   notifSettings = Object.assign({}, notifSettings || {}, patch);
+  try { localStorage.setItem(NOTIF_CACHE, JSON.stringify(notifSettings)); } catch (e) {}
   var tz = 'America/New_York';
   try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) {}
   var row = Object.assign({ user_id: currentUser.id, tz: tz, updated_at: new Date().toISOString() }, patch);
