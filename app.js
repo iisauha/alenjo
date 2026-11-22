@@ -2110,6 +2110,17 @@ function paintNotifSettings(s) {
   void opts.offsetWidth;
   requestAnimationFrame(function() { requestAnimationFrame(function() { opts.classList.remove('no-anim'); }); });
 }
+// Settings paints the notifications card from the last known state right away,
+// then checks the server (all at once) and only touches what actually changed.
+var notifRenderSeq = 0, notifDevicesHtml = null;
+function notifViewKey() { return 'alenjo_notif_view_' + (currentUser ? currentUser.id : ''); }
+function applyNotifView(v) {
+  var status = $('#notif-status'), enable = $('#notif-enable'), opts = $('#notif-options'), list = $('#notif-devices');
+  if (status.textContent !== v.status) status.textContent = v.status;
+  if (enable.hidden !== v.enableHidden) enable.hidden = v.enableHidden;
+  if (opts.hidden !== v.optsHidden) opts.hidden = v.optsHidden;
+  if (notifDevicesHtml !== v.devicesHtml) { list.innerHTML = v.devicesHtml; notifDevicesHtml = v.devicesHtml; }
+}
 async function renderNotifications() {
   if (!currentUser) return;
   var status = $('#notif-status'), enable = $('#notif-enable'), opts = $('#notif-options');
@@ -2121,32 +2132,44 @@ async function renderNotifications() {
       : 'This browser can’t show notifications.';
     return;
   }
+  var seq = ++notifRenderSeq;
   var cached = cachedNotifSettings();
   if (cached) paintNotifSettings(cached);
-  var sub = await currentSubscription();
-  var res = await sb.from('push_devices').select('id, endpoint, label, created_at, last_success_at').order('created_at');
+  try { var savedView = JSON.parse(localStorage.getItem(notifViewKey()) || 'null'); if (savedView) applyNotifView(savedView); } catch (e) {}
+
+  var results = await Promise.all([
+    currentSubscription().catch(function() { return null; }),
+    sb.from('push_devices').select('id, endpoint, label, created_at, last_success_at').order('created_at'),
+    sb.from('notification_settings').select('*').maybeSingle(),
+  ]);
+  if (seq !== notifRenderSeq) return;            // a newer refresh is already running
+  var sub = results[0], res = results[1], st = results[2];
+  if (res.error || st.error) return;             // offline or hiccup: keep what's on screen
   var devices = res.data || [];
   if (sub && !subUsesCurrentKey(sub)) sub = null;
-  var here = sub && devices.some(function(d) { return d.endpoint === sub.endpoint; });
+  var here = !!(sub && devices.some(function(d) { return d.endpoint === sub.endpoint; }));
+  var view = { optsHidden: devices.length === 0 };
   if (Notification.permission === 'denied') {
-    status.textContent = isIOS ? 'Notifications are blocked for Alenjo. Turn them on in iPhone Settings → Notifications → Alenjo, then come back here.' : 'Notifications are blocked for this site in your browser settings.';
-    enable.hidden = true;
+    view.status = isIOS ? 'Notifications are blocked for Alenjo. Turn them on in iPhone Settings → Notifications → Alenjo, then come back here.' : 'Notifications are blocked for this site in your browser settings.';
+    view.enableHidden = true;
   } else {
-    status.textContent = here ? 'On for this ' + (deviceLabel().split(' ·')[0].replace('Browser', 'device')) + '. Works even when Alenjo is closed.' : 'Get a heads-up when something new shows up in Activity.';
-    enable.hidden = !!here;
+    view.status = here ? 'On for this ' + (deviceLabel().split(' ·')[0].replace('Browser', 'device')) + '. Works even when Alenjo is closed.' : 'Get a heads-up when something new shows up in Activity.';
+    view.enableHidden = here;
   }
-  var st = await sb.from('notification_settings').select('*').maybeSingle();
-  notifSettings = st.data || { purchases: true, deposits: true, min_amount: 0, quiet: true };
-  try { localStorage.setItem(NOTIF_CACHE, JSON.stringify(notifSettings)); } catch (e) {}
-  paintNotifSettings(notifSettings);
-  opts.hidden = devices.length === 0;   // shown only once the switches hold the real values
-  $('#notif-devices').innerHTML = devices.map(function(d) {
+  view.devicesHtml = devices.map(function(d) {
     var mine = sub && d.endpoint === sub.endpoint;
     var when = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     return '<div class="notif-device"><span class="set-row-text"><span>' + esc(d.label || 'Device') + '</span><span class="set-hint">' + (mine ? 'This device' : 'Added ' + esc(when)) + '</span></span>' +
       '<span class="notif-device-actions">' + (mine ? '<button type="button" class="notif-test" data-test-device="1">Test</button>' : '') +
       '<button type="button" class="notif-remove" data-remove-device="' + esc(d.id) + '"' + (mine ? ' data-mine="1"' : '') + '>Remove</button></span></div>';
   }).join('');
+  notifSettings = st.data || { purchases: true, deposits: true, min_amount: 0, quiet: true };
+  try {
+    localStorage.setItem(NOTIF_CACHE, JSON.stringify(notifSettings));
+    localStorage.setItem(notifViewKey(), JSON.stringify(view));
+  } catch (e) {}
+  paintNotifSettings(notifSettings);
+  applyNotifView(view);
 }
 
 async function saveNotifSettings(patch) {
