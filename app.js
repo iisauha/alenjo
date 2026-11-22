@@ -3999,8 +3999,8 @@ function selectIfPresent(sel, value) {
   return false;
 }
 var txListenersReady = false;
-// Transactions window: from the month before your first connection, or your earliest
-// transaction if that's older (kept history, manual entries), capped at 24 months.
+// Transactions window: the month before your first connection onward (two months of
+// history by design), capped at 24 months.
 function ymdLocal(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 async function txWindowStart() {
   var now = new Date();
@@ -4008,12 +4008,6 @@ async function txWindowStart() {
   var start = floor;
   var fc = await sb.rpc('get_first_connection_date');
   if (fc.data) { var f = new Date(fc.data); start = new Date(f.getFullYear(), f.getMonth() - 1, 1); }
-  var earliest = await sb.from('synced_transactions').select('date').order('date', { ascending: true }).limit(1);
-  if (earliest.data && earliest.data[0] && earliest.data[0].date) {
-    var ep = earliest.data[0].date.split('-');
-    var e = new Date(parseInt(ep[0], 10), parseInt(ep[1], 10) - 1, 1);
-    if (e < start) start = e;
-  }
   return start < floor ? floor : start;
 }
 
