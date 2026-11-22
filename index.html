@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261122201308';</script>
+  <script>var _v = '20261122232326';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261122201308">
+  <link rel="stylesheet" href="style.css?v=20261122232326">
 </head>
 <body>
 
@@ -155,6 +155,7 @@
           <p class="signin-mfa-title">Enter the 6-digit code from your authenticator app</p>
           <p id="mfa-error" class="auth-error" hidden></p>
           <div class="signin-field"><input type="text" id="mfa-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" aria-label="6-digit code"></div>
+          <label class="mfa-trust"><input type="checkbox" id="mfa-trust" checked> Trust this device for 30 days</label>
           <button type="submit" id="mfa-submit" class="btn-primary">Verify</button>
           <button type="button" id="mfa-cancel" class="signin-link signin-forgot">Cancel</button>
         </form>
@@ -167,6 +168,7 @@
       </div>
       <footer class="signin-footer">
         <p>Bank data is read-only via Plaid. Alenjo locks itself when you step away.</p>
+        <nav class="signin-links" aria-label="Policies"><a href="/privacy" target="_blank" rel="noopener">Privacy</a><span aria-hidden="true">·</span><a href="/security" target="_blank" rel="noopener">Security</a></nav>
       </footer>
     </div>
   </div>

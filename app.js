@@ -169,6 +169,47 @@ function setSigningIn(on) {
   authForm.classList.toggle('is-busy', on);
 }
 
+// ---- Trusted device (two-step sign-in): keep the code-verified session on this device for
+// 30 days. Opening or unlocking still needs Face ID or your password, checked on a side
+// client so the kept session (which passed the code step) is never replaced.
+var TRUST_DAYS = 30;
+function trustedFor() { try { var t = JSON.parse(localStorage.getItem('alenjo_trusted') || 'null'); return t && t.until > Date.now() ? t : null; } catch (e) { return null; } }
+function setTrusted(uid) { try { localStorage.setItem('alenjo_trusted', JSON.stringify({ uid: uid, until: Date.now() + TRUST_DAYS * 86400000 })); } catch (e) {} }
+function clearTrusted() { try { localStorage.removeItem('alenjo_trusted'); } catch (e) {} }
+var resumeSession = null;   // a kept session waiting for Face ID or your password
+var awaitingUnlock = false;
+async function keepOrSignOut() {
+  var t = trustedFor();
+  if (t) {
+    try {
+      var s = (await sb.auth.getSession()).data.session;
+      var lvl = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (s && s.user && s.user.id === t.uid && lvl.data && lvl.data.currentLevel === 'aal2') { resumeSession = s; awaitingUnlock = true; return; }
+    } catch (e) {}
+  }
+  clearTrusted();
+  return sb.auth.signOut({ scope: 'local' });
+}
+function keptSessionTrusted() { var t = trustedFor(); return !!(t && currentUser && t.uid === currentUser.id); }
+async function verifyOnSide(kind, email, password) {
+  var c = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'alenjo-side-check' } });
+  var r = kind === 'passkey' ? await c.auth.signInWithPasskey() : await c.auth.signInWithPassword({ email: email, password: password });
+  var uid = resumeSession ? resumeSession.user.id : (currentUser && currentUser.id);
+  var ok = !r.error && r.data && r.data.session && r.data.session.user.id === uid;
+  c.auth.signOut({ scope: 'local' }).catch(function() {});
+  return { ok: !!ok, error: r.error };
+}
+async function finishResume() {
+  awaitingUnlock = false;
+  var s = (await sb.auth.getSession()).data.session || resumeSession;
+  resumeSession = null;
+  finishSignIn(s);
+}
+async function dropResume() {
+  clearTrusted(); resumeSession = null; awaitingUnlock = false;
+  await sb.auth.signOut({ scope: 'local' });
+}
+
 authForm.addEventListener('submit', async function(e) {
   e.preventDefault();
   if (signingIn) return;
@@ -177,6 +218,19 @@ authForm.addEventListener('submit', async function(e) {
 
   var email = authEmail.value.trim();
   var password = authPassword.value;
+
+  // Trusted device: check the password on the side and open with the kept session
+  if (resumeSession) {
+    if (email.toLowerCase() !== String(resumeSession.user.email || '').toLowerCase()) {
+      await dropResume();
+    } else {
+      var v = await verifyOnSide('password', email, password);
+      if (!v.ok) { authError.textContent = (v.error && v.error.message) || 'That password isn’t right.'; authError.hidden = false; setSigningIn(false); return; }
+      try { localStorage.setItem('alenjo_last_email', email); } catch (x) {}
+      finishResume();
+      return;
+    }
+  }
 
   var result = await sb.auth.signInWithPassword({ email: email, password: password });
 
@@ -215,6 +269,7 @@ function setupRememberedEmail() {
   }
 }
 $('#btn-not-you').addEventListener('click', function() {
+  if (resumeSession) dropResume(); else clearTrusted();
   try { ['alenjo_last_email', 'alenjo_last_name', 'alenjo_last_avatar', SIGNED_KEY].forEach(function(k) { localStorage.removeItem(k); }); } catch (e) {}
   authEmail.value = '';
   setupRememberedEmail();
@@ -359,6 +414,15 @@ async function signInWithFaceId(fromUserTap) {
   passkeyInFlight = true;
   authError.hidden = true;
   setSigningIn(true);
+  if (resumeSession) {
+    var v = await verifyOnSide('passkey');
+    passkeyInFlight = false;
+    if (v.ok) { finishResume(); return; }
+    setSigningIn(false);
+    var c = v.error && /NotAllowed|abort|cancel/i.test((v.error.name || '') + ' ' + (v.error.message || ''));
+    if (!c) { authError.textContent = 'Face ID sign-in failed. Use your password instead.'; authError.hidden = false; }
+    return;
+  }
   var res = await sb.auth.signInWithPasskey();
   passkeyInFlight = false;
   if (res.error) {
@@ -430,6 +494,7 @@ $('#mfa-form').addEventListener('submit', async function(e) {
     if (v.error) throw v.error;
     hideMfaStep();
     var s = (await sb.auth.getSession()).data.session;
+    if ($('#mfa-trust') && $('#mfa-trust').checked && s && s.user) setTrusted(s.user.id); else clearTrusted();
     finishSignIn(s);
   } catch (x) {
     $('#mfa-error').textContent = 'That code didn’t work. Check your authenticator app and try again.';
@@ -472,7 +537,7 @@ function finishSignIn(session) {
 
 // Sign out of THIS device only on load (the default would end your
 // sessions on every device, e.g. opening on the Mac would sign out the iPhone)
-(isRecoveryLink ? Promise.resolve() : sb.auth.signOut({ scope: 'local' })).then(function() {
+(isRecoveryLink ? Promise.resolve() : keepOrSignOut()).then(function() {
   showScreen('login');
 
   sb.auth.onAuthStateChange(function(event, session) {
@@ -484,6 +549,9 @@ function finishSignIn(session) {
       // The reset link signs you in briefly; wait for the new password first
       showPasswordReset();
       return;
+    }
+    if (event === 'SIGNED_IN' && session && session.user && (awaitingUnlock || (appLocked && keptSessionTrusted() && !unlocking))) {
+      return;   // a kept session refreshing itself: Face ID or your password still opens it
     }
     if (event === 'SIGNED_IN' && session && session.user) {
       // Two-step sign-in first if it's on (run outside this callback, per Supabase)
@@ -592,6 +660,14 @@ function unlockApp() {
 async function tryUnlock() {
   if (unlocking) return;
   unlocking = true;
+  if (keptSessionTrusted()) {
+    var v = await verifyOnSide('passkey');
+    if (v.ok) { unlockApp(); return; }
+    unlocking = false;
+    var c = v.error && /NotAllowed|abort|cancel/i.test((v.error.name || '') + ' ' + (v.error.message || ''));
+    if (!c) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
+    return;
+  }
   var res = await sb.auth.signInWithPasskey();
   if (res.error) {
     unlocking = false;
@@ -604,7 +680,7 @@ async function tryUnlock() {
 var unlockBtn = $('#btn-unlock');
 if (unlockBtn) unlockBtn.addEventListener('click', tryUnlock);
 var lockSignOut = $('#btn-lock-signout');
-if (lockSignOut) lockSignOut.addEventListener('click', function() { location.reload(); });
+if (lockSignOut) lockSignOut.addEventListener('click', function() { clearTrusted(); location.reload(); });
 
 function markActivity(e) {
   // Only real taps and keys count. Scroll events also fire when the page
@@ -2102,6 +2178,7 @@ if (prefAutoFaceId) {
 
 var signOutBtn = $('#btn-sign-out');
 if (signOutBtn) signOutBtn.addEventListener('click', function() {
+  clearTrusted();
   sb.auth.signOut({ scope: 'local' });
 });
 
@@ -2655,7 +2732,7 @@ $('#btn-mfa-toggle').addEventListener('click', async function() {
     }
     btn._armed = false;
     var r = await sb.auth.mfa.unenroll({ factorId: mfaFactor.id });
-    if (r.error) showToast('Couldn’t turn it off. Try again.'); else showToast('Two-step sign-in is off');
+    if (r.error) showToast('Couldn’t turn it off. Try again.'); else { clearTrusted(); showToast('Two-step sign-in is off'); }
     refreshMfaStatus();
     return;
   }
