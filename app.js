@@ -625,6 +625,7 @@ function switchTab(tabName) {
   var nav = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
   if (nav) nav.classList.add('active');
   if (tabName !== 'settings') localStorage.setItem('alenjo_active_tab', tabName);
+  syncSettingsHeader();
 }
 
 // ============================================
@@ -640,6 +641,16 @@ function openSetPage(key) {
   $('#set-main').hidden = true;
   document.querySelectorAll('.set-page').forEach(function(p) { p.hidden = p !== page; });
   tab.scrollTop = 0;
+  syncSettingsHeader();
+}
+// On Settings the profile card already shows your photo and name, so the header
+// shows the page title (or the back button inside a section) instead.
+function syncSettingsHeader() {
+  var head = document.querySelector('.app-header'), tab = $('#tab-settings'), main = $('#set-main');
+  if (!head || !tab || !main) return;
+  var on = tab.classList.contains('active');
+  head.classList.toggle('is-settings', on);
+  head.classList.toggle('is-subpage', on && main.hidden);
 }
 function closeSetPage(toTop) {
   var main = $('#set-main');
@@ -648,6 +659,7 @@ function closeSetPage(toTop) {
   main.hidden = false;
   refreshSettingsSummary();
   $('#tab-settings').scrollTop = toTop ? 0 : setMainScroll;
+  syncSettingsHeader();
 }
 function refreshSettingsSummary() {
   var put = function(id, text) { var el = $('#' + id); if (el && el.textContent !== text) el.textContent = text; };
@@ -671,6 +683,7 @@ function refreshSettingsSummary() {
     if (open) { openSetPage(open.dataset.openPage); return; }
     if (e.target.closest('[data-close-page]')) closeSetPage(false);
   });
+  $('#header-set-back').addEventListener('click', function() { closeSetPage(false); });
   $('#set-change-photo').addEventListener('click', function() { $('#avatar-upload').click(); });
   // Keep the row summaries current as the pages' contents load or change
   var watch = new MutationObserver(function() { refreshSettingsSummary(); });

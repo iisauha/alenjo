@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261122081402';</script>
+  <script>var _v = '20261122081923';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261122081402">
+  <link rel="stylesheet" href="style.css?v=20261122081923">
 </head>
 <body>
 
@@ -203,6 +203,8 @@
         <div id="header-avatar" class="header-avatar"></div>
         <span id="header-name" class="header-name"></span>
       </button>
+      <h1 class="header-title">Settings</h1>
+      <button type="button" class="set-back header-back" id="header-set-back" aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button>
       <img src="alenjo-mark.png?v=1" alt="Alenjo" class="header-logo">
     </header>
 
@@ -352,7 +354,6 @@
     <!-- SETTINGS TAB -->
     <section id="tab-settings" class="tab-content">
       <div id="set-main">
-      <h1 class="page-title">Settings</h1>
 
       <div class="set-profile-card">
         <button type="button" id="btn-change-avatar" class="set-avatar-btn" aria-label="Change profile photo">
@@ -394,7 +395,6 @@
       </div>
 
       <div class="set-page" data-page="profile" hidden>
-        <div class="set-page-head"><button type="button" class="set-back" data-close-page aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button></div>
         <h1 class="page-title set-page-title">Profile</h1>
       <div class="set-group">
         <div class="set-row set-row-stack set-profile-fields">
@@ -409,7 +409,6 @@
       </div>
       </div>
       <div class="set-page" data-page="notifications" hidden>
-        <div class="set-page-head"><button type="button" class="set-back" data-close-page aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button></div>
         <h1 class="page-title set-page-title">Notifications</h1>
       <div class="set-group" id="notif-group">
         <div class="set-intro">
@@ -439,7 +438,6 @@
       </div>
       </div>
       <div class="set-page" data-page="home" hidden>
-        <div class="set-page-head"><button type="button" class="set-back" data-close-page aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button></div>
         <h1 class="page-title set-page-title">Home screen</h1>
       <div class="set-group">
         <div class="set-intro">
@@ -454,7 +452,6 @@
       </div>
       </div>
       <div class="set-page" data-page="banks" hidden>
-        <div class="set-page-head"><button type="button" class="set-back" data-close-page aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button></div>
         <h1 class="page-title set-page-title">Bank connections</h1>
       <div class="set-group">
         <ul class="set-intro set-bullets">
@@ -476,7 +473,6 @@
       </div>
       </div>
       <div class="set-page" data-page="cards" hidden>
-        <div class="set-page-head"><button type="button" class="set-back" data-close-page aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button></div>
         <h1 class="page-title set-page-title">Card designs and logos</h1>
       <h2 class="set-heading">Card designs</h2>
       <div class="set-group">
@@ -509,7 +505,6 @@
       </div>
       </div>
       <div class="set-page" data-page="security" hidden>
-        <div class="set-page-head"><button type="button" class="set-back" data-close-page aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button></div>
         <h1 class="page-title set-page-title">Face ID and lock</h1>
       <div class="set-group">
         <div class="set-row">
@@ -531,7 +526,6 @@
       </div>
       </div>
       <div class="set-page" data-page="founder" hidden>
-        <div class="set-page-head"><button type="button" class="set-back" data-close-page aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button></div>
         <h1 class="page-title set-page-title">From the founder</h1>
       <div class="set-group founder">
         <div class="founder-head">

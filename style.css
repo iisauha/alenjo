@@ -3796,3 +3796,11 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .set-bullets { margin: 0; padding: 12px 16px 12px 32px; display: flex; flex-direction: column; gap: 5px; font-size: 0.8125rem; line-height: 1.4; color: var(--text-muted); }
 .set-bullets li::marker { color: var(--accent); }
 .set-bullets b { color: var(--text); font-weight: 600; font-size: inherit; }
+
+/* Settings header: title (or back) in place of the photo and name */
+.header-title, .header-back { display: none; }
+.app-header.is-settings .header-user { display: none; }
+.app-header.is-settings:not(.is-subpage) .header-title { display: block; margin: 0; font-family: var(--serif); font-size: 2rem; font-weight: 500; line-height: 40px; color: var(--text); }
+.app-header.is-settings.is-subpage .header-back { display: inline-flex; min-height: 40px; margin: 0 0 0 -8px; }
+#set-main { padding-top: 8px; }
+.set-page-title { margin-top: 8px; }
