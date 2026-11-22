@@ -130,15 +130,23 @@ Deno.serve(async (req: Request) => {
 
     const { data: itemRows } = await adminClient
       .from('plaid_items')
-      .select('id, tx_sync_cursor')
+      .select('id, tx_sync_cursor, created_at')
       .eq('user_id', user.id);
 
     const cursorMap: Record<string, string> = {};
+    // Only keep history from the month before your first connection (two months back)
+    let firstConn: Date | null = null;
     if (itemRows) {
       for (const row of itemRows) {
         if (row.tx_sync_cursor) cursorMap[row.id] = row.tx_sync_cursor;
+        if (row.created_at) {
+          const c = new Date(row.created_at);
+          if (!firstConn || c < firstConn) firstConn = c;
+        }
       }
     }
+    const fc = firstConn || new Date();
+    const historyStart = new Date(Date.UTC(fc.getUTCFullYear(), fc.getUTCMonth() - 1, 1)).toISOString().slice(0, 10);
 
     const { data: allAccts } = await adminClient.rpc('get_all_decrypted_account_ids', {
       p_user_id: user.id,
@@ -232,6 +240,7 @@ Deno.serve(async (req: Request) => {
         for (const tx of (data.added || [])) {
           // Skip transactions from investment accounts
           if (investAccountPlaidIds.has(tx.account_id)) continue;
+          if (tx.date < historyStart) continue;
           if (tx.pending_transaction_id) {
             await migratePendingAction(adminClient, user.id, tx.pending_transaction_id, tx.transaction_id);
           }
@@ -268,6 +277,7 @@ Deno.serve(async (req: Request) => {
 
         for (const tx of (data.modified || [])) {
           if (investAccountPlaidIds.has(tx.account_id)) continue;
+          if (tx.date < historyStart) continue;
           if (tx.pending_transaction_id) {
             await migratePendingAction(adminClient, user.id, tx.pending_transaction_id, tx.transaction_id);
           }

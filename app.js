@@ -4192,8 +4192,6 @@ async function loadTransactions() {
       searchTimer = setTimeout(renderTransactionMonth, 200);
     });
 
-    var removedNoteBtn = $('#act-removed-note');
-    if (removedNoteBtn) removedNoteBtn.addEventListener('click', function() { if (!showIgnoredTx) btnIgnored.click(); });
     btnIgnored.addEventListener('click', function() {
       showIgnoredTx = !showIgnoredTx;
       localStorage.setItem('alenjo_show_ignored', showIgnoredTx ? 'true' : 'false');
@@ -4346,14 +4344,6 @@ function renderTransactionMonth() {
       if ((eff.note || '').toLowerCase().indexOf(searchVal) !== -1) return true;
       return nick.indexOf(searchVal) !== -1 || enriched.indexOf(searchVal) !== -1 || merchant.indexOf(searchVal) !== -1 || name.indexOf(searchVal) !== -1;
     });
-  }
-
-  // Something your bank removed this month: say so, since it's hidden with the ignored ones
-  var removedN = filtered.filter(function(tx) { return tx.removed_at; }).length;
-  var removedNote = $('#act-removed-note');
-  if (removedNote) {
-    removedNote.hidden = !removedN || showIgnoredTx;
-    removedNote.textContent = removedN === 1 ? 'Your bank removed 1 transaction this month. Review it' : 'Your bank removed ' + removedN + ' transactions this month. Review them';
   }
 
   // Hide ignored/reimbursed unless toggled on
