@@ -555,7 +555,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  animation: heroReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .hero-stats {
@@ -594,10 +593,6 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--text);
 }
 
-@keyframes heroReveal {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
 
 .net-cash-card[hidden] {
   display: none;
@@ -648,14 +643,9 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
 .account-section {
   margin-bottom: 1.5rem;
   min-width: 0;
-  animation: staggerIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-
-.account-section:nth-child(2) { animation-delay: 0.05s; }
-.account-section:nth-child(3) { animation-delay: 0.1s; }
-.account-section:nth-child(4) { animation-delay: 0.15s; }
-.account-section:nth-child(5) { animation-delay: 0.2s; }
-.account-section:nth-child(6) { animation-delay: 0.25s; }
+/* Home uses the same single tab fade as Activity and Settings. Per-section
+   entrance animations replayed every time the tab was shown, so they're gone. */
 
 @keyframes staggerIn {
   from { opacity: 0; transform: translateY(12px); }
