@@ -45,6 +45,38 @@ function computeDaysRequested(firstConnectedAt) {
   return Math.min(Math.max(days, 1), PLAID_MAX_DAYS);
 }
 
+// Plaid OAuth: a bank's own sign-in page sends you back here. Only used once the address
+// is added to Allowed redirect URIs in the Plaid Dashboard and set as PLAID_REDIRECT_URI;
+// until then Link works exactly as before (pop-up sign-in).
+const REDIRECT_URI = Deno.env.get('PLAID_REDIRECT_URI') || null;
+
+// Create a Link token and remember it for you, so Link can be reopened with the same token
+// when you come back from your bank's sign-in page (Plaid's recommended OAuth handling).
+async function linkToken(adminClient, userId, params, kind, itemId = null) {
+  const data = await plaidRequest('/link/token/create', REDIRECT_URI ? { ...params, redirect_uri: REDIRECT_URI } : params);
+  if (!data.error_code && data.link_token) {
+    await adminClient.from('plaid_link_sessions').upsert({ user_id: userId, link_token: data.link_token, kind, item_id: itemId, created_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  }
+  return data;
+}
+
+// Plaid's duplicate check: same bank AND one of the accounts you picked matches one you
+// already have (name and last 4). If either side has no name or last 4, the bank alone counts.
+async function isDuplicate(adminClient, userClient, userId, institution, picked) {
+  if (!institution?.institution_id) return false;
+  const { data: items } = await adminClient.from('plaid_items').select('id').eq('user_id', userId).eq('institution_id', institution.institution_id).eq('status', 'active');
+  if (!items || !items.length) return false;
+  const ids = new Set(items.map((i) => i.id));
+  const { data: mine } = await userClient.rpc('get_user_accounts');
+  const existing = (mine || []).filter((a) => ids.has(a.plaid_item_id) && !a.closed_at);
+  const chosen = Array.isArray(picked) ? picked : [];
+  const usable = (x) => x && x.name && x.mask;
+  if (!chosen.length || !existing.length || !chosen.every(usable) || !existing.every(usable)) return true;
+  const key = (x) => String(x.name).trim().toLowerCase() + '|' + String(x.mask);
+  const have = new Set(existing.map(key));
+  return chosen.some((x) => have.has(key(x)));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -72,7 +104,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     );
 
-    const { action, public_token, institution, item_id } = await req.json();
+    const { action, public_token, institution, item_id, accounts } = await req.json();
 
     if (action === 'create_link_token') {
       if (await atConnectionLimit(adminClient, user.id)) return jsonResponse({ error: 'limit', detail: LIMIT_MESSAGE }, 400);
@@ -95,7 +127,7 @@ Deno.serve(async (req) => {
         transactions: { days_requested: daysRequested },
       };
       console.log('Link token: days_requested=' + daysRequested);
-      const data = await plaidRequest('/link/token/create', linkParams);
+      const data = await linkToken(adminClient, user.id, linkParams, 'new');
       if (data.error_code) {
         console.error('Link token error:', data.error_code, data.error_message);
         return jsonResponse({ error: 'Plaid error', detail: data.error_message }, 500);
@@ -110,14 +142,14 @@ Deno.serve(async (req) => {
       const { data: itemData } = await adminClient.rpc('get_user_plaid_items', { p_user_id: user.id });
       const item = itemData?.find((i) => i.id === item_id);
       if (!item) return jsonResponse({ error: 'Item not found' }, 404);
-      const data = await plaidRequest('/link/token/create', {
+      const data = await linkToken(adminClient, user.id, {
         user: { client_user_id: user.id },
         client_name: 'Alenjo',
         access_token: item.access_token,
         country_codes: ['US'],
         language: 'en',
         update: { account_selection_enabled: false },
-      });
+      }, 'reconnect', item.id);
       if (data.error_code) {
         console.error('Reconnect token error:', data.error_code, data.error_message);
         return jsonResponse({ error: 'Plaid error', detail: data.error_message }, 500);
@@ -139,12 +171,19 @@ Deno.serve(async (req) => {
         update: { account_selection_enabled: false },
         additional_consented_products: ['investments', 'liabilities'],
       };
-      const data = await plaidRequest('/link/token/create', linkParams);
+      const data = await linkToken(adminClient, user.id, linkParams, 'consent', item.id);
       if (data.error_code) {
         console.error('Update consent link token error:', data.error_code, data.error_message);
         return jsonResponse({ error: 'Plaid error', detail: data.error_message }, 500);
       }
       return jsonResponse({ link_token: data.link_token });
+    }
+
+    // Back from your bank's sign-in page: the Link token you started with (Link tokens last 4 hours)
+    if (action === 'resume_link') {
+      const { data: s } = await adminClient.from('plaid_link_sessions').select('link_token, kind, item_id, created_at').eq('user_id', user.id).maybeSingle();
+      if (!s || Date.now() - new Date(s.created_at).getTime() > 4 * 3600 * 1000) return jsonResponse({ error: 'expired' }, 404);
+      return jsonResponse({ link_token: s.link_token, kind: s.kind, item_id: s.item_id });
     }
 
     // You finished update mode (reconnect or add accounts): the bank alert is handled
@@ -167,7 +206,7 @@ Deno.serve(async (req) => {
         language: 'en',
         update: { account_selection_enabled: true },
       };
-      const data = await plaidRequest('/link/token/create', linkParams);
+      const data = await linkToken(adminClient, user.id, linkParams, 'add_accounts', item.id);
       if (data.error_code) {
         console.error('Add-accounts token error:', data.error_code, data.error_message);
         return jsonResponse({ error: 'Plaid error', detail: data.error_message }, 500);
@@ -223,14 +262,10 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'check_duplicate') {
-      if (!institution?.institution_id) {
-        return jsonResponse({ duplicate: false });
-      }
-      const { data: existingItems } = await adminClient.from('plaid_items').select('id, institution_id').eq('user_id', user.id).eq('institution_id', institution.institution_id).eq('status', 'active');
-      if (existingItems && existingItems.length > 0) {
+      if (await isDuplicate(adminClient, supabaseClient, user.id, institution, accounts)) {
         return jsonResponse({
           duplicate: true,
-          message: 'This institution is already connected. Use the existing connection or remove it first in Settings.',
+          message: 'These accounts are already connected. Use the existing connection or remove it first in Settings.',
         });
       }
       return jsonResponse({ duplicate: false });
@@ -239,11 +274,9 @@ Deno.serve(async (req) => {
     if (action === 'exchange_token') {
       // Checked again here: an unexchanged connection never gets an access token, so it's never billed
       if (await atConnectionLimit(adminClient, user.id)) return jsonResponse({ error: 'limit', message: LIMIT_MESSAGE }, 400);
-      if (institution?.institution_id) {
-        const { data: existingItems } = await adminClient.from('plaid_items').select('id').eq('user_id', user.id).eq('institution_id', institution.institution_id).eq('status', 'active');
-        if (existingItems && existingItems.length > 0) {
-          return jsonResponse({ error: 'duplicate', message: 'This institution is already connected.' }, 409);
-        }
+      // Plaid: never exchange a public token for a duplicate connection
+      if (await isDuplicate(adminClient, supabaseClient, user.id, institution, accounts)) {
+        return jsonResponse({ error: 'duplicate', message: 'These accounts are already connected.' }, 409);
       }
       const exchangeData = await plaidRequest('/item/public_token/exchange', { public_token });
       if (exchangeData.error_code) {

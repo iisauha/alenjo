@@ -392,6 +392,14 @@ authFaceId.addEventListener('click', function() { signInWithFaceId(true); });
 // Then listen for fresh sign-ins only
 // Opening a password-reset link: keep that session so you can set a new password
 var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
+// Coming back from a bank's own sign-in page (Plaid OAuth redirect): remember the full
+// address Plaid sent you back to, and finish connecting once you're signed in.
+(function() {
+  if (!/[?&]oauth_state_id=/.test(location.search)) return;
+  try { sessionStorage.setItem('alenjo_oauth_return', location.href); } catch (e) {}
+  history.replaceState(null, '', location.pathname);
+})();
+
 // Sign out of THIS device only on load (the default would end your
 // sessions on every device, e.g. opening on the Mac would sign out the iPhone)
 (isRecoveryLink ? Promise.resolve() : sb.auth.signOut({ scope: 'local' })).then(function() {
@@ -430,6 +438,7 @@ var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test
         console.error('Init error:', e);
       }).then(function() {
         showScreen('app');
+        resumePlaidOAuth();
       });
     } else if (event === 'SIGNED_OUT') {
       var wasSignedIn = currentUser !== null;
@@ -2353,6 +2362,84 @@ setInterval(function() { if (!document.hidden) applyTheme(); }, 60000);
 // ============================================
 // PLAID LINK
 // ============================================
+// Plaid's duplicate check compares the accounts you picked (name and last 4) with ones you already have
+function dupeAccounts(metadata) {
+  return ((metadata && metadata.accounts) || []).map(function(x) { return { name: x.name || null, mask: x.mask || null }; });
+}
+// After you finish Plaid's sign-in for a new bank (also used when returning from a bank's own site)
+async function finishNewConnection(headers, publicToken, metadata) {
+  showLoading(true);
+
+  // Check for duplicate institution before exchanging token (per Plaid docs)
+  var dupeCheck = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify({
+      action: 'check_duplicate',
+      institution: metadata.institution,
+      accounts: dupeAccounts(metadata)
+    })
+  });
+  var dupeData = await dupeCheck.json();
+  if (dupeData.duplicate) {
+    showError(dupeData.message || 'This institution is already connected.');
+    showLoading(false);
+    return;
+  }
+
+  var exchangeRes = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify({
+      action: 'exchange_token',
+      public_token: publicToken,
+      institution: metadata.institution,
+      accounts: dupeAccounts(metadata)
+    })
+  });
+  var exchangeData = await exchangeRes.json();
+  if (exchangeData.error === 'duplicate' || exchangeData.error === 'limit') {
+    showError(exchangeData.message || 'This institution is already connected.');
+    showLoading(false);
+    return;
+  }
+  if (!exchangeRes.ok) {
+    showError('Couldn’t finish connecting. Try again.');
+    showLoading(false);
+    return;
+  }
+  await loadAccounts();
+  showLoading(false);
+}
+
+// Plaid docs: reopen Link with the same Link token (kept on the server for you) and the
+// full address Plaid sent you back to, then finish whatever you were doing.
+async function resumePlaidOAuth() {
+  var received = null;
+  try { received = sessionStorage.getItem('alenjo_oauth_return'); sessionStorage.removeItem('alenjo_oauth_return'); } catch (e) {}
+  if (!received || typeof Plaid === 'undefined') return;
+  try {
+    var session = (await sb.auth.getSession()).data.session;
+    var headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY };
+    var res = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', { method: 'POST', headers: headers, body: JSON.stringify({ action: 'resume_link' }) });
+    var data = await res.json();
+    if (!res.ok || !data.link_token) { showError('Your bank sign-in timed out. Try connecting again.'); return; }
+    var handler = plaidCreate({
+      token: data.link_token,
+      receivedRedirectUri: received,
+      onSuccess: function(publicToken, metadata) {
+        if (data.kind === 'reconnect' || data.kind === 'consent') return finishReconnect(data.item_id, headers);
+        if (data.kind === 'add_accounts') return finishAddAccounts(data.item_id, headers);
+        return finishNewConnection(headers, publicToken, metadata);
+      },
+      onExit: function(err) { showLoading(false); if (err) showError('Connection didn’t finish: ' + (err.display_message || err.error_message || 'try again.')); }
+    });
+    handler.open();
+  } catch (e) {
+    showError('Couldn’t finish connecting your bank. Try again.');
+  }
+}
+
 async function openPlaidLink(products) {
   showLoading(true);
   products = products || ['transactions'];
@@ -2383,43 +2470,7 @@ async function openPlaidLink(products) {
 
     var handler = plaidCreate({
       token: data.link_token,
-      onSuccess: async function(publicToken, metadata) {
-        showLoading(true);
-
-        // Check for duplicate institution before exchanging token (per Plaid docs)
-        var dupeCheck = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({
-            action: 'check_duplicate',
-            institution: metadata.institution
-          })
-        });
-        var dupeData = await dupeCheck.json();
-        if (dupeData.duplicate) {
-          showError(dupeData.message || 'This institution is already connected.');
-          showLoading(false);
-          return;
-        }
-
-        var exchangeRes = await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({
-            action: 'exchange_token',
-            public_token: publicToken,
-            institution: metadata.institution
-          })
-        });
-        var exchangeData = await exchangeRes.json();
-        if (exchangeData.error === 'duplicate' || exchangeData.error === 'limit') {
-          showError(exchangeData.message || 'This institution is already connected.');
-          showLoading(false);
-          return;
-        }
-        await loadAccounts();
-        showLoading(false);
-      },
+      onSuccess: function(publicToken, metadata) { return finishNewConnection(headers, publicToken, metadata); },
       onExit: function(err) {
         showLoading(false);
         if (err) {
@@ -2515,6 +2566,16 @@ function renderBankAlerts() {
   box.innerHTML = html;
   box.hidden = !html;
 }
+async function finishReconnect(itemId, headers) {
+  showToast('Reconnected. Catching up…');
+  if (itemHealth[itemId]) { itemHealth[itemId].error_code = null; itemHealth[itemId].consent_expires_at = null; itemHealth[itemId].notice_code = null; }
+  clearItemNotice(itemId, headers);
+  renderBankAlerts();
+  localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
+  await backgroundSync();
+  await loadItemHealth();
+  if ($('#tx-month-filter') && typeof loadTransactions === 'function') { try { await loadTransactions(); } catch (e) {} }
+}
 // Plaid's own sign-in window for that bank. Same connection: history, splits, notes all stay.
 async function reconnectItem(itemId, btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
@@ -2526,16 +2587,7 @@ async function reconnectItem(itemId, btn) {
     if (!res.ok || !data.link_token) { showError('Couldn’t start reconnecting. Try again in a minute.'); return; }
     var handler = plaidCreate({
       token: data.link_token,
-      onSuccess: async function() {
-        showToast('Reconnected. Catching up…');
-        if (itemHealth[itemId]) { itemHealth[itemId].error_code = null; itemHealth[itemId].consent_expires_at = null; itemHealth[itemId].notice_code = null; }
-        clearItemNotice(itemId, headers);
-        renderBankAlerts();
-        localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
-        await backgroundSync();
-        await loadItemHealth();
-        if ($('#tx-month-filter') && typeof loadTransactions === 'function') { try { await loadTransactions(); } catch (e) {} }
-      },
+      onSuccess: function() { return finishReconnect(itemId, headers); },
       onExit: function(err) { if (err) showError('Reconnect didn’t finish: ' + (err.display_message || err.error_message || 'try again.')); }
     });
     handler.open();
@@ -3446,6 +3498,24 @@ function dropItemLocally(itemId) {
   });
 })();
 
+async function finishAddAccounts(itemId, headers) {
+  showLoading(true);
+  try {
+    await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ action: 'sync_added_accounts', item_id: itemId })
+    });
+    clearItemNotice(itemId, headers);
+    await loadAccounts();
+    await loadItemHealth();
+    showToast('Card added');
+  } catch (err) {
+    console.error('sync_added_accounts failed:', err);
+    showError('Card linked but we couldn\'t finish syncing. Pull to refresh.');
+  }
+  showLoading(false);
+}
 // + Add card to an existing institution (Plaid update mode with account selection)
 document.addEventListener('click', async function(e) {
   var btn = e.target.closest('.btn-add-card-inst');
@@ -3483,24 +3553,7 @@ document.addEventListener('click', async function(e) {
 
     var handler = plaidCreate({
       token: data.link_token,
-      onSuccess: async function() {
-        showLoading(true);
-        try {
-          await fetch(SUPABASE_URL + '/functions/v1/plaid-link', {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({ action: 'sync_added_accounts', item_id: itemId })
-          });
-          clearItemNotice(itemId, headers);
-          await loadAccounts();
-          await loadItemHealth();
-          showToast('Card added');
-        } catch (err) {
-          console.error('sync_added_accounts failed:', err);
-          showError('Card linked but we couldn\'t finish syncing. Pull to refresh.');
-        }
-        showLoading(false);
-      },
+      onSuccess: function() { return finishAddAccounts(itemId, headers); },
       onExit: function(err) {
         if (err) showError('Add card failed: ' + (err.display_message || err.error_message || 'Try again.'));
       }
