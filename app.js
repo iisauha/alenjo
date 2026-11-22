@@ -422,6 +422,7 @@ var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test
       lastActivityAt = Date.now();
       loadSignedCache(currentUser.id);
       paintCachedProfile();
+      setTimeout(refreshStalePush, 1500);
       Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
         if (cachedAccounts && cachedAccounts.length > 0) throttledSync();
         return loadTransactions();
@@ -2022,7 +2023,7 @@ applyTheme();
 // New purchases and deposits, sent by the server when Plaid finds them.
 // Works from the Home Screen app on iPhone (iOS 16.4+) and in desktop browsers.
 // ============================================
-var PUSH_PUBLIC_KEY = 'BACReZ7JYvEw8jlTIm77fJSW2tpeurQwVBQPDc5SQvzHwZhynS6vfill2In-UFei2raSTUzcc0FsFqiUHAJTbts';
+var PUSH_PUBLIC_KEY = 'BLmR6kVCiyDOlbY0NjFOO5iXtSGNnZbtZkPTVQv3NZbYKscwfxtHSSnTFPvUw5HqHZj9H7mmaKuiuAYivbHqDv0';
 var pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 var isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -2059,6 +2060,38 @@ async function currentSubscription() {
   var reg = await swReady;
   return reg ? reg.pushManager.getSubscription() : null;
 }
+// A subscription made with an older server key can't receive pushes anymore
+function subUsesCurrentKey(sub) {
+  var k = sub && sub.options && sub.options.applicationServerKey;
+  if (!k) return true;
+  var a = new Uint8Array(k), b = b64uToBytes(PUSH_PUBLIC_KEY);
+  if (a.length !== b.length) return false;
+  for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+async function dropStaleSubscription(sub) {
+  try { await sb.from('push_devices').delete().eq('endpoint', sub.endpoint); } catch (e) {}
+  try { await sub.unsubscribe(); } catch (e) {}
+}
+async function subscribeAndRegister(reg) {
+  var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(PUSH_PUBLIC_KEY) });
+  var j = sub.toJSON();
+  var r = await sb.rpc('register_push_device', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_label: deviceLabel() });
+  if (r.error) throw r.error;
+  return j;
+}
+// After a server key change, quietly move this device to the new key on open.
+// If the browser wants a tap first, Settings shows "Turn on for this device" again.
+async function refreshStalePush() {
+  try {
+    if (!pushSupported || Notification.permission !== 'granted') return;
+    var reg = await swReady;
+    var sub = reg && await reg.pushManager.getSubscription();
+    if (!sub || subUsesCurrentKey(sub)) return;
+    await dropStaleSubscription(sub);
+    await subscribeAndRegister(reg);
+  } catch (e) { console.warn('Push refresh needs a tap in Settings', e); }
+}
 
 var notifSettings = null;
 async function renderNotifications() {
@@ -2075,6 +2108,7 @@ async function renderNotifications() {
   var sub = await currentSubscription();
   var res = await sb.from('push_devices').select('id, endpoint, label, created_at, last_success_at').order('created_at');
   var devices = res.data || [];
+  if (sub && !subUsesCurrentKey(sub)) sub = null;
   var here = sub && devices.some(function(d) { return d.endpoint === sub.endpoint; });
   if (Notification.permission === 'denied') {
     status.textContent = isIOS ? 'Notifications are blocked for Alenjo. Turn them on in iPhone Settings → Notifications → Alenjo, then come back here.' : 'Notifications are blocked for this site in your browser settings.';
@@ -2131,10 +2165,16 @@ async function sendTestPush(endpoint) {
     try {
       var reg = await swReady;
       if (!reg) throw new Error('no service worker');
-      var sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(PUSH_PUBLIC_KEY) });
-      var j = sub.toJSON();
-      var r = await sb.rpc('register_push_device', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_label: deviceLabel() });
-      if (r.error) throw r.error;
+      var existing = await reg.pushManager.getSubscription();
+      if (existing && !subUsesCurrentKey(existing)) { await dropStaleSubscription(existing); existing = null; }
+      var j;
+      if (existing) {
+        j = existing.toJSON();
+        var r = await sb.rpc('register_push_device', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_label: deviceLabel() });
+        if (r.error) throw r.error;
+      } else {
+        j = await subscribeAndRegister(reg);
+      }
       await saveNotifSettings({});
       sendTestPush(j.endpoint);
       showToast('Notifications are on');
