@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261122080645';</script>
+  <script>var _v = '20261122081402';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261122080645">
+  <link rel="stylesheet" href="style.css?v=20261122081402">
 </head>
 <body>
 
@@ -444,11 +444,11 @@
       <div class="set-group">
         <div class="set-intro">
           <b>Order and hide accounts</b>
-          <span>Each group shows the largest balance first. To set your own order, open a group and drag <span class="set-intro-icon" aria-hidden="true">≡</span>. Tap the eye to hide an account.</span>
+          <span>Largest balance shows first. Open a group and drag <span class="set-intro-icon" aria-hidden="true">≡</span> to reorder, or tap the eye to hide one.</span>
         </div>
         <div id="account-order-list"></div>
         <label class="set-row">
-          <span class="set-row-text"><span>Include pending charges</span><span class="set-hint">Show what you can spend right now, not just what's posted. Tip: tap the big number on Home to switch, or press and hold it to hide all amounts.</span></span>
+          <span class="set-row-text"><span>Include pending charges</span><span class="set-hint">Show what you can spend now, not just what’s posted.</span></span>
           <input type="checkbox" id="pref-after-pending" class="set-switch" role="switch">
         </label>
       </div>
@@ -457,22 +457,20 @@
         <div class="set-page-head"><button type="button" class="set-back" data-close-page aria-label="Back to Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Settings</button></div>
         <h1 class="page-title set-page-title">Bank connections</h1>
       <div class="set-group">
+        <ul class="set-intro set-bullets">
+          <li>Got a new card at a bank that’s already here? Tap <b>Manage</b> on that bank and check it. Don’t add the bank again.</li>
+          <li><b>Reconnect</b> just means the bank wants you to sign in again. Your history stays.</li>
+          <li><b>Disconnect</b> stops syncing. Past transactions stay in Activity.</li>
+          <li>New transactions come in on their own, no refreshing needed.</li>
+        </ul>
         <div id="accounts-list" class="accounts-manage-list"></div>
         <button id="btn-add-account" class="set-row set-row-action" type="button">+ Add an institution</button>
-      </div>
-
-      <h2 class="set-heading">Good to know</h2>
-      <div class="set-group set-tips">
-        <div class="set-tip"><b>New card at a bank you already connected?</b><span>Tap <b>Manage</b> on that bank and check the new account. Don’t add the bank again. That just makes a second connection.</span></div>
-        <div class="set-tip"><b>See “Reconnect”?</b><span>Banks ask you to sign in again every so often. Tap it, sign in, and you’re set. Your history stays put.</span></div>
-        <div class="set-tip"><b>Disconnecting</b><span>Alenjo stops syncing that bank. Its past transactions stay in Activity. They just drop out of your Home totals.</span></div>
-        <div class="set-tip"><b>Staying up to date</b><span>New transactions come in on their own as your bank reports them. Nothing to refresh.</span></div>
       </div>
 
       <div id="closed-section" hidden>
         <h2 class="set-heading">Closed accounts</h2>
         <div class="set-group">
-          <div class="set-row"><span class="set-row-text"><span>History kept</span><span class="set-hint">These were disconnected. Their transactions still count in Activity, but they're left out of your Home totals.</span></span></div>
+          <div class="set-row"><span class="set-row-text"><span>History kept</span><span class="set-hint">Still in Activity, left out of Home totals.</span></span></div>
           <div id="closed-list"></div>
         </div>
       </div>
@@ -482,15 +480,10 @@
         <h1 class="page-title set-page-title">Card designs and logos</h1>
       <h2 class="set-heading">Card designs</h2>
       <div class="set-group">
-        <div class="set-intro">
-          <b>Why upload your own?</b>
-          <span>Banks don’t share card art with apps, so there’s nowhere for Alenjo to pull it from. You’re the most reliable source. It takes about 5 minutes once, and from then on your cards on Home look like the real thing.</span>
-          <ol class="set-steps">
-            <li>Open Apple Wallet, tap a card and take a screenshot.</li>
-            <li>Tap <b>Upload</b> below and crop it to the card.</li>
-            <li>On Home, tap that account and pick the design.</li>
-          </ol>
-        </div>
+        <ul class="set-intro set-bullets">
+          <li>Banks don’t provide art for every card, so add your own for the newest, sharpest look.</li>
+          <li>Screenshot the card in Apple Wallet, tap <b>Upload</b>, then tap the account on Home to apply it.</li>
+        </ul>
         <div class="set-row">
           <span>Add a card design</span>
           <button id="btn-add-card-design" class="btn-secondary-sm" type="button">Upload</button>
@@ -505,15 +498,10 @@
 
       <h2 class="set-heading" id="section-my-logos">Your logos</h2>
       <div class="set-group">
-        <div class="set-intro">
-          <b>When a store’s logo is missing or wrong</b>
-          <span>Alenjo gets logos from logo.dev. It knows most big brands, but not every small shop or local spot, so sometimes it needs a little help. Fix it once and Alenjo remembers.</span>
-          <ol class="set-steps">
-            <li>In Activity, open the transaction and tap its logo.</li>
-            <li>Tap <b>Upload</b> and pick an image. A screenshot of the store’s site or app works.</li>
-            <li>It shows for that store from then on, and you can find it by searching its name.</li>
-          </ol>
-        </div>
+        <ul class="set-intro set-bullets">
+          <li>logo.dev doesn’t know every store. Fix a missing one once and it sticks.</li>
+          <li>In Activity, open the transaction, tap its logo, then <b>Upload</b>.</li>
+        </ul>
         <details class="set-disclosure" id="custom-logos-details" hidden>
           <summary class="set-row"><span>Saved logos</span><span class="set-disclosure-end"><span id="custom-logos-count" class="set-hint"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span></summary>
           <div id="custom-logos-list" class="mylogos"></div>
