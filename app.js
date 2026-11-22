@@ -4734,26 +4734,60 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
 // Privacy / Security / FAQ open inside the app (no new browser window, no white flash,
 // and you stay signed in)
 (function wireInfoPanel() {
+  // Privacy, Security and FAQ aren't on the public site: they're stored in the database,
+  // readable only when signed in, and shown here inside the app.
   var panel = $('#info-panel'), frame = $('#info-frame');
   if (!panel) return;
-  var lastFocus = null;
+  var lastFocus = null, pages = {};
+  async function pageHtml(slug) {
+    if (pages[slug]) return pages[slug];
+    var res = await sb.from('info_pages').select('gz_b64').eq('slug', slug).maybeSingle();
+    if (res.error || !res.data) throw new Error('not available');
+    var bin = atob(res.data.gz_b64), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    pages[slug] = await new Response(stream).text();
+    return pages[slug];
+  }
+  async function show(slug, hash) {
+    if (!currentUser) return;
+    frame.classList.remove('loaded');
+    if (panel.hidden) {
+      panel.hidden = false;
+      requestAnimationFrame(function() { panel.classList.add('open'); });
+    }
+    try {
+      var html = await pageHtml(slug);
+      var theme = document.documentElement.getAttribute('data-theme') || 'light';
+      frame.srcdoc = html.replace('<head>', '<head><script>window.__ALENJO_EMBED = 1; window.__ALENJO_THEME = ' + JSON.stringify(theme) + ';<\/script>');
+      frame.onload = function() {
+        frame.classList.add('loaded');
+        if (hash) { try { var el = frame.contentDocument.getElementById(hash); if (el) el.scrollIntoView(); } catch (e) {} }
+      };
+    } catch (err) {
+      close();
+      showToast("Couldn't open that page. Check your connection and try again.");
+    }
+  }
   document.addEventListener('click', function(e) {
     var a = e.target.closest('a[data-info]');
     if (!a) return;
     e.preventDefault();
     lastFocus = a;
-    frame.classList.remove('loaded');
-    // The version number makes sure you always get the latest page, not an old saved copy
-    frame.src = a.getAttribute('href').replace(/\.html$/, '') + '.html?embed=1&v=' + encodeURIComponent(window._v || Date.now()) + '&theme=' + (document.documentElement.getAttribute('data-theme') || 'light');
-    panel.hidden = false;
-    requestAnimationFrame(function() { panel.classList.add('open'); });
+    var href = a.getAttribute('href');
+    show(href.split('#')[0].replace(/^[/]/, '').replace(/[.]html$/, ''), href.split('#')[1] || '');
     // Only move focus for keyboard users; on touch it drew a focus box around Back
     if (e.detail === 0) $('#info-close').focus();
   });
-  frame.addEventListener('load', function() { frame.classList.add('loaded'); });
+  // Links between the three pages come from inside the page
+  window.addEventListener('message', function(e) {
+    if (e.source !== frame.contentWindow || !e.data || !e.data.alenjoInfo) return;
+    if (['privacy', 'security', 'faq'].indexOf(e.data.alenjoInfo) < 0) return;
+    show(e.data.alenjoInfo, e.data.hash || '');
+  });
   var close = function() {
     panel.classList.remove('open');
-    setTimeout(function() { panel.hidden = true; frame.src = 'about:blank'; }, 250);
+    setTimeout(function() { panel.hidden = true; frame.removeAttribute('srcdoc'); frame.src = 'about:blank'; }, 250);
     if (lastFocus) lastFocus.focus({ preventScroll: true });
   };
   $('#info-close').addEventListener('click', close);
