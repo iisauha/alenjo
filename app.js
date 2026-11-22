@@ -651,9 +651,6 @@ function closeSetPage(toTop) {
 }
 function refreshSettingsSummary() {
   var put = function(id, text) { var el = $('#' + id); if (el && el.textContent !== text) el.textContent = text; };
-  var pref = 'adaptive';
-  try { pref = localStorage.getItem('alenjo_theme') || 'adaptive'; } catch (e) {}
-  put('set-sum-theme', pref.charAt(0).toUpperCase() + pref.slice(1));
   var opts = $('#notif-options'), on = opts && !opts.hidden;
   if (on && notifSettings) {
     var kinds = [notifSettings.purchases ? 'purchases' : '', notifSettings.deposits ? 'deposits' : ''].filter(Boolean);
@@ -1714,7 +1711,7 @@ function renderCardDesignPicker(selectedId) {
   }
   var html = '<button type="button" class="card-design-option none' + (!selectedId ? ' selected' : '') + '" data-design-id="">None</button>';
   if (cachedCardDesigns.length === 0) {
-    html += '<div class="card-design-picker-empty">Upload designs in Settings &rarr; Card Designs.</div>';
+    html += '<div class="card-design-picker-empty">Upload designs in Settings &rarr; Card designs and logos.</div>';
   } else {
     cachedCardDesigns.forEach(function(d) {
       var takenBy = usedBy[d.id];
@@ -4734,7 +4731,7 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
     lastFocus = a;
     frame.classList.remove('loaded');
     // The version number makes sure you always get the latest page, not an old saved copy
-    frame.src = a.getAttribute('href').replace(/\.html$/, '') + '.html?embed=1&v=' + encodeURIComponent(window._v || Date.now());
+    frame.src = a.getAttribute('href').replace(/\.html$/, '') + '.html?embed=1&v=' + encodeURIComponent(window._v || Date.now()) + '&theme=' + (document.documentElement.getAttribute('data-theme') || 'light');
     panel.hidden = false;
     requestAnimationFrame(function() { panel.classList.add('open'); });
     // Only move focus for keyboard users; on touch it drew a focus box around Back
