@@ -8,6 +8,7 @@ import { deliver } from "./notify.js";
 // pulled with the same free sync Alenjo runs at sign-in (sync-transactions),
 // then turned into notifications.
 const enc = new TextEncoder();
+const NOTICES = new Set(['PENDING_DISCONNECT', 'PENDING_EXPIRATION', 'USER_PERMISSION_REVOKED', 'USER_ACCOUNT_REVOKED', 'NEW_ACCOUNTS_AVAILABLE']);
 const keyCache = new Map<string, CryptoKey>();
 let missWindow = 0, misses = 0;
 
@@ -73,7 +74,14 @@ async function handle(evt: any) {
     return;
   }
   if (evt.webhook_type === 'ITEM' && evt.webhook_code === 'LOGIN_REPAIRED') {
-    await admin.from('plaid_items').update({ error_code: null, error_at: null }).eq('id', item.id);
+    // Plaid: no action needed; hide any "reconnect" messaging
+    await admin.from('plaid_items').update({ error_code: null, error_at: null, notice_code: null, notice_at: null }).eq('id', item.id);
+    return;
+  }
+  // Plaid recommends sending you through update mode for these (or, for new accounts,
+  // offering to add them). Kept apart from error_code, which each sync rewrites.
+  if (evt.webhook_type === 'ITEM' && NOTICES.has(evt.webhook_code)) {
+    await admin.from('plaid_items').update({ notice_code: evt.webhook_code, notice_at: new Date().toISOString() }).eq('id', item.id);
     return;
   }
   console.log('webhook ignored', evt.webhook_type, evt.webhook_code);

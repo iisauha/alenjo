@@ -2464,7 +2464,7 @@ async function loadAccounts() {
 // ============================================
 var itemHealth = {};   // plaid_item_id -> { error_code, consent_expires_at }
 async function loadItemHealth() {
-  var r = await sb.from('plaid_items').select('id, error_code, consent_expires_at').eq('status', 'active');
+  var r = await sb.from('plaid_items').select('id, error_code, consent_expires_at, notice_code').eq('status', 'active');
   itemHealth = {};
   if (r.data) r.data.forEach(function(i) { itemHealth[i.id] = i; });
   renderBankAlerts();
@@ -2485,11 +2485,20 @@ function itemAttention(itemId) {
       : 'stopped syncing';
     return { level: 'error', text: why, canReconnect: !/^INSTITUTION_/.test(h.error_code) };
   }
+  // Alerts Plaid sent about this bank
+  if (h.notice_code === 'USER_PERMISSION_REVOKED' || h.notice_code === 'USER_ACCOUNT_REVOKED') return { level: 'error', text: 'lost permission to share your data', canReconnect: true };
+  if (h.notice_code === 'PENDING_DISCONNECT' || h.notice_code === 'PENDING_EXPIRATION') return { level: 'warn', text: 'will disconnect within 7 days unless you reconnect', canReconnect: true };
+  if (h.notice_code === 'NEW_ACCOUNTS_AVAILABLE') return { level: 'warn', text: 'has new accounts you can add', canAdd: true };
   if (h.consent_expires_at) {
     var days = Math.ceil((new Date(h.consent_expires_at) - new Date()) / 86400000);
     if (days <= 14) return { level: 'warn', text: days <= 0 ? 'access expired' : 'access expires in ' + days + ' day' + (days === 1 ? '' : 's'), canReconnect: true };
   }
   return null;
+}
+function clearItemNotice(itemId, headers) {
+  if (!itemHealth[itemId] || !itemHealth[itemId].notice_code) return;
+  itemHealth[itemId].notice_code = null;
+  fetch(SUPABASE_URL + '/functions/v1/plaid-link', { method: 'POST', headers: headers, body: JSON.stringify({ action: 'clear_notice', item_id: itemId }) }).catch(function() {});
 }
 function renderBankAlerts() {
   var box = $('#bank-alerts');
@@ -2500,7 +2509,8 @@ function renderBankAlerts() {
     if (!att) return;
     html += '<div class="bank-alert ' + att.level + '" role="status"><span class="bank-alert-dot" aria-hidden="true"></span>' +
       '<span class="bank-alert-text"><b>' + esc(institutionForItem(id)) + '</b> ' + esc(att.text) + (att.level === 'error' ? '. Balances and transactions from it aren’t updating.' : '.') + '</span>' +
-      (att.canReconnect ? '<button type="button" class="bank-alert-btn" data-reconnect="' + esc(id) + '">Reconnect</button>' : '') + '</div>';
+      (att.canReconnect ? '<button type="button" class="bank-alert-btn" data-reconnect="' + esc(id) + '">Reconnect</button>' : '') +
+      (att.canAdd ? '<button type="button" class="bank-alert-btn btn-add-card-inst" data-item="' + esc(id) + '">Add</button>' : '') + '</div>';
   });
   box.innerHTML = html;
   box.hidden = !html;
@@ -2518,7 +2528,8 @@ async function reconnectItem(itemId, btn) {
       token: data.link_token,
       onSuccess: async function() {
         showToast('Reconnected. Catching up…');
-        if (itemHealth[itemId]) { itemHealth[itemId].error_code = null; itemHealth[itemId].consent_expires_at = null; }
+        if (itemHealth[itemId]) { itemHealth[itemId].error_code = null; itemHealth[itemId].consent_expires_at = null; itemHealth[itemId].notice_code = null; }
+        clearItemNotice(itemId, headers);
         renderBankAlerts();
         localStorage.setItem('alenjo_last_tx_sync', String(Date.now()));
         await backgroundSync();
@@ -3480,7 +3491,9 @@ document.addEventListener('click', async function(e) {
             headers: headers,
             body: JSON.stringify({ action: 'sync_added_accounts', item_id: itemId })
           });
+          clearItemNotice(itemId, headers);
           await loadAccounts();
+          await loadItemHealth();
           showToast('Card added');
         } catch (err) {
           console.error('sync_added_accounts failed:', err);
@@ -4008,8 +4021,11 @@ async function txWindowStart() {
   var start = floor;
   var fc = await sb.rpc('get_first_connection_date');
   if (fc.data) { var f = new Date(fc.data); start = new Date(f.getFullYear(), f.getMonth() - 1, 1); }
-  return start < floor ? floor : start;
+  var from = start < floor ? floor : start;
+  txWindowFrom = ymdLocal(from);
+  return from;
 }
+var txWindowFrom = null;
 
 async function loadTransactions() {
   var txEmpty = $('#tx-empty');
@@ -4707,7 +4723,7 @@ function scrollBarsToFocus() {
   el._focusDay = null;
 }
 if (window.ResizeObserver) {
-  new ResizeObserver(function() { scrollBarsToFocus(); if (typeof updateCatScroll === 'function') updateCatScroll(); })
+  new ResizeObserver(function() { requestAnimationFrame(function() { scrollBarsToFocus(); if (typeof updateCatScroll === 'function') updateCatScroll(); }); })
     .observe(document.getElementById('tx-content'));
 }
 var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 7;
@@ -4996,7 +5012,10 @@ $('#btn-add-tx').addEventListener('click', function() {
   // Reset form
   $('#add-tx-name').value = '';
   $('#add-tx-amount').value = '';
-  $('#add-tx-date').value = new Date().toISOString().split('T')[0];
+  $('#add-tx-date').value = ymdLocal(new Date());
+  // Only dates Activity shows: from the start of your history through today
+  $('#add-tx-date').max = ymdLocal(new Date());
+  if (txWindowFrom) $('#add-tx-date').min = txWindowFrom;
   $('#add-tx-category').value = 'OTHER';
   setAddTxDir('out');
 
@@ -5041,6 +5060,8 @@ $('#add-tx-save').addEventListener('click', async function() {
   if (!name) { showToast('Enter a name'); return; }
   if (!amountVal || amountVal <= 0) { showToast('Enter an amount'); return; }
   if (!date) { showToast('Pick a date'); return; }
+  if (date > ymdLocal(new Date())) { showToast("Pick a date that isn't in the future"); return; }
+  if (txWindowFrom && date < txWindowFrom) { showToast('Pick a date in the months Activity shows'); return; }
 
   // Plaid convention: positive = money out, negative = money in
   var amount = addTxDir === 'in' ? -amountVal : amountVal;
@@ -5077,7 +5098,12 @@ $('#add-tx-save').addEventListener('click', async function() {
 
   // Save to DB in background
   sb.from('synced_transactions').insert(row).then(function(result) {
-    if (result.error) console.error('Insert manual tx error:', result.error);
+    if (result.error) {
+      console.error('Insert manual tx error:', result.error);
+      txData = txData.filter(function(t) { return t.id !== txId; });
+      renderTransactionMonth();
+      showToast("Couldn't save that transaction. Try again.");
+    }
   });
 });
 
@@ -5211,6 +5237,8 @@ function renderTxSheet(tx) {
   var changed = !!(action.action_type || action.split_ways || action.split_portion || action.amount_override != null || action.category_override || action.nickname || action.date_override || action.note);
   document.querySelector('.action-option-clear').hidden = !changed;
   $('#btn-delete-tx').hidden = !(tx.id && (tx.id.indexOf('manual_') === 0 || tx.removed_at));
+  var delBtn = $('#btn-delete-tx');
+  if (delBtn._armed) { clearTimeout(delBtn._t); delBtn._armed = false; delBtn.textContent = delBtn._label; }
   var st = $('#tx-action-status');
   if (tx.removed_at) {
     var when = new Date(tx.removed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -5628,7 +5656,16 @@ $('#btn-delete-tx').addEventListener('click', function() {
   if (!actionTxId) return;
   var delTx = txData.find(function(t) { return t.id === actionTxId; });
   if (!delTx || !(actionTxId.indexOf('manual_') === 0 || delTx.removed_at)) return;
+  // Two taps: the first asks, the second deletes
+  var btn = this;
+  if (!btn._armed) {
+    btn._armed = true; btn._label = btn.textContent; btn.textContent = 'Tap again to delete';
+    clearTimeout(btn._t); btn._t = setTimeout(function() { btn._armed = false; btn.textContent = btn._label; }, 3000);
+    return;
+  }
+  clearTimeout(btn._t); btn._armed = false; btn.textContent = btn._label;
   var deleteId = actionTxId;
+  var savedAction = txActions[deleteId];
   if (txActions[deleteId]) sb.from('transaction_actions').delete().eq('user_id', currentUser.id).eq('transaction_id', deleteId).then(function() {});
   txData = txData.filter(function(tx) { return tx.id !== deleteId; });
   delete txActions[deleteId];
@@ -5637,7 +5674,13 @@ $('#btn-delete-tx').addEventListener('click', function() {
   closeActionSheet();
   // Delete from DB in background
   sb.from('synced_transactions').delete().eq('id', deleteId).eq('user_id', currentUser.id).then(function(result) {
-    if (result.error) console.error('Delete tx error:', result.error);
+    if (result.error) {
+      console.error('Delete tx error:', result.error);
+      txData.push(delTx);
+      if (savedAction) txActions[deleteId] = savedAction;
+      renderTransactionMonth();
+      showToast("Couldn't delete it. Try again.");
+    }
   });
 });
 
@@ -5892,14 +5935,21 @@ async function saveMultiAction(txId, updates, opts) {
     user_id: currentUser.id,
     transaction_id: txId,
     action_type: updates.hasOwnProperty('action_type') ? updates.action_type : (existing.action_type || null),
-    split_ways: updates.hasOwnProperty('split_ways') ? updates.split_ways : (existing.split_ways || null),
-    split_portion: updates.hasOwnProperty('split_portion') ? updates.split_portion : (existing.split_portion || null),
+    split_ways: updates.hasOwnProperty('split_ways') ? updates.split_ways : (existing.split_ways != null ? existing.split_ways : null),
+    split_portion: updates.hasOwnProperty('split_portion') ? updates.split_portion : (existing.split_portion != null ? existing.split_portion : null),
     amount_override: updates.hasOwnProperty('amount_override') ? updates.amount_override : (existing.amount_override != null ? existing.amount_override : null),
-    category_override: updates.hasOwnProperty('category_override') ? updates.category_override : (existing.category_override || null),
-    nickname: updates.hasOwnProperty('nickname') ? updates.nickname : (existing.nickname || null),
-    note: updates.hasOwnProperty('note') ? updates.note : (existing.note || null),
-    date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override || null)
+    category_override: updates.hasOwnProperty('category_override') ? updates.category_override : (existing.category_override != null ? existing.category_override : null),
+    nickname: updates.hasOwnProperty('nickname') ? updates.nickname : (existing.nickname != null ? existing.nickname : null),
+    note: updates.hasOwnProperty('note') ? updates.note : (existing.note != null ? existing.note : null),
+    date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override != null ? existing.date_override : null)
   };
+  // Nothing left to remember: remove the record instead of saving an empty one
+  var hasAny = ['action_type','split_ways','split_portion','amount_override','category_override','nickname','note','date_override'].some(function(k) { return row[k] != null && row[k] !== ''; });
+  if (!hasAny) {
+    if (!opts.quiet) showToast(opts.silent ? 'Note saved' : 'Saved');
+    clearTxAction(txId);
+    return;
+  }
   // Update local state and render immediately
   txActions[txId] = row;
   if (!opts.quiet) showToast(opts.silent ? 'Note saved' : 'Saved');

@@ -84,8 +84,10 @@ Deno.serve(async (req) => {
         user: { client_user_id: user.id },
         client_name: 'Alenjo',
         products: requestedProducts,
-        required_if_supported_products: ['investments'],
-        optional_products: ['liabilities'],
+        // Plaid's recommended setup: ask permission for these now, but only start (and pay for)
+        // each one when Alenjo first uses it, which sync does only for banks with matching
+        // accounts (investments: investment accounts; liabilities: cards and loans).
+        additional_consented_products: ['investments', 'liabilities'],
         country_codes: ['US'],
         language: 'en',
         // New transactions ping Alenjo's server (free), which powers notifications
@@ -135,7 +137,7 @@ Deno.serve(async (req) => {
         country_codes: ['US'],
         language: 'en',
         update: { account_selection_enabled: false },
-        additional_consented_products: ['investments'],
+        additional_consented_products: ['investments', 'liabilities'],
       };
       const data = await plaidRequest('/link/token/create', linkParams);
       if (data.error_code) {
@@ -143,6 +145,13 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'Plaid error', detail: data.error_message }, 500);
       }
       return jsonResponse({ link_token: data.link_token });
+    }
+
+    // You finished update mode (reconnect or add accounts): the bank alert is handled
+    if (action === 'clear_notice') {
+      if (!item_id) return jsonResponse({ error: 'Missing item_id' }, 400);
+      await adminClient.from('plaid_items').update({ notice_code: null, notice_at: null }).eq('id', item_id).eq('user_id', user.id);
+      return jsonResponse({ success: true });
     }
 
     if (action === 'create_add_accounts_token') {

@@ -220,6 +220,9 @@ Deno.serve(async (req: Request) => {
       // Plaid says when a bank's full history has arrived (needed before merging kept history)
       let updateStatus = '';
 
+      // Plaid: fetch every page of an update before saving any of it. If the bank changes
+      // something mid-way, start the whole update over from the first cursor.
+      let added: any[] = [], modified: any[] = [], removed: any[] = [];
       while (hasMore) {
         const data = await plaidRequest('/transactions/sync', {
           access_token: item.access_token,
@@ -229,6 +232,7 @@ Deno.serve(async (req: Request) => {
 
         if (data.error_code === 'TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION') {
           cursor = savedCursor;
+          added = []; modified = []; removed = [];
           continue;
         }
 
@@ -237,7 +241,18 @@ Deno.serve(async (req: Request) => {
           break;
         }
 
-        for (const tx of (data.added || [])) {
+        added = added.concat(data.added || []);
+        modified = modified.concat(data.modified || []);
+        removed = removed.concat(data.removed || []);
+        cursor = data.next_cursor;
+        hasMore = data.has_more;
+        if (data.transactions_update_status) updateStatus = data.transactions_update_status;
+      }
+
+      // Only a complete update is saved; on an error the cursor stays where it was
+      if (itemError) cursor = savedCursor;
+      else {
+        for (const tx of added) {
           // Skip transactions from investment accounts
           if (investAccountPlaidIds.has(tx.account_id)) continue;
           if (tx.date < historyStart) continue;
@@ -275,7 +290,7 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        for (const tx of (data.modified || [])) {
+        for (const tx of modified) {
           if (investAccountPlaidIds.has(tx.account_id)) continue;
           if (tx.date < historyStart) continue;
           if (tx.pending_transaction_id) {
@@ -288,7 +303,7 @@ Deno.serve(async (req: Request) => {
           totalModified++;
         }
 
-        for (const tx of (data.removed || [])) {
+        for (const tx of removed) {
           const { data: row } = await adminClient.from('synced_transactions')
             .select('pending').eq('id', tx.transaction_id).eq('user_id', user.id).maybeSingle();
           if (row && !row.pending) {
@@ -307,10 +322,6 @@ Deno.serve(async (req: Request) => {
           }
           totalRemoved++;
         }
-
-        cursor = data.next_cursor;
-        hasMore = data.has_more;
-        if (data.transactions_update_status) updateStatus = data.transactions_update_status;
       }
 
       let plaidLastChecked: string | null = null;

@@ -1,3 +1,6 @@
+/* Anything marked hidden stays hidden, whatever display a component sets */
+[hidden] { display: none !important; }
+
 /* Ledger theme: light by default, dark via system setting or data-theme */
 :root {
   color-scheme: light;
