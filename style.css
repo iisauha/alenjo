@@ -3803,3 +3803,8 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .app-header.is-settings.is-subpage .header-back { display: inline-flex; min-height: 40px; margin: 0 0 0 -8px; }
 #set-main { padding-top: 8px; }
 .set-page-title { margin-top: 8px; }
+
+/* Manual transaction: money out or in */
+.add-tx-dir { display: flex; gap: 2px; padding: 3px; margin-bottom: 4px; border-radius: 10px; background: var(--bg-elevated); }
+.add-tx-dir button { flex: 1; min-height: 36px; border: none; border-radius: 8px; background: transparent; color: var(--text-muted); font: 500 0.875rem 'Inter', sans-serif; cursor: pointer; }
+.add-tx-dir button[aria-pressed="true"] { background: var(--accent-subtle); color: var(--accent); font-weight: 600; box-shadow: inset 0 0 0 1px var(--accent); }

@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261122083702';</script>
+  <script>var _v = '20261122182839';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261122083702">
+  <link rel="stylesheet" href="style.css?v=20261122182839">
 </head>
 <body>
 
@@ -456,7 +456,7 @@
         <ul class="set-intro set-bullets">
           <li>Got a new card at a bank that’s already here? Tap <b>Manage</b> on that bank and check it. Don’t add the bank again.</li>
           <li><b>Reconnect</b> just means the bank wants you to sign in again. Your history stays.</li>
-          <li><b>Disconnect</b> stops syncing. Past transactions stay in Activity.</li>
+          <li><b>Disconnect</b> stops syncing. Choose <b>keep history</b>: if you add the bank back later, it merges in with no duplicates.</li>
           <li>New transactions come in on their own, no refreshing needed.</li>
         </ul>
         <div id="accounts-list" class="accounts-manage-list"></div>
@@ -654,8 +654,12 @@
       <div class="action-sheet-header">
         <span class="action-sheet-title">Add a manual transaction</span>
       </div>
-      <p class="budget-help add-tx-help">For anything your bank didn't send over, like cash you paid or a purchase that never showed up. Your synced transactions are added for you.</p>
+      <p class="budget-help add-tx-help">For anything your bank didn't send over, like cash you paid or a deposit that never showed up. Your synced transactions are added for you.</p>
       <div class="add-tx-form">
+        <div class="add-tx-dir" role="group" aria-label="Money out or money in">
+          <button type="button" data-dir="out" aria-pressed="true">Money out</button>
+          <button type="button" data-dir="in" aria-pressed="false">Money in</button>
+        </div>
         <div class="edit-field">
           <label for="add-tx-name">Name</label>
           <input type="text" id="add-tx-name" class="app-input" placeholder="Store, service, or description...">
@@ -740,7 +744,7 @@
       <div class="disc-options">
         <button type="button" class="disc-option" id="disconnect-keep">
           <b>Disconnect, keep history</b>
-          <span>Stops syncing and the Plaid fee. Transactions, notes and splits stay in Activity. The accounts move to Closed accounts and leave your Home totals.</span>
+          <span>Stops syncing and the Plaid fee. Transactions, notes and splits stay in Activity, and the accounts leave your Home totals. Add the bank back later and its history merges in, without duplicates.</span>
         </button>
         <button type="button" class="disc-option danger" id="disconnect-delete">
           <b>Disconnect and delete everything</b>

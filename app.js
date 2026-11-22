@@ -4976,12 +4976,26 @@ function monthLabel(m) { return MONTH_LONG[parseInt(m.slice(5, 7), 10) - 1] + ' 
 // ============================================
 var addTxSheet = $('#add-tx-sheet');
 
+// Money out (a purchase) or money in (a deposit, paycheck, refund)
+var addTxDir = 'out';
+function setAddTxDir(dir) {
+  addTxDir = dir;
+  document.querySelectorAll('.add-tx-dir button').forEach(function(b) { b.setAttribute('aria-pressed', String(b.dataset.dir === dir)); });
+  var cat = $('#add-tx-category');
+  if (dir === 'in' && cat.value === 'OTHER') cat.value = 'INCOME';
+  if (dir === 'out' && cat.value === 'INCOME') cat.value = 'OTHER';
+}
+document.querySelectorAll('.add-tx-dir button').forEach(function(b) {
+  b.addEventListener('click', function() { setAddTxDir(b.dataset.dir); });
+});
+
 $('#btn-add-tx').addEventListener('click', function() {
   // Reset form
   $('#add-tx-name').value = '';
   $('#add-tx-amount').value = '';
   $('#add-tx-date').value = new Date().toISOString().split('T')[0];
   $('#add-tx-category').value = 'OTHER';
+  setAddTxDir('out');
 
   // Populate account dropdown with Cash first, then linked accounts
   var acctSelect = $('#add-tx-account');
@@ -5025,8 +5039,8 @@ $('#add-tx-save').addEventListener('click', async function() {
   if (!amountVal || amountVal <= 0) { showToast('Enter an amount'); return; }
   if (!date) { showToast('Pick a date'); return; }
 
-  // Plaid convention: positive = expense
-  var amount = amountVal;
+  // Plaid convention: positive = money out, negative = money in
+  var amount = addTxDir === 'in' ? -amountVal : amountVal;
 
   var selectedOpt = acctSelect.options[acctSelect.selectedIndex];
   var isCash = acctSelect.value === 'cash';

@@ -207,6 +207,8 @@ Deno.serve(async (req: Request) => {
       // A connection that needs the user (password changed, bank wants a new
       // sign-in, permission expired) is recorded so the app can offer Reconnect.
       let itemError: string | null = null;
+      // Plaid says when a bank's full history has arrived (needed before merging kept history)
+      let updateStatus = '';
 
       while (hasMore) {
         const data = await plaidRequest('/transactions/sync', {
@@ -284,6 +286,7 @@ Deno.serve(async (req: Request) => {
 
         cursor = data.next_cursor;
         hasMore = data.has_more;
+        if (data.transactions_update_status) updateStatus = data.transactions_update_status;
       }
 
       let plaidLastChecked: string | null = null;
@@ -321,6 +324,16 @@ Deno.serve(async (req: Request) => {
       if (itemError) {
         needsAttention.push(item.id);
         continue;
+      }
+
+      // Re-added a bank whose history you kept? Once its full history is in, fold the old
+      // history in: duplicates dropped (your edits move over), anything the new import missed kept.
+      if (updateStatus === 'HISTORICAL_UPDATE_COMPLETE') {
+        const { data: merged, error: mergeErr } = await adminClient.rpc('merge_reconnected_history', {
+          p_user_id: user.id, p_item_id: item.id,
+        });
+        if (mergeErr) console.error('history merge failed:', mergeErr.message);
+        else if (merged?.accounts) console.log('merged kept history:', JSON.stringify(merged));
       }
 
       try {
