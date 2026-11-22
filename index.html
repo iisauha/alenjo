@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261122074435';</script>
+  <script>var _v = '20261122075311';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261122074435">
+  <link rel="stylesheet" href="style.css?v=20261122075311">
 </head>
 <body>
 
@@ -361,15 +361,9 @@
         <input type="file" id="avatar-upload" accept="image/*" hidden>
         <div class="set-profile-who">
           <b id="set-profile-name"></b>
-          <span id="settings-email" class="set-hint"></span>
+          <span id="set-profile-since" class="set-hint"></span>
         </div>
         <button type="button" class="set-edit-profile" data-open-page="profile">Edit</button>
-      </div>
-
-      <div class="set-tiles">
-        <button type="button" class="set-tile" id="set-tile-add-bank"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M19 10v8M3 20h11"/><path d="M18 15v6M15 18h6"/></svg><span>Add bank</span></button>
-        <button type="button" class="set-tile" id="set-tile-hide"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Hide amounts</span></button>
-        <button type="button" class="set-tile" id="set-tile-card-art"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19"/><path d="M15 15h3"/></svg><span>Card art</span></button>
       </div>
 
       <div class="set-group set-nav-group">
@@ -404,6 +398,7 @@
             <button id="btn-save-name" class="btn-primary-sm">Save</button>
           </div>
         </div>
+        <div class="set-row"><span>Email</span><span id="settings-email" class="set-hint set-email-val"></span></div>
         <button type="button" class="set-row set-row-action" id="set-change-photo">Change profile photo</button>
       </div>
       </div>

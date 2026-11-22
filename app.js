@@ -665,8 +665,6 @@ function refreshSettingsSummary() {
   put('set-sum-banks', banks ? banks + ' connected' : 'None connected yet');
   var fid = $('#faceid-status'), mins = $('#pref-lock-minutes');
   put('set-sum-lock', (fid ? fid.textContent : '') + (mins ? ' · locks after ' + mins.value + ' min' : ''));
-  var hideTile = $('#set-tile-hide span');
-  if (hideTile) hideTile.textContent = hideMoney ? 'Show amounts' : 'Hide amounts';
 }
 (function wireSettingsPages() {
   var tab = $('#tab-settings');
@@ -677,9 +675,6 @@ function refreshSettingsSummary() {
     if (e.target.closest('[data-close-page]')) closeSetPage(false);
   });
   $('#set-change-photo').addEventListener('click', function() { $('#avatar-upload').click(); });
-  $('#set-tile-add-bank').addEventListener('click', function() { $('#btn-add-account').click(); });
-  $('#set-tile-hide').addEventListener('click', function() { setHideMoney(!hideMoney); refreshSettingsSummary(); });
-  $('#set-tile-card-art').addEventListener('click', function() { openSetPage('cards'); $('#btn-add-card-design').click(); });
   // Keep the row summaries current as the pages' contents load or change
   var watch = new MutationObserver(function() { refreshSettingsSummary(); });
   var el;
@@ -853,6 +848,8 @@ function updateSettingsProfile() {
   if (emailEl && currentUser) emailEl.textContent = currentUser.email || '';
   var who = $('#set-profile-name');
   if (who) who.textContent = userProfile.display_name || 'Your profile';
+  var since = $('#set-profile-since');
+  if (since && currentUser && currentUser.created_at) since.textContent = 'Using Alenjo since ' + new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   if (avatar && userProfile.avatar_url) {
     avatar.style.backgroundImage = 'url(' + userProfile.avatar_url + ')';
   }
