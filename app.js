@@ -2602,14 +2602,7 @@ async function backgroundSync() {
     // Refresh txData so sign-up bonus progress reflects newly-synced transactions
     var hasBonus = cachedAccounts && cachedAccounts.some(function(a) { return a.type === 'credit' && a.bonus_target_amount; });
     if (hasBonus) {
-      var now = new Date();
-      var dataStartDate = new Date(now.getFullYear(), now.getMonth() - 24, 1);
-      var fcResult = await sb.rpc('get_first_connection_date');
-      if (fcResult.data) {
-        var fc = new Date(fcResult.data);
-        dataStartDate = new Date(fc.getFullYear(), fc.getMonth() - 1, 1);
-      }
-      var dataStartStr = dataStartDate.toISOString().split('T')[0];
+      var dataStartStr = ymdLocal(await txWindowStart());
       var txResult = await fetchAllRows(function() { return sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false }).order('id'); });
       if (!txResult.error && txResult.data) {
         txData = txResult.data;
@@ -4006,6 +3999,24 @@ function selectIfPresent(sel, value) {
   return false;
 }
 var txListenersReady = false;
+// Transactions window: from the month before your first connection, or your earliest
+// transaction if that's older (kept history, manual entries), capped at 24 months.
+function ymdLocal(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+async function txWindowStart() {
+  var now = new Date();
+  var floor = new Date(now.getFullYear(), now.getMonth() - 24, 1);
+  var start = floor;
+  var fc = await sb.rpc('get_first_connection_date');
+  if (fc.data) { var f = new Date(fc.data); start = new Date(f.getFullYear(), f.getMonth() - 1, 1); }
+  var earliest = await sb.from('synced_transactions').select('date').order('date', { ascending: true }).limit(1);
+  if (earliest.data && earliest.data[0] && earliest.data[0].date) {
+    var ep = earliest.data[0].date.split('-');
+    var e = new Date(parseInt(ep[0], 10), parseInt(ep[1], 10) - 1, 1);
+    if (e < start) start = e;
+  }
+  return start < floor ? floor : start;
+}
+
 async function loadTransactions() {
   var txEmpty = $('#tx-empty');
   var txContent = $('#tx-content');
@@ -4021,15 +4032,9 @@ async function loadTransactions() {
   txEmpty.hidden = true;
   txLoadingEl.classList.remove('visible');
 
-  // Determine data window: start of first connection month, capped at 24 months
   var now = new Date();
-  var dataStartDate = new Date(now.getFullYear(), now.getMonth() - 24, 1);
-  var fcResult = await sb.rpc('get_first_connection_date');
-  if (fcResult.data) {
-    var fc = new Date(fcResult.data);
-    dataStartDate = new Date(fc.getFullYear(), fc.getMonth() - 1, 1);
-  }
-  var dataStartStr = dataStartDate.toISOString().split('T')[0];
+  var dataStartDate = await txWindowStart();
+  var dataStartStr = ymdLocal(dataStartDate);
 
   // Fetch transactions within data window
   var result = await fetchAllRows(function() {
@@ -4193,6 +4198,8 @@ async function loadTransactions() {
       searchTimer = setTimeout(renderTransactionMonth, 200);
     });
 
+    var removedNoteBtn = $('#act-removed-note');
+    if (removedNoteBtn) removedNoteBtn.addEventListener('click', function() { if (!showIgnoredTx) btnIgnored.click(); });
     btnIgnored.addEventListener('click', function() {
       showIgnoredTx = !showIgnoredTx;
       localStorage.setItem('alenjo_show_ignored', showIgnoredTx ? 'true' : 'false');
@@ -4214,8 +4221,11 @@ function getEffectiveTx(tx) {
     splitPortion: action ? action.split_portion : null,
     reimbursement: 0,
     nickname: null, note: null, date: swipeDate(tx),
-    isSplit: false, isAdjusted: false, isRecategorized: false
+    isSplit: false, isAdjusted: false, isRecategorized: false,
+    removedByBank: !!tx.removed_at
   };
+  // Your bank withdrew it: not counted until you choose to keep it
+  if (tx.removed_at) { result.excluded = true; result.amount = 0; }
   if (!action) return result;
   if (action.nickname) result.nickname = action.nickname;
   if (action.note) result.note = action.note;
@@ -4342,6 +4352,14 @@ function renderTransactionMonth() {
       if ((eff.note || '').toLowerCase().indexOf(searchVal) !== -1) return true;
       return nick.indexOf(searchVal) !== -1 || enriched.indexOf(searchVal) !== -1 || merchant.indexOf(searchVal) !== -1 || name.indexOf(searchVal) !== -1;
     });
+  }
+
+  // Something your bank removed this month: say so, since it's hidden with the ignored ones
+  var removedN = filtered.filter(function(tx) { return tx.removed_at; }).length;
+  var removedNote = $('#act-removed-note');
+  if (removedNote) {
+    removedNote.hidden = !removedN || showIgnoredTx;
+    removedNote.textContent = removedN === 1 ? 'Your bank removed 1 transaction this month. Review it' : 'Your bank removed ' + removedN + ' transactions this month. Review them';
   }
 
   // Hide ignored/reimbursed unless toggled on
@@ -4580,6 +4598,7 @@ function renderTransactionMonth() {
       var income = tx.amount < 0;
       var tags = '';
       if (tx.pending) tags += '<span class="act-tag act-tag-pending">Pending</span>';
+      if (eff.removedByBank) tags += '<span class="act-tag act-tag-pending">Removed by bank</span>';
       if (movedEarlier[tx.id]) tags += '<span class="act-tag act-tag-pending">Moved to ' + MONTH_LONG[parseInt(movedEarlier[tx.id].substring(5, 7), 10) - 1] + '</span>';
       else if (eff.date !== swipeDate(tx)) tags += '<span class="act-tag">Moved</span>';
       if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
@@ -4894,7 +4913,7 @@ function exportRows(month) {
   txData.forEach(function(tx) {
     if (cardId !== 'all' && tx.plaid_account_id !== cardId) return;
     var eff = getEffectiveTx(tx);
-    if (eff.actionType === 'ignored') return;
+    if (eff.actionType === 'ignored' || eff.removedByBank) return;
     if (month && eff.date.slice(0, 7) !== month) return;
     var status = tx.pending ? 'Pending'
       : eff.actionType === 'reimbursed' ? 'Reimbursed'
@@ -5195,7 +5214,7 @@ function renderTxSheet(tx) {
   amtTag.hidden = eff.excluded || !(eff.isSplit || eff.isAdjusted);
   amtTag.textContent = eff.isAdjusted ? 'Adjusted' : eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split';
   amtTag.className = 'txs-adj ' + (eff.isAdjusted ? 'is-adjusted' : 'is-split');
-  $('#txs-amt-sub').textContent = eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
+  $('#txs-amt-sub').textContent = eff.removedByBank ? 'Removed by your bank · not counted' : eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
     : tx.pending ? 'Pending' : '';
 
   $('#txs-cat-val').textContent = normalizeCategory(eff.category);
@@ -5207,7 +5226,17 @@ function renderTxSheet(tx) {
   });
   var changed = !!(action.action_type || action.split_ways || action.split_portion || action.amount_override != null || action.category_override || action.nickname || action.date_override || action.note);
   document.querySelector('.action-option-clear').hidden = !changed;
-  $('#btn-delete-tx').hidden = !(tx.id && tx.id.indexOf('manual_') === 0);
+  $('#btn-delete-tx').hidden = !(tx.id && (tx.id.indexOf('manual_') === 0 || tx.removed_at));
+  var st = $('#tx-action-status');
+  if (tx.removed_at) {
+    var when = new Date(tx.removed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    st.className = 'txs-removed';
+    st.innerHTML = '<p><b>Your bank removed this on ' + esc(when) + '.</b> That usually means it was a duplicate or got reversed, so it isn’t counted. If it really happened, keep it.</p>' +
+      '<button type="button" class="btn-primary-sm" id="txs-keep">Keep it</button>';
+    st.hidden = false;
+  } else {
+    st.hidden = true; st.innerHTML = ''; st.className = '';
+  }
   renderMonthMove(tx);
 }
 
@@ -5612,8 +5641,11 @@ document.querySelector('.action-option-clear').addEventListener('click', functio
 
 // Delete manual transaction
 $('#btn-delete-tx').addEventListener('click', function() {
-  if (!actionTxId || actionTxId.indexOf('manual_') !== 0) return;
+  if (!actionTxId) return;
+  var delTx = txData.find(function(t) { return t.id === actionTxId; });
+  if (!delTx || !(actionTxId.indexOf('manual_') === 0 || delTx.removed_at)) return;
   var deleteId = actionTxId;
+  if (txActions[deleteId]) sb.from('transaction_actions').delete().eq('user_id', currentUser.id).eq('transaction_id', deleteId).then(function() {});
   txData = txData.filter(function(tx) { return tx.id !== deleteId; });
   delete txActions[deleteId];
   showToast('Transaction deleted');
@@ -5622,6 +5654,19 @@ $('#btn-delete-tx').addEventListener('click', function() {
   // Delete from DB in background
   sb.from('synced_transactions').delete().eq('id', deleteId).eq('user_id', currentUser.id).then(function(result) {
     if (result.error) console.error('Delete tx error:', result.error);
+  });
+});
+
+// Keep a transaction your bank removed: it counts again
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#txs-keep') || !actionTx) return;
+  var t = actionTx;
+  t.removed_at = null;
+  renderTxSheet(t);
+  renderTransactionMonth();
+  showToast('Kept · it counts again');
+  sb.from('synced_transactions').update({ removed_at: null }).eq('id', t.id).eq('user_id', currentUser.id).then(function(r) {
+    if (r.error) showToast('Could not save');
   });
 });
 

@@ -44,6 +44,8 @@ function buildTxRow(tx: any, userId: string, itemId: string) {
     enriched_payment_channel: tx.payment_channel || null,
     enriched_location_city: tx.location?.city || null,
     enriched_location_region: tx.location?.region || null,
+    // Sent again by Plaid: no longer set aside as removed
+    removed_at: null,
   };
 }
 
@@ -277,10 +279,22 @@ Deno.serve(async (req: Request) => {
         }
 
         for (const tx of (data.removed || [])) {
-          await adminClient.from('synced_transactions')
-            .delete()
-            .eq('id', tx.transaction_id)
-            .eq('user_id', user.id);
+          const { data: row } = await adminClient.from('synced_transactions')
+            .select('pending').eq('id', tx.transaction_id).eq('user_id', user.id).maybeSingle();
+          if (row && !row.pending) {
+            // A posted transaction your bank withdrew: never deleted silently. It's set aside
+            // (not counted) so you can keep it if it really happened, or delete it.
+            await adminClient.from('synced_transactions')
+              .update({ removed_at: new Date().toISOString() })
+              .eq('id', tx.transaction_id).eq('user_id', user.id);
+          } else {
+            // A pending charge going away is normal (it posted under a new id, or dropped).
+            // Its edits already moved to the posted copy above; clear anything left over.
+            await adminClient.from('transaction_actions').delete()
+              .eq('user_id', user.id).eq('transaction_id', tx.transaction_id);
+            await adminClient.from('synced_transactions').delete()
+              .eq('id', tx.transaction_id).eq('user_id', user.id);
+          }
           totalRemoved++;
         }
 
