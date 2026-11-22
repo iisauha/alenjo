@@ -578,6 +578,10 @@ function plaidCreate(cfg) {
   var done = function(fn) { return function() { plaidOpenSince = 0; markActivity(); return fn && fn.apply(this, arguments); }; };
   cfg.onSuccess = done(cfg.onSuccess);
   cfg.onExit = done(cfg.onExit);
+  // Plaid: watch Link events for errors (with the session id Plaid support asks for)
+  if (!cfg.onEvent) cfg.onEvent = function(name, meta) {
+    if (name === 'ERROR' || (meta && meta.error_code)) console.error('Plaid Link', name, meta && meta.error_type, meta && meta.error_code, meta && meta.link_session_id);
+  };
   var h = Plaid.create(cfg), open = h.open.bind(h);
   h.open = function() { plaidOpenSince = Date.now(); return open.apply(null, arguments); };
   return h;
@@ -2471,8 +2475,9 @@ async function openPlaidLink(products) {
     var handler = plaidCreate({
       token: data.link_token,
       onSuccess: function(publicToken, metadata) { return finishNewConnection(headers, publicToken, metadata); },
-      onExit: function(err) {
+      onExit: function(err, meta) {
         showLoading(false);
+        if (err) console.error('Plaid Link exit', err.error_type, err.error_code, meta && meta.link_session_id);
         if (err) {
           showError('Connection failed: ' + (err.display_message || err.error_message || 'Check your connection and try again.'));
         }

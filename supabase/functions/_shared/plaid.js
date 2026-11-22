@@ -32,7 +32,10 @@ export async function plaidRequest(endpoint, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ client_id: env('PLAID_CLIENT_ID'), secret: env('PLAID_SECRET'), ...body }),
   });
-  return res.json();
+  const out = await res.json();
+  // Plaid: log request_id with any error so Plaid support can look it up
+  if (out && out.error_code) console.error('Plaid error', endpoint, out.error_type || '', out.error_code, 'request_id', out.request_id || '');
+  return out;
 }
 
 export function webhookUrl() {

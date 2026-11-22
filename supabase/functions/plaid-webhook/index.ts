@@ -56,7 +56,11 @@ async function handle(evt: any) {
   const { data: item } = await admin.from('plaid_items').select('id, user_id, status').eq('item_id_hash', hash).maybeSingle();
   if (!item || item.status !== 'active') { console.log('webhook for unknown or removed item', evt.webhook_type, evt.webhook_code); return; }
 
-  if (evt.webhook_type === 'TRANSACTIONS' && evt.webhook_code === 'SYNC_UPDATES_AVAILABLE') {
+  // Plaid: new transactions, or fresh holdings / loan and card details. All refresh with the same
+  // free sync (it also updates balances, holdings and liabilities for this bank).
+  const refresh = (evt.webhook_type === 'TRANSACTIONS' && evt.webhook_code === 'SYNC_UPDATES_AVAILABLE')
+    || ((evt.webhook_type === 'HOLDINGS' || evt.webhook_type === 'LIABILITIES') && evt.webhook_code === 'DEFAULT_UPDATE');
+  if (refresh) {
     const res = await fetch(Deno.env.get('SUPABASE_URL') + '/functions/v1/sync-transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') },
@@ -64,7 +68,7 @@ async function handle(evt: any) {
     });
     const out = await res.json().catch(() => ({}));
     const fresh = out.new_transactions || [];
-    console.log('webhook sync', res.status, 'new', fresh.length);
+    console.log('webhook sync', evt.webhook_type, res.status, 'new', fresh.length);
     if (fresh.length) console.log('notify', JSON.stringify(await deliver(admin, item.user_id, fresh)));
     return;
   }
