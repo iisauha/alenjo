@@ -1,0 +1,9 @@
+{
+  "name": "alenjo-vendored-libraries",
+  "private": true,
+  "description": "Libraries bundled in /vendor, listed so GitHub's dependency graph and Dependabot can flag known vulnerabilities and new versions. Not installed with npm.",
+  "dependencies": {
+    "@supabase/supabase-js": "2.119.2",
+    "chart.js": "4.6.1"
+  }
+}

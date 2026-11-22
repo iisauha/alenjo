@@ -1,0 +1,11 @@
+# Weekly check of the bundled libraries (vendor/package.json) and the workflow actions
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /vendor
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

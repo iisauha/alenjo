@@ -24,6 +24,9 @@ Deno.serve(async (req: Request) => {
     const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: 'Unauthorized' }, 401);
+    // Two-step sign-in, when it's on, must be completed first (server-side check)
+    const { data: mfaOk } = await userClient.rpc('mfa_satisfied');
+    if (mfaOk !== true) return json({ error: 'Two-step sign-in required' }, 403);
 
     const body = await req.json().catch(() => ({}));
     const typed = String(body?.confirm || '').trim().replace(/\s+/g, ' ').toLowerCase();

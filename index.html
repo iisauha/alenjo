@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261122195635';</script>
+  <script>var _v = '20261122201308';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261122195635">
+  <link rel="stylesheet" href="style.css?v=20261122201308">
 </head>
 <body>
 
@@ -150,6 +150,13 @@
           <button type="submit" id="auth-submit" class="btn-primary">Sign in</button>
           <button type="button" id="btn-forgot" class="signin-link signin-forgot">Forgot password?</button>
           <button type="button" id="btn-goto-beta" class="btn-link" hidden>Sign up</button>
+        </form>
+        <form id="mfa-form" class="signin-card" hidden>
+          <p class="signin-mfa-title">Enter the 6-digit code from your authenticator app</p>
+          <p id="mfa-error" class="auth-error" hidden></p>
+          <div class="signin-field"><input type="text" id="mfa-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" aria-label="6-digit code"></div>
+          <button type="submit" id="mfa-submit" class="btn-primary">Verify</button>
+          <button type="button" id="mfa-cancel" class="signin-link signin-forgot">Cancel</button>
         </form>
         <form id="reset-form" class="signin-card" hidden>
           <p id="reset-error" class="auth-error" hidden></p>
@@ -378,7 +385,7 @@
         <button type="button" class="set-nav" data-open-page="home"><span class="set-nav-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 9h10M7 13h6"/></svg></span><span class="set-nav-text"><span>Home screen</span><span class="set-hint" id="set-sum-home">Order, hide and pending</span></span><svg class="set-nav-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         <button type="button" class="set-nav" data-open-page="banks"><span class="set-nav-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg></span><span class="set-nav-text"><span>Bank connections</span><span class="set-hint" id="set-sum-banks"></span></span><svg class="set-nav-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         <button type="button" class="set-nav" data-open-page="cards"><span class="set-nav-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19"/></svg></span><span class="set-nav-text"><span>Card designs and logos</span><span class="set-hint" id="set-sum-cards">Card art and store logos</span></span><svg class="set-nav-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-        <button type="button" class="set-nav" data-open-page="security"><span class="set-nav-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="set-nav-text"><span>Face ID and lock</span><span class="set-hint" id="set-sum-lock"></span></span><svg class="set-nav-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button type="button" class="set-nav" data-open-page="security"><span class="set-nav-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="set-nav-text"><span>Sign-in and lock</span><span class="set-hint" id="set-sum-lock"></span></span><svg class="set-nav-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
 
       <div class="set-group set-nav-group">
@@ -504,7 +511,26 @@
       </div>
       </div>
       <div class="set-page" data-page="security" hidden>
-        <h1 class="page-title set-page-title">Face ID and lock</h1>
+        <h1 class="page-title set-page-title">Sign-in and lock</h1>
+      <div class="set-group">
+        <div class="set-row">
+          <span class="set-row-text"><span>Two-step sign-in</span><span class="set-hint" id="mfa-status">Off · a code from an authenticator app after your password</span></span>
+          <button type="button" id="btn-mfa-toggle" class="btn-secondary-sm">Turn on</button>
+        </div>
+        <div class="mfa-enroll" id="mfa-enroll" hidden>
+          <p class="mfa-step">1. Add Alenjo to an authenticator app. On iPhone, tap the link to use Passwords.</p>
+          <a id="mfa-otpauth" class="mfa-link" href="#">Add to Passwords</a>
+          <img id="mfa-qr" class="mfa-qr" alt="QR code to scan with an authenticator app">
+          <p class="mfa-secret-row">Or enter this key: <code id="mfa-secret"></code></p>
+          <p class="mfa-step">2. Enter the 6-digit code it shows.</p>
+          <p id="mfa-enroll-error" class="auth-error" hidden></p>
+          <div class="mfa-verify-row">
+            <input type="text" id="mfa-enroll-code" class="app-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" aria-label="6-digit code">
+            <button type="button" id="mfa-enroll-verify" class="btn-primary-sm">Turn on</button>
+          </div>
+          <button type="button" id="mfa-enroll-cancel" class="signin-link">Cancel</button>
+        </div>
+      </div>
       <div class="set-group">
         <div class="set-row">
           <span class="set-row-text"><span>Face ID sign-in</span><span class="set-hint" id="faceid-status">Not set up on this device</span></span>

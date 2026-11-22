@@ -90,6 +90,9 @@ Deno.serve(async (req: Request) => {
 
     const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) return jsonResponse({ error: 'Unauthorized' }, 401);
+    // Two-step sign-in, when it's on, must be completed first (server-side check)
+    const { data: mfaOk } = await userClient.rpc('mfa_satisfied');
+    if (mfaOk !== true) return jsonResponse({ error: 'Two-step sign-in required' }, 403);
 
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL')!,

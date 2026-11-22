@@ -400,6 +400,76 @@ var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test
   history.replaceState(null, '', location.pathname);
 })();
 
+// After the password: ask for the authenticator code if two-step sign-in is on
+async function continueSignIn(session) {
+  try {
+    var lvl = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (lvl.data && lvl.data.nextLevel === 'aal2' && lvl.data.currentLevel !== 'aal2') { showMfaStep(); return; }
+  } catch (e) { console.error('mfa level', e); }
+  finishSignIn(session);
+}
+function showMfaStep() {
+  setSigningIn(false);
+  $('#auth-form').hidden = true;
+  $('#mfa-form').hidden = false;
+  $('#mfa-error').hidden = true;
+  $('#mfa-code').value = '';
+  setTimeout(function() { $('#mfa-code').focus(); }, 50);
+}
+function hideMfaStep() { $('#mfa-form').hidden = true; $('#auth-form').hidden = false; }
+$('#mfa-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var code = $('#mfa-code').value.replace(/\D/g, '');
+  if (code.length !== 6) { $('#mfa-error').textContent = 'Enter the 6-digit code'; $('#mfa-error').hidden = false; return; }
+  var btn = $('#mfa-submit'); btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    var f = await sb.auth.mfa.listFactors();
+    var factor = f.data && f.data.totp && f.data.totp[0];
+    if (!factor) throw new Error('No authenticator found');
+    var v = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code });
+    if (v.error) throw v.error;
+    hideMfaStep();
+    var s = (await sb.auth.getSession()).data.session;
+    finishSignIn(s);
+  } catch (x) {
+    $('#mfa-error').textContent = 'That code didn’t work. Check your authenticator app and try again.';
+    $('#mfa-error').hidden = false;
+  } finally { btn.disabled = false; btn.textContent = 'Verify'; }
+});
+$('#mfa-code').addEventListener('input', function() {
+  if (this.value.replace(/\D/g, '').length === 6) $('#mfa-form').requestSubmit();
+});
+$('#mfa-cancel').addEventListener('click', function() {
+  hideMfaStep();
+  sb.auth.signOut({ scope: 'local' });
+});
+function finishSignIn(session) {
+  // Unlocking a locked app: same person, so keep everything as it was
+  if (appLocked && currentUser && session.user.id === currentUser.id) {
+    currentUser = session.user;
+    unlockApp();
+    return;
+  }
+  currentUser = session.user;
+  try {
+    if (currentUser.created_at) localStorage.setItem('alenjo_since', new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+  } catch (e) {}
+  firstSync = true;
+  lastActivityAt = Date.now();
+  loadSignedCache(currentUser.id);
+  paintCachedProfile();
+  setTimeout(refreshStalePush, 1500);
+  Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
+    if (cachedAccounts && cachedAccounts.length > 0) throttledSync();
+    return loadTransactions();
+  }).catch(function(e) {
+    console.error('Init error:', e);
+  }).then(function() {
+    showScreen('app');
+    resumePlaidOAuth();
+  });
+}
+
 // Sign out of THIS device only on load (the default would end your
 // sessions on every device, e.g. opening on the Mac would sign out the iPhone)
 (isRecoveryLink ? Promise.resolve() : sb.auth.signOut({ scope: 'local' })).then(function() {
@@ -416,30 +486,8 @@ var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test
       return;
     }
     if (event === 'SIGNED_IN' && session && session.user) {
-      // Unlocking a locked app: same person, so keep everything as it was
-      if (appLocked && currentUser && session.user.id === currentUser.id) {
-        currentUser = session.user;
-        unlockApp();
-        return;
-      }
-      currentUser = session.user;
-      try {
-        if (currentUser.created_at) localStorage.setItem('alenjo_since', new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
-      } catch (e) {}
-      firstSync = true;
-      lastActivityAt = Date.now();
-      loadSignedCache(currentUser.id);
-      paintCachedProfile();
-      setTimeout(refreshStalePush, 1500);
-      Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
-        if (cachedAccounts && cachedAccounts.length > 0) throttledSync();
-        return loadTransactions();
-      }).catch(function(e) {
-        console.error('Init error:', e);
-      }).then(function() {
-        showScreen('app');
-        resumePlaidOAuth();
-      });
+      // Two-step sign-in first if it's on (run outside this callback, per Supabase)
+      setTimeout(function() { continueSignIn(session); }, 0);
     } else if (event === 'SIGNED_OUT') {
       var wasSignedIn = currentUser !== null;
       currentUser = null;
@@ -2028,8 +2076,11 @@ if (prefAutoFaceId) {
     err.hidden = true; submit.disabled = true; submit.textContent = 'Deleting…';
     try {
       // Make sure it's really you before deleting anything
-      var check = await sb.auth.signInWithPassword({ email: currentUser.email, password: pw.value });
+      // (checked on a separate client so your signed-in, two-step session isn't replaced)
+      var checker = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'alenjo-pw-check' } });
+      var check = await checker.auth.signInWithPassword({ email: currentUser.email, password: pw.value });
       if (check.error) throw new Error('That password isn’t right.');
+      checker.auth.signOut({ scope: 'local' }).catch(function() {});
       var session = (await sb.auth.getSession()).data.session;
       var res = await fetch(SUPABASE_URL + '/functions/v1/delete-account', {
         method: 'POST',
@@ -2581,6 +2632,68 @@ async function finishReconnect(itemId, headers) {
   await loadItemHealth();
   if ($('#tx-month-filter') && typeof loadTransactions === 'function') { try { await loadTransactions(); } catch (e) {} }
 }
+// ---- Two-step sign-in (authenticator app codes, enforced by the server once on) ----
+var mfaFactor = null, mfaPending = null;
+async function refreshMfaStatus() {
+  var btn = $('#btn-mfa-toggle'), st = $('#mfa-status');
+  if (!btn) return;
+  try {
+    var f = await sb.auth.mfa.listFactors();
+    mfaFactor = (f.data && f.data.totp && f.data.totp.find(function(x) { return x.status === 'verified'; })) || null;
+  } catch (e) { mfaFactor = null; }
+  st.textContent = mfaFactor ? 'On · Alenjo asks for a code after your password' : 'Off · a code from an authenticator app after your password';
+  btn.textContent = mfaFactor ? 'Turn off' : 'Turn on';
+}
+function closeMfaEnroll() { $('#mfa-enroll').hidden = true; $('#mfa-enroll-code').value = ''; $('#mfa-enroll-error').hidden = true; }
+$('#btn-mfa-toggle').addEventListener('click', async function() {
+  var btn = this;
+  if (mfaFactor) {
+    if (!btn._armed) {
+      btn._armed = true; btn.textContent = 'Tap again to turn off';
+      setTimeout(function() { btn._armed = false; refreshMfaStatus(); }, 3000);
+      return;
+    }
+    btn._armed = false;
+    var r = await sb.auth.mfa.unenroll({ factorId: mfaFactor.id });
+    if (r.error) showToast('Couldn’t turn it off. Try again.'); else showToast('Two-step sign-in is off');
+    refreshMfaStatus();
+    return;
+  }
+  btn.disabled = true;
+  try {
+    // Clear any half-finished setup first
+    var f = await sb.auth.mfa.listFactors();
+    var all = (f.data && f.data.all) || [];
+    for (var i = 0; i < all.length; i++) if (all[i].status !== 'verified') await sb.auth.mfa.unenroll({ factorId: all[i].id });
+    var r = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Authenticator ' + Date.now(), issuer: 'Alenjo' });
+    if (r.error) throw r.error;
+    mfaPending = r.data;
+    $('#mfa-qr').src = r.data.totp.qr_code;
+    $('#mfa-secret').textContent = r.data.totp.secret;
+    $('#mfa-otpauth').href = r.data.totp.uri;
+    $('#mfa-enroll').hidden = false;
+  } catch (e) {
+    showToast('Couldn’t start setup. Try again.');
+  } finally { btn.disabled = false; }
+});
+$('#mfa-enroll-verify').addEventListener('click', async function() {
+  var code = $('#mfa-enroll-code').value.replace(/\D/g, ''), err = $('#mfa-enroll-error');
+  if (!mfaPending || code.length !== 6) { err.textContent = 'Enter the 6-digit code'; err.hidden = false; return; }
+  var btn = this; btn.disabled = true;
+  var v = await sb.auth.mfa.challengeAndVerify({ factorId: mfaPending.id, code: code });
+  btn.disabled = false;
+  if (v.error) { err.textContent = 'That code didn’t work. Try the newest one.'; err.hidden = false; return; }
+  mfaPending = null;
+  closeMfaEnroll();
+  showToast('Two-step sign-in is on');
+  refreshMfaStatus();
+});
+$('#mfa-enroll-cancel').addEventListener('click', async function() {
+  if (mfaPending) { try { await sb.auth.mfa.unenroll({ factorId: mfaPending.id }); } catch (e) {} mfaPending = null; }
+  closeMfaEnroll();
+});
+document.addEventListener('click', function(e) { var b = e.target.closest('[data-open-page="security"]'); if (b) refreshMfaStatus(); });
+
 // Plaid's own sign-in window for that bank. Same connection: history, splits, notes all stay.
 async function reconnectItem(itemId, btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
