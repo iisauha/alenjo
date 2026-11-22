@@ -3165,9 +3165,9 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 
 /* ===== Account card (compact) ===== */
 .account-card .account-top { align-items: center; gap: 12px; }
-.acct-badge { flex-shrink: 0; width: 40px; height: 40px; border-radius: 11px; background: #FFFFFF center / cover no-repeat; }
+.acct-badge { flex-shrink: 0; width: 48px; height: 48px; border-radius: 13px; background: #FFFFFF center / cover no-repeat; }
 .acct-badge-logo { background-size: 72%; border: 1px solid var(--border); }
-.acct-badge-art { width: 48px; height: 30px;   /* slimmer so "APY  ~$X this month" stays on one line */ border-radius: 5px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }
+.acct-badge-art { width: 68px; height: 43px;   /* real card proportions (1.586:1) */ border-radius: 6px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); }
 .acct-badge-initial { display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); font-weight: 700; font-size: 1rem; }
 .account-card .account-name { -webkit-line-clamp: 1; font-size: 1rem; }
 .account-sub { font-size: 0.8125rem; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -3743,3 +3743,37 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .notif-device button { min-height: 44px; padding: 0 2px; border: none; background: none; font: 500 0.9375rem 'Inter', sans-serif; cursor: pointer; }
 .notif-test { color: var(--accent); }
 .notif-remove { color: var(--text-muted); }
+
+/* ================================
+   SETTINGS: compact list + pages
+   ================================ */
+.set-profile-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; }
+.set-profile-card .set-avatar-btn .settings-avatar { width: 52px; height: 52px; }
+.set-profile-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.set-profile-who b { font-size: 1.0625rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-profile-who .set-hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-edit-profile { flex-shrink: 0; min-height: 36px; padding: 0 16px; border-radius: 18px; border: none; background: var(--accent-subtle); color: var(--accent); font: 600 0.875rem 'Inter', sans-serif; cursor: pointer; }
+.set-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.set-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 76px; padding: 10px 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-card); color: var(--accent); cursor: pointer; }
+.set-tile span { color: var(--text); font: 500 0.8125rem 'Inter', sans-serif; text-align: center; }
+.set-nav-group + .set-nav-group { margin-top: 12px; }
+.set-nav { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 14px; box-sizing: border-box; border: none; border-top: 1px solid var(--border); background: transparent; color: var(--text); font: 400 0.9375rem 'Inter', sans-serif; text-align: left; text-decoration: none; cursor: pointer; }
+.set-nav:first-child { border-top: none; }
+.set-nav-icon { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--accent-subtle); color: var(--accent); }
+.set-nav-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.set-nav-text .set-hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-nav-text .set-hint:empty { display: none; }
+.set-nav-chev { flex-shrink: 0; color: var(--text-muted); }
+.set-nav:active, .set-tile:active { background: var(--bg-elevated); }
+#set-main .set-signout { margin-top: 20px; }
+.set-page[hidden], #set-main[hidden] { display: none; }
+.set-back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: 0 0 0 -8px; padding: 0 8px 0 0; border: none; background: none; color: var(--accent); font: 500 1rem 'Inter', sans-serif; cursor: pointer; }
+.set-page-title { margin-top: 0; }
+.set-page .set-heading:first-of-type { margin-top: 4px; }
+.set-page .set-group + .set-heading { margin-top: 20px; }
+
+/* Logo / card art sit level with the account name, and never make the card taller */
+.account-card .account-top { gap: 10px; }
+.account-card .acct-badge { align-self: flex-start; margin-top: 2px; }
+.account-card .acct-badge-art { margin-top: 3px; }
+.account-apy { column-gap: 6px; }

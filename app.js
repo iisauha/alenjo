@@ -615,6 +615,7 @@ function autoFaceIdEnabled() {
 }
 
 function switchTab(tabName) {
+  if (tabName === 'settings') closeSetPage(true);
   if (tabName === 'settings' && typeof updateFaceIdSetting === 'function') updateFaceIdSetting();
   if (tabName === 'settings' && typeof renderNotifications === 'function') renderNotifications().catch(function(e) { console.error(e); });
   document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
@@ -625,6 +626,70 @@ function switchTab(tabName) {
   if (nav) nav.classList.add('active');
   if (tabName !== 'settings') localStorage.setItem('alenjo_active_tab', tabName);
 }
+
+// ============================================
+// SETTINGS PAGES: one short list on top; each row opens its own page.
+// The controls inside never move, so everything else keeps working.
+// ============================================
+var setMainScroll = 0;
+function openSetPage(key) {
+  var page = document.querySelector('.set-page[data-page="' + key + '"]');
+  if (!page) return;
+  var tab = $('#tab-settings');
+  if (!$('#set-main').hidden) setMainScroll = tab.scrollTop;
+  $('#set-main').hidden = true;
+  document.querySelectorAll('.set-page').forEach(function(p) { p.hidden = p !== page; });
+  tab.scrollTop = 0;
+}
+function closeSetPage(toTop) {
+  var main = $('#set-main');
+  if (!main) return;
+  document.querySelectorAll('.set-page').forEach(function(p) { p.hidden = true; });
+  main.hidden = false;
+  refreshSettingsSummary();
+  $('#tab-settings').scrollTop = toTop ? 0 : setMainScroll;
+}
+function refreshSettingsSummary() {
+  var put = function(id, text) { var el = $('#' + id); if (el && el.textContent !== text) el.textContent = text; };
+  var pref = 'adaptive';
+  try { pref = localStorage.getItem('alenjo_theme') || 'adaptive'; } catch (e) {}
+  put('set-sum-theme', pref.charAt(0).toUpperCase() + pref.slice(1));
+  var opts = $('#notif-options'), on = opts && !opts.hidden;
+  if (on && notifSettings) {
+    var kinds = [notifSettings.purchases ? 'purchases' : '', notifSettings.deposits ? 'deposits' : ''].filter(Boolean);
+    put('set-sum-notif', kinds.length ? 'On · ' + kinds.join(' and ') : 'On · everything paused');
+  } else {
+    put('set-sum-notif', typeof Notification !== 'undefined' && Notification.permission === 'denied' ? 'Blocked in iPhone Settings' : 'Off');
+  }
+  var banks = document.querySelectorAll('#accounts-list .settings-institution').length;
+  put('set-sum-banks', banks ? banks + ' connected' : 'None connected yet');
+  var fid = $('#faceid-status'), mins = $('#pref-lock-minutes');
+  put('set-sum-lock', (fid ? fid.textContent : '') + (mins ? ' · locks after ' + mins.value + ' min' : ''));
+  var hideTile = $('#set-tile-hide span');
+  if (hideTile) hideTile.textContent = hideMoney ? 'Show amounts' : 'Hide amounts';
+}
+(function wireSettingsPages() {
+  var tab = $('#tab-settings');
+  if (!tab) return;
+  tab.addEventListener('click', function(e) {
+    var open = e.target.closest('[data-open-page]');
+    if (open) { openSetPage(open.dataset.openPage); return; }
+    if (e.target.closest('[data-close-page]')) closeSetPage(false);
+  });
+  $('#set-change-photo').addEventListener('click', function() { $('#avatar-upload').click(); });
+  $('#set-tile-add-bank').addEventListener('click', function() { $('#btn-add-account').click(); });
+  $('#set-tile-hide').addEventListener('click', function() { setHideMoney(!hideMoney); refreshSettingsSummary(); });
+  $('#set-tile-card-art').addEventListener('click', function() { openSetPage('cards'); $('#btn-add-card-design').click(); });
+  // Keep the row summaries current as the pages' contents load or change
+  var watch = new MutationObserver(function() { refreshSettingsSummary(); });
+  var el;
+  if ((el = $('#accounts-list'))) watch.observe(el, { childList: true });
+  if ((el = $('#faceid-status'))) watch.observe(el, { childList: true, characterData: true, subtree: true });
+  if ((el = $('#notif-options'))) watch.observe(el, { attributes: true, attributeFilter: ['hidden'] });
+  tab.addEventListener('change', function() { setTimeout(refreshSettingsSummary, 0); });
+  document.querySelectorAll('[data-theme-choice]').forEach(function(b) { b.addEventListener('click', function() { setTimeout(refreshSettingsSummary, 0); }); });
+  refreshSettingsSummary();
+})();
 
 // Settings via header avatar/name
 var prevTab = 'snapshot';
@@ -786,6 +851,8 @@ function updateSettingsProfile() {
   if (nameInput) nameInput.value = userProfile.display_name || '';
   var emailEl = $('#settings-email');
   if (emailEl && currentUser) emailEl.textContent = currentUser.email || '';
+  var who = $('#set-profile-name');
+  if (who) who.textContent = userProfile.display_name || 'Your profile';
   if (avatar && userProfile.avatar_url) {
     avatar.style.backgroundImage = 'url(' + userProfile.avatar_url + ')';
   }
@@ -799,6 +866,7 @@ $('#btn-save-name').addEventListener('click', async function() {
   await sb.from('profiles').update({ display_name: name }).eq('id', currentUser.id);
   userProfile.display_name = name;
   updateHeaderProfile();
+  updateSettingsProfile();
   flashSaved(this);
 });
 
@@ -2982,7 +3050,7 @@ function formatApy(a) {
   var apy = parseFloat(a.apy);
   var est = monthInterestEstimate(a);
   var amt = hideMoney ? (est >= 0.01 ? '****' : '') : est >= 1 ? '$' + Math.round(est).toLocaleString('en-US') : est >= 0.01 ? formatMoney(est) : '';
-  return '<span>' + apy.toFixed(2).replace(/\.?0+$/, '') + '% APY</span>' + (amt ? '<span class="apy-est">~' + amt + ' this month</span>' : '');
+  return '<span>' + apy.toFixed(2).replace(/\.?0+$/, '') + '% APY</span>' + (amt ? '<span class="apy-est">~' + amt + '/mo</span>' : '');
 }
 
 function getInvestmentValue(a) {
