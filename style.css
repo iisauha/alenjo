@@ -3853,3 +3853,8 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .budget-copy { flex: none; min-height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text); font: 600 0.8125rem 'Inter', sans-serif; white-space: nowrap; cursor: pointer; }
 .budget-copy.confirm { border-color: var(--warning); color: var(--warning); }
 .budget-copy:disabled { border-color: transparent; background: none; padding-right: 0; color: var(--text-muted); font-weight: 500; cursor: default; }
+
+/* Billing page: which of your banks already pay for each kind of account */
+.billing-yours { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 14px; border-top: 1px solid var(--border); font-size: 0.8125rem; line-height: 1.45; color: var(--text-muted); }
+.billing-yours > b { font-size: 0.9375rem; font-weight: 600; color: var(--text); }
+.billing-yours span b { color: var(--text); font-weight: 600; }

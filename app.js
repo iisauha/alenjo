@@ -2773,6 +2773,37 @@ $('#mfa-enroll-cancel').addEventListener('click', async function() {
   closeMfaEnroll();
 });
 document.addEventListener('click', function(e) { var b = e.target.closest('[data-open-page="security"]'); if (b) refreshMfaStatus(); });
+// Billing page: which of your banks already pay for cards and loans, and for investments, so you
+// can see where adding one through Manage is free. Mirrors sync-transactions, which starts
+// Liabilities for a bank with a card or loan and Investments for a bank with an investment account.
+function renderBillingYours() {
+  var box = $('#billing-yours');
+  if (!box) return;
+  var banks = {};
+  (cachedAccounts || []).forEach(function(a) {
+    if (a.closed_at || !a.plaid_item_id) return;
+    var b = banks[a.plaid_item_id] = banks[a.plaid_item_id] || { name: a.institution || 'Bank', liab: false, inv: false };
+    if (a.type === 'credit' || a.type === 'loan') b.liab = true;
+    if (a.type === 'investment') b.inv = true;
+  });
+  var list = Object.keys(banks).map(function(k) { return banks[k]; }).sort(function(x, y) { return x.name.localeCompare(y.name); });
+  if (!list.length) { box.hidden = true; return; }
+  function names(arr) {
+    var n = arr.map(function(b) { return b.name; });
+    return n.length < 2 ? n.join('') : n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1];
+  }
+  function line(has, lacks, kind, price) {
+    if (!lacks.length) return 'All your banks already pay for ' + kind + ', so adding more anywhere costs nothing.';
+    if (!has.length) return 'None of your banks pay for ' + kind + ' yet. The first one at any bank adds ' + price + ' a month.';
+    return names(has) + ' already ' + (has.length === 1 ? 'pays' : 'pay') + ' for ' + kind + ', so more there cost nothing. The first one at ' + names(lacks) + ' adds ' + price + ' a month.';
+  }
+  var liab = line(list.filter(function(b) { return b.liab; }), list.filter(function(b) { return !b.liab; }), 'cards and loans', '$0.20');
+  var inv = line(list.filter(function(b) { return b.inv; }), list.filter(function(b) { return !b.inv; }), 'investments', '$0.18');
+  box.innerHTML = '<b>Your banks</b><span><b>Cards and loans:</b> ' + esc(liab) + '</span><span><b>Investments:</b> ' + esc(inv) + '</span>';
+  box.hidden = false;
+}
+document.addEventListener('click', function(e) { if (e.target.closest('[data-open-page="billing"]')) renderBillingYours(); });
+
 
 // Plaid's own sign-in window for that bank. Same connection: history, splits, notes all stay.
 async function reconnectItem(itemId, btn) {

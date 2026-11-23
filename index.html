@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261123144625';</script>
+  <script>var _v = '20261123145514';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261123144625">
+  <link rel="stylesheet" href="style.css?v=20261123145514">
 </head>
 <body>
 
@@ -495,17 +495,26 @@
       <div class="set-group">
         <ul class="set-bullets">
           <li><b>Reconnect.</b> When a bank asks you to sign in again. It’s the same connection, so the fee stays the same.</li>
-          <li><b>Manage.</b> Adding or removing cards and accounts at a bank that’s already connected. Plaid charges per bank, not per account. The one exception is the first card, loan or investment account at a bank (below).</li>
           <li><b>Syncing.</b> New transactions, balances and due dates come in as part of the monthly fee.</li>
         </ul>
+      </div>
+
+      <h2 class="set-heading">Manage: adding accounts at a connected bank</h2>
+      <div class="set-group">
+        <div class="set-intro"><b>Adding accounts costs nothing, with two exceptions</b><span>Each bank pays once for cards and loans and once for investments. Only the first of each kind at a bank adds to the bill.</span></div>
+        <ul class="set-bullets">
+          <li><b>Checking and savings:</b> nothing extra.</li>
+          <li><b>First card or loan at that bank:</b> +$0.20 a month. More cards or loans there add nothing.</li>
+          <li><b>First investment account at that bank:</b> +$0.18 a month. More investment accounts there add nothing.</li>
+        </ul>
+        <div id="billing-yours" class="billing-yours" hidden></div>
       </div>
 
       <h2 class="set-heading">Adds to the bill</h2>
       <div class="set-group">
         <ul class="set-bullets">
           <li><b>A new bank.</b> $0.30 a month, plus $0.20 if it has cards or loans, plus $0.18 if it has investments.</li>
-          <li><b>The first card or loan at a bank.</b> Through Manage, if that bank has no card or loan yet: +$0.20 a month for that bank.</li>
-          <li><b>The first investment account at a bank.</b> Through Manage, if that bank has no investments yet: +$0.18 a month for that bank.</li>
+          <li><b>The first card, loan or investment account at a bank,</b> as above.</li>
           <li><b>Disconnecting a bank, then adding it back.</b> Plaid treats it as a brand new bank and bills both that month. Use Reconnect or Manage instead.</li>
         </ul>
       </div>
