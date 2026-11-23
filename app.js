@@ -3580,14 +3580,12 @@ function renderBudgetSheet(preselect) {
   Object.keys(BIn).filter(function(c) { return c !== 'Income'; }).sort().forEach(function(c) {
     html += budgetRow('bt-pay bt-other', esc(c) + ' <small>(monthly)</small>', budgetInput('in', c, BIn[c].amount, c + ', monthly'));
   });
-  html += '<div class="bt-gap" role="presentation"></div>';
   if (!bs.order.length) html += '<div class="bt-empty">No bills or spending budgets yet. Add one below.</div>';
   bs.order.forEach(function(c) {
     html += budgetRow('bt-out', '<span>' + esc(c) + '</span><button type="button" class="bt-del" data-del="' + esc(c) + '" aria-label="Remove ' + esc(c) + ' budget">×</button>',
       budgetInput('out', c, BO[c].amount, c + ', monthly'));
   });
-  html += '<div class="bt-gap" role="presentation"></div>' +
-    budgetRow('bt-left', 'Remaining <small>(monthly)</small>', '<span class="bt-chip" id="bt-left-m"></span>') +
+  html += budgetRow('bt-left bt-left1', 'Remaining <small>(monthly)</small>', '<span class="bt-chip" id="bt-left-m"></span>') +
     budgetRow('bt-left bt-left2', 'Remaining <small>(biweekly)</small>', '<span class="bt-chip" id="bt-left-b"></span>');
   $('#budget-table').innerHTML = html;
   refreshBudgetTotals();
@@ -3596,7 +3594,7 @@ function renderBudgetSheet(preselect) {
   var sel = $('#budget-add-cat'), keep = preselect || sel.value;
   var free = budgetCategories('out').filter(function(c) { return !BO[c]; });
   if (preselect && free.indexOf(preselect) < 0) free.unshift(preselect);
-  sel.innerHTML = '<option value="">Add a category</option>' + free.map(function(c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('') +
+  sel.innerHTML = '<option value="">Category</option>' + free.map(function(c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('') +
     '<option value="__new">New category…</option>';
   sel.value = keep && (keep === '__new' || free.indexOf(keep) >= 0) ? keep : '';
   budgetAddPicked();
