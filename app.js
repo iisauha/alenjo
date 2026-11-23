@@ -4833,29 +4833,36 @@ function renderTransactionMonth() {
     });
     // Centre: the total, or what you tapped. Income is woven in as the line underneath.
     var picked = activeCategoryFilter && byCategory[activeCategoryFilter];
-    var label, value, sub = '', subCls = '';
+    var label, value, sub = '';
     if (picked) {
       label = activeCategoryFilter; value = byCategory[activeCategoryFilter];
       sub = pct(value, total) + ' of ' + (incomeMode ? 'income' : 'spending');
-    } else if (incomeMode) {
-      label = 'Income'; value = moneyIn;
-      if (moneyIn) { sub = moneyIn >= spent ? 'You kept ' + pct(moneyIn - spent, moneyIn) : 'Spent ' + pct(spent - moneyIn, moneyIn) + ' more'; subCls = moneyIn >= spent ? 'good' : 'bad'; }
-    } else {
-      label = 'Spent'; value = spent;
-      if (moneyIn && cardId === 'all') { sub = pct(spent, moneyIn) + ' of income'; subCls = spent > moneyIn ? 'bad' : 'good'; }
     }
+    // Nothing tapped: the middle shows the one number the header doesn't, how much of your income is gone (or kept)
+    var share = !picked && moneyIn && cardId === 'all';
     ring.innerHTML = '<svg viewBox="0 0 200 200" role="img" aria-label="' + esc((incomeMode ? 'Income by source: ' : 'Spending by category: ') + entries.map(function(e) { return e[0] + ' ' + pct(e[1], total); }).join(', ')) + '">' + paths + '</svg>' +
-      '<span class="act-ring-center" aria-live="polite"><small>' + esc(label) + '</small><b class="' + (incomeMode && !picked ? 'good' : '') + '">' + (incomeMode && value && !hideMoney ? '+' : '') + formatMoney(value) + '</b>' +
-      (sub ? '<em class="' + subCls + '">' + esc(sub) + '</em>' : '') + '</span>';
+      (share
+        ? '<span class="act-ring-center act-ring-share" aria-live="polite"><b class="' + (spent > moneyIn ? 'bad' : 'good') + '">' + (incomeMode ? pct(Math.max(0, moneyIn - spent), moneyIn) : pct(spent, moneyIn)) + '</b><small>' + (incomeMode ? 'of income kept' : 'of income spent') + '</small></span>'
+        : '<span class="act-ring-center" aria-live="polite"><small>' + esc(picked ? label : (incomeMode ? 'Income' : 'Spent')) + '</small><b>' + (incomeMode && !hideMoney ? '+' : '') + formatMoney(picked ? value : total) + '</b>' +
+          (sub ? '<em>' + esc(sub) + '</em>' : '') + '</span>');
   } else ring.innerHTML = '';
 
-  // Legend: names only. The first item flips the ring between spending and income.
-  var flip = incomeMode ? '<button type="button" class="act-leg act-leg-flip" data-flip="out"><i class="act-leg-spend"></i>Spending</button>'
-    : moneyIn > 0 ? '<button type="button" class="act-leg act-leg-flip" data-flip="in"><i style="background:var(--success)"></i>Income</button>' : '';
-  legend.innerHTML = entries.length ? flip + entries.map(function(e) {
+  // Legend: names only, 6 to a page, swipe for more (dots show where you are).
+  // The first item flips the ring between spending and income.
+  var flip = incomeMode ? '<button type="button" class="act-leg act-leg-flip" data-flip="out"><i class="act-leg-spend"></i><span>Spending</span></button>'
+    : moneyIn > 0 ? '<button type="button" class="act-leg act-leg-flip" data-flip="in"><i style="background:var(--success)"></i><span>Income</span></button>' : '';
+  var items = (flip ? [flip] : []).concat(entries.map(function(e) {
     var on = activeCategoryFilter === e[0];
-    return '<button type="button" class="act-leg' + (on ? ' on' : '') + (activeCategoryFilter && !on ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '"><i style="background:' + colors[e[0]] + '"></i>' + esc(e[0]) + '</button>';
-  }).join('') : flip + '<p class="act-empty-note">' + (incomeMode ? 'Nothing has come in yet.' : 'Nothing yet this month.') + '</p>';
+    return '<button type="button" class="act-leg' + (on ? ' on' : '') + (activeCategoryFilter && !on ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '"><i style="background:' + colors[e[0]] + '"></i><span>' + esc(e[0]) + '</span></button>';
+  }));
+  var pages = [];
+  for (var pi = 0; pi < items.length; pi += 6) pages.push('<div class="act-leg-page">' + items.slice(pi, pi + 6).join('') + '</div>');
+  var keepLeg = legend.dataset.key === month + '|' + cardId + '|' + incomeMode ? legend.scrollLeft : 0;
+  legend.innerHTML = entries.length ? pages.join('') : flip + '<p class="act-empty-note">' + (incomeMode ? 'Nothing has come in yet.' : 'Nothing yet this month.') + '</p>';
+  legend.dataset.key = month + '|' + cardId + '|' + incomeMode;
+  legend.scrollLeft = keepLeg;
+  $('#act-leg-dots').innerHTML = pages.length > 1 ? pages.map(function(_, i) { return '<button type="button" data-page="' + i + '" aria-label="Page ' + (i + 1) + ' of ' + pages.length + '"></button>'; }).join('') : '';
+  updateLegendDots();
 
   // ---- Transactions grouped by day
   displayTx.sort(function(a, b) {
@@ -4979,6 +4986,13 @@ function closePicker() {
 })();
 
 var incomeMode = false;   // Activity: false = spending, true = money in
+// Which legend page you're on
+function updateLegendDots() {
+  var leg = $('#tx-category-legend'), dots = $('#act-leg-dots');
+  if (!leg || !dots || !dots.children.length) return;
+  var at = Math.round(leg.scrollLeft / Math.max(1, leg.clientWidth));
+  Array.prototype.forEach.call(dots.children, function(d, i) { d.classList.toggle('on', i === at); d.setAttribute('aria-current', i === at ? 'true' : 'false'); });
+}
 (function wireActCharts() {
   var ring = $('#act-ring'), legend = $('#tx-category-legend'), note = $('#act-daily-note');
   if (!ring) return;
@@ -4993,6 +5007,11 @@ var incomeMode = false;   // Activity: false = spending, true = money in
     if (!b) return;
     if (b.dataset.flip) { incomeMode = b.dataset.flip === 'in'; activeCategoryFilter = null; renderTransactionMonth(); return; }
     pick(b.dataset.cat);
+  });
+  legend.addEventListener('scroll', function() { requestAnimationFrame(updateLegendDots); }, { passive: true });
+  $('#act-leg-dots').addEventListener('click', function(e) {
+    var d = e.target.closest('[data-page]'); if (!d) return;
+    legend.scrollTo({ left: +d.dataset.page * legend.clientWidth, behavior: 'smooth' });
   });
   note.addEventListener('click', function(e) {
     if (e.target.id === 'act-set-budget') openBudgetSheet('out');
