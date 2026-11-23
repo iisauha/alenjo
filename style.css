@@ -3735,34 +3735,7 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
    whole sheet fits on a phone screen without scrolling */
 .budget-sheet { padding-top: 1.1rem; }
 .budget-sheet .delete-title { margin-bottom: 0; }
-.budget-table { margin: 10px 0 14px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-card); }
-.bt-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 46px; border-top: 1px solid var(--border); }
-.bt-row:first-child { border-top: 0; }
-.bt-name, .bt-amt { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 10px; }
-.bt-amt { border-left: 1px solid var(--border); }
-.bt-name { font-size: 0.9375rem; font-weight: 500; }
-.bt-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bt-name small { font-size: inherit; font-weight: 400; opacity: 0.8; }
-.bt-row.bt-left1 { border-top-width: 2px; }
-.bt-empty { padding: 10px 12px; border-top: 1px solid var(--border); font-size: 0.875rem; color: var(--text-muted); }
 /* Tinted chips, like highlighted text in a note */
-.bt-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 30px; padding: 0 8px; border-radius: 7px; background: color-mix(in srgb, currentColor 13%, transparent); font-size: 1rem; font-variant-numeric: tabular-nums; }
-.bt-chip input { width: 8ch; max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: max(16px, 1rem); outline: none; }
-@supports (field-sizing: content) { .bt-chip input { width: auto; min-width: 2ch; field-sizing: content; } }
-.bt-chip input::placeholder { color: inherit; opacity: 0.45; }
-.bt-chip:focus-within { box-shadow: 0 0 0 1.5px currentColor; }
-.bt-pay { color: var(--success); }
-.bt-pay2 { color: var(--warning); }
-.bt-pay2 .bt-chip { font-weight: 600; }
-.bt-out { color: var(--danger); }
-.bt-out .bt-name { padding-right: 0; }
-.bt-del { flex: none; margin-left: auto; width: 36px; min-height: 34px; border: 0; background: none; color: var(--text-muted); font-size: 1.125rem; line-height: 1; cursor: pointer; }
-.bt-left { color: var(--success); }
-.bt-left2 { color: var(--warning); }
-.bt-left .bt-name { color: var(--text); font-weight: 600; }
-.bt-left .bt-chip { font-weight: 600; }
-.bt-left .bt-chip.bad { color: var(--danger); }
-.bt-left .bt-chip.none { background: none; padding: 0; color: var(--text-muted); font-weight: 400; font-size: 0.875rem; }
 .budget-add { display: flex; flex-direction: column; gap: 6px; }
 .budget-add-row { display: flex; gap: 6px; }
 /* The select sits inside the in-app picker's wrapper, so size the wrapper, not the select */
@@ -3828,3 +3801,136 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 @media (min-width: 900px) {
   .act-flow-row.on, .act-leg.on { background: var(--bg-elevated); }
 }
+
+/* Budgets sheet: what's left up top, then grouped lists (income, bills) like iOS Settings */
+.budget-table { margin: 12px 0 16px; }
+.bt-summary { display: flex; flex-direction: column; gap: 2px; padding: 16px; border-radius: 16px; background: var(--bg-card); }
+.bt-sum-label { font-size: 0.8125rem; color: var(--text-muted); }
+.bt-sum-value { font-family: var(--serif); font-size: 2.25rem; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; color: var(--success); font-variant-numeric: tabular-nums; }
+.bt-sum-sub { font-size: 0.8125rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.bt-sum-value.bad, .bt-sum-sub.bad { color: var(--danger); }
+.bt-alloc { display: flex; gap: 2px; height: 10px; margin-top: 14px; border-radius: 5px; overflow: hidden; background: var(--track); }
+.bt-alloc[hidden] { display: none; }
+.bt-alloc i { display: block; min-width: 2px; }
+.bt-alloc-key { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.bt-alloc-key:empty { display: none; }
+.bt-alloc-key span { display: inline-flex; align-items: center; gap: 6px; }
+.bt-alloc-key i { width: 6px; height: 6px; border-radius: 3px; }
+.bt-sec { display: flex; align-items: baseline; justify-content: space-between; margin: 20px 4px 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.bt-sec b { font-weight: 600; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.bt-group { border-radius: 14px; background: var(--bg-card); overflow: hidden; }
+.bt-row { position: relative; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 6px 0 16px; }
+.bt-row + .bt-row::before { content: ''; position: absolute; top: 0; left: 34px; right: 0; height: 1px; background: var(--border); }
+.bt-dot { flex: none; width: 8px; height: 8px; border-radius: 4px; }
+.bt-pay2 { padding-left: 34px; }
+.bt-name { flex: 1; display: flex; flex-direction: column; min-width: 0; font-size: 0.9375rem; font-weight: 500; color: var(--text); }
+.bt-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-name small { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); }
+.bt-chip { flex: none; display: inline-flex; align-items: center; gap: 1px; min-height: 36px; padding: 0 10px; border-radius: 10px; color: var(--text-muted); font-size: max(16px, 1rem); font-variant-numeric: tabular-nums; cursor: text; transition: background 0.15s; }
+.bt-chip input { width: 7ch; padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 600; text-align: right; outline: none; }
+@supports (field-sizing: content) { .bt-chip input { width: auto; min-width: 2ch; field-sizing: content; } }
+.bt-chip input::placeholder { color: var(--text-muted); opacity: 0.6; font-weight: 400; }
+.bt-chip:focus-within { background: var(--bg-elevated); }
+.bt-pay .bt-chip input { color: var(--success); }
+.bt-pay2 .bt-chip input { font-weight: 500; color: var(--text-muted); }
+.bt-out .bt-chip { padding-right: 2px; }
+.bt-del { flex: none; display: flex; align-items: center; justify-content: center; width: 36px; height: 44px; border: 0; background: none; color: var(--text-muted); opacity: 0.6; cursor: pointer; }
+.bt-del:hover { opacity: 1; }
+.bt-empty { padding: 14px 16px; font-size: 0.875rem; color: var(--text-muted); }
+
+/* ==========================================================================
+   Design refresh: sheets, popups and Settings share one look.
+   Sheet = a calm surface; content sits in lighter grouped lists (no outlines),
+   section labels are small caps, inputs are filled, buttons are flat.
+   ========================================================================== */
+:root { --sheet-bg: #E9E5DC; --group-bg: #F6F3EC; --hairline: color-mix(in srgb, var(--text) 10%, transparent); }
+:root[data-theme="dark"] { --sheet-bg: #201E1A; --group-bg: #2B2924; }
+
+/* Surfaces */
+.action-sheet, .modal-card { background: var(--sheet-bg); border: none; box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12); }
+.action-sheet { border-radius: 24px 24px 0 0; padding-left: 16px; padding-right: 16px; }
+.action-sheet::before { width: 40px; height: 5px; border-radius: 3px; margin-bottom: 14px; background: color-mix(in srgb, var(--text) 18%, transparent); }
+.action-sheet > .action-sheet-cancel { box-shadow: 0 -14px 14px var(--sheet-bg); }
+.delete-title, .manage-card h3 { font-size: 1.625rem; letter-spacing: -0.01em; }
+
+/* Grouped lists (Settings, sheets, account popup, transaction sheet, budgets) */
+.set-group, .manage-group, .txs-group, .bt-group, .bt-summary, .set-profile-card, .txs-removed { background: var(--group-bg); border: none; border-radius: 16px; }
+.set-row, .set-nav, .txs-row, .manage-row { border-top: none !important; position: relative; }
+.set-group > * + .set-row::before, .set-group > * + .set-nav::before, .set-group > * + .set-disclosure::before,
+.manage-group > * + .manage-row::before, .txs-group > * + .txs-row::before {
+  content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--hairline); pointer-events: none;
+}
+.set-nav-group > * + .set-nav::before { left: 58px; }
+.set-group > * + .set-disclosure { position: relative; border-top: none; }
+.set-intro { border-bottom: 1px solid var(--hairline); }
+.bt-row + .bt-row::before { background: var(--hairline); }
+.set-nav, .set-row { padding-left: 16px; padding-right: 16px; }
+.set-nav:active, .set-row:active, .txs-row:active { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.txs-row { min-height: 52px; padding-left: 16px; padding-right: 14px; }
+.txs-label { font-weight: 500; }
+.txs-hint { font-size: 0.75rem; margin-top: 1px; }
+
+/* Section labels above groups */
+.sheet-sec, .override-label, .budget-sec { display: block; margin: 18px 4px 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+
+/* Inputs: filled, no outline until focused */
+.action-sheet .app-input, .modal-card .app-input, .action-sheet .app-select, .modal-card .app-select, .budget-add-amt, .set-group .app-input {
+  min-height: 48px; border: 1.5px solid transparent; border-radius: 12px; background-color: var(--group-bg); font-size: max(16px, 1rem);
+}
+.action-sheet .app-input:focus, .modal-card .app-input:focus, .budget-add-amt:focus-within, .set-group .app-input:focus { border-color: var(--accent); }
+.set-group .app-input { background-color: var(--sheet-bg); }
+
+/* Buttons: flat, no outlines, same height */
+.btn-primary, .btn-primary-sm { border-radius: 14px; box-shadow: none; background-image: none; font-weight: 600; }
+.btn-primary-sm, .btn-secondary-sm { min-height: 48px; padding: 0 18px; font-size: 1rem; }
+.btn-secondary-sm, .action-sheet-cancel { border: none; border-radius: 14px; background: var(--group-bg); color: var(--text); font-weight: 600; }
+.action-sheet > .action-sheet-cancel { min-height: 52px; background: var(--group-bg); font-weight: 600; }
+.modal-actions { gap: 10px; }
+.modal-actions > button { flex: 1; }
+
+/* Toggle pair on the transaction sheet (Reimbursed / Ignore) */
+.txs-seg { gap: 10px; margin-top: 12px; }
+#tx-action-sheet .txs-seg .action-toggle { min-height: 50px; max-height: none; border: none; border-radius: 14px; background: var(--group-bg); color: var(--text); font-weight: 600; font-size: 0.9375rem; }
+#tx-action-sheet .txs-seg .action-toggle.active { background: var(--accent-subtle); color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+#tx-action-sheet .txs-seg .action-toggle svg { color: var(--text-muted); }
+#tx-action-sheet .txs-seg .action-toggle.active svg { color: var(--accent); }
+.txs-links { margin-top: 8px; }
+.tx-date-btn { min-height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); font-weight: 600; }
+.txs-note textarea { padding: 14px 0; }
+.txs-note textarea::placeholder { color: var(--text-muted); }
+.txs-amount { margin-bottom: 18px; }
+
+/* Account popup: title left, inline fields in a group, card designs as a strip */
+.manage-card h3 { text-align: left; margin: 0; }
+.manage-subtitle { text-align: left; margin: 2px 0 16px; }
+.manage-group { margin-bottom: 0; }
+.manage-group + .manage-group { margin-top: 12px; }
+.manage-field { cursor: text; }
+.manage-field > span:first-child { flex: none; font-weight: 500; }
+.manage-field input { flex: 1; min-width: 0; min-height: 44px; padding: 0; border: none; background: transparent; color: var(--text); font: 500 max(16px, 1rem) 'Inter', sans-serif; text-align: right; outline: none; }
+.manage-field input::placeholder { color: var(--text-muted); opacity: 0.7; }
+.manage-field[hidden] { display: none; }
+.manage-suffix { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; color: var(--text-muted); font-size: 0.9375rem; }
+.manage-suffix input { flex: 0 1 7ch; -moz-appearance: textfield; }
+.manage-suffix input::-webkit-inner-spin-button, .manage-suffix input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.manage-note { margin: 6px 4px 0; font-size: 0.75rem; line-height: 1.4; }
+.manage-note[hidden] { display: none; }
+.card-design-option { border-radius: 12px; border: none; box-shadow: 0 0 0 1px var(--hairline); }
+.card-design-option.none { background: var(--group-bg); }
+.card-design-option.selected { box-shadow: 0 0 0 2.5px var(--accent); }
+.manage-card .modal-actions { position: sticky; bottom: -1px; margin: 16px -1.5rem -1.5rem; padding: 12px 1.5rem calc(12px + env(safe-area-inset-bottom)); background: var(--sheet-bg); border-top: 1px solid var(--hairline); }
+
+/* Settings page */
+.set-profile-card { padding: 16px; }
+.set-nav { min-height: 54px; gap: 14px; }
+.set-nav-icon { width: 30px; height: 30px; border-radius: 8px; }
+.theme-grid button { border: none; background: var(--group-bg); box-shadow: none; }
+.theme-grid button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+.set-signout { border: none; background: var(--group-bg); }
+
+/* Budgets sheet bits that sit on the sheet surface */
+.budget-copy { border: none; background: var(--group-bg); }
+.budget-add-row { gap: 8px; }
+.budget-add .btn-primary { min-height: 48px; }
+.budget-sheet > .action-sheet-cancel { margin-top: 18px; }
+.act-flow-row.on, .act-leg.on { background: var(--group-bg); }

@@ -3588,14 +3588,16 @@ function openBudgetSheet(side, focusCat) {
     if (el) { el.focus(); if (el.select) el.select(); }
   }, 250);
 }
-function budgetRow(cls, label, cell) {
-  return '<div class="bt-row ' + cls + '" role="row"><div class="bt-name" role="cell">' + label + '</div><div class="bt-amt" role="cell">' + cell + '</div></div>';
+function budgetRow(cls, dot, label, sub, input, del) {
+  return '<div class="bt-row ' + cls + '">' + (dot ? '<i class="bt-dot" style="background:' + dot + '"></i>' : '') +
+    '<span class="bt-name"><span>' + label + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + input + (del || '') + '</div>';
 }
 function budgetInput(side, cat, v, aria, extra) {
-  return '<label class="bt-chip">' + (side === 'out' ? '<span aria-hidden="true">−</span>' : '') +
+  return '<label class="bt-chip"><span aria-hidden="true">$</span>' +
     '<input inputmode="decimal" autocomplete="off" enterkeyhint="done" data-side="' + side + '" data-cat="' + esc(cat) + '"' + (extra || '') +
     ' value="' + (v ? budgetAmtText(v) : '') + '" placeholder="0" aria-label="' + esc(aria) + '"></label>';
 }
+function budgetColor(i) { return CATEGORY_COLORS[i % CATEGORY_COLORS.length]; }
 function renderBudgetSheet(preselect) {
   var bs = budgetSheet, mName = budgetMonthName(bs.month);
   var BO = monthBudgets(bs.month, 'out'), BIn = monthBudgets(bs.month, 'in');
@@ -3605,19 +3607,30 @@ function renderBudgetSheet(preselect) {
   Object.keys(BO).forEach(function(c) { if (bs.order.indexOf(c) < 0) bs.order.push(c); });
   bs.order = bs.order.filter(function(c) { return BO[c]; });
   var pay = BIn.Income ? BIn.Income.amount : 0;
-  var html = budgetRow('bt-pay', 'Net pay <small>(monthly)</small>', budgetInput('in', 'Income', pay, 'Net pay, monthly', ' id="bt-pay-m"')) +
-    budgetRow('bt-pay2', 'Net pay <small>(biweekly)</small>', budgetInput('in', 'Income', pay / 2, 'Net pay, biweekly', ' id="bt-pay-b" data-biweekly="1"'));
+  // Top: what's left once every bill and budget is paid, and how your pay splits up
+  var html = '<div class="bt-summary">' +
+    '<span class="bt-sum-label">Left each month</span>' +
+    '<span class="bt-sum-value" id="bt-left-m"></span>' +
+    '<span class="bt-sum-sub" id="bt-left-b"></span>' +
+    '<div class="bt-alloc" id="bt-alloc" aria-hidden="true"></div>' +
+    '<div class="bt-alloc-key" id="bt-alloc-key"></div></div>';
+
+  html += '<div class="bt-sec"><span>Income</span></div><div class="bt-group">' +
+    budgetRow('bt-pay', 'var(--success)', 'Net pay', 'Monthly', budgetInput('in', 'Income', pay, 'Net pay, monthly', ' id="bt-pay-m"')) +
+    budgetRow('bt-pay2', '', 'Per paycheck', 'Every 2 weeks', budgetInput('in', 'Income', pay / 2, 'Net pay, biweekly', ' id="bt-pay-b" data-biweekly="1"'));
   // Any other money you expect in, besides pay
   Object.keys(BIn).filter(function(c) { return c !== 'Income'; }).sort().forEach(function(c) {
-    html += budgetRow('bt-pay bt-other', esc(c) + ' <small>(monthly)</small>', budgetInput('in', c, BIn[c].amount, c + ', monthly'));
+    html += budgetRow('bt-pay bt-other', 'var(--success)', esc(c), 'Monthly', budgetInput('in', c, BIn[c].amount, c + ', monthly'));
   });
+  html += '</div>';
+
+  html += '<div class="bt-sec"><span>Bills &amp; budgets</span><b id="bt-out-total"></b></div><div class="bt-group">';
   if (!bs.order.length) html += '<div class="bt-empty">No bills or spending budgets yet. Add one below.</div>';
-  bs.order.forEach(function(c) {
-    html += budgetRow('bt-out', '<span>' + esc(c) + '</span><button type="button" class="bt-del" data-del="' + esc(c) + '" aria-label="Remove ' + esc(c) + ' budget">×</button>',
-      budgetInput('out', c, BO[c].amount, c + ', monthly'));
+  bs.order.forEach(function(c, i) {
+    html += budgetRow('bt-out', budgetColor(i), esc(c), '', budgetInput('out', c, BO[c].amount, c + ', monthly'),
+      '<button type="button" class="bt-del" data-del="' + esc(c) + '" aria-label="Remove ' + esc(c) + ' budget"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>');
   });
-  html += budgetRow('bt-left bt-left1', 'Remaining <small>(monthly)</small>', '<span class="bt-chip" id="bt-left-m"></span>') +
-    budgetRow('bt-left bt-left2', 'Remaining <small>(biweekly)</small>', '<span class="bt-chip" id="bt-left-b"></span>');
+  html += '</div>';
   $('#budget-table').innerHTML = html;
   refreshBudgetTotals();
 
@@ -3648,16 +3661,31 @@ function renderBudgetCopy() {
 }
 // Remaining = pay coming in minus every budget going out
 function refreshBudgetTotals() {
-  var BO = monthBudgets(budgetSheet.month, 'out'), BIn = monthBudgets(budgetSheet.month, 'in');
+  var bs = budgetSheet, BO = monthBudgets(bs.month, 'out'), BIn = monthBudgets(bs.month, 'in');
   var inTot = Object.keys(BIn).reduce(function(t, c) { return t + BIn[c].amount; }, 0);
   var outTot = Object.keys(BO).reduce(function(t, c) { return t + BO[c].amount; }, 0);
   var left = Math.round((inTot - outTot) * 100) / 100;
-  [['#bt-left-m', left], ['#bt-left-b', Math.round(left / 2 * 100) / 100]].forEach(function(p) {
-    var el = $(p[0]); if (!el) return;
-    el.textContent = inTot ? (p[1] < 0 ? '−' : '') + wholeMoney(p[1]) : 'Add net pay';
-    el.classList.toggle('bad', !!inTot && p[1] < 0);
-    el.classList.toggle('none', !inTot);
-  });
+  var signed = function(v) { return (v < 0 ? '−' : '') + wholeMoney(v); };
+  var mEl = $('#bt-left-m'), bEl = $('#bt-left-b');
+  if (!mEl) return;
+  mEl.textContent = inTot ? signed(left) : '—';
+  mEl.classList.toggle('bad', !!inTot && left < 0);
+  bEl.textContent = !inTot ? 'Add your net pay to see what’s left' : left < 0 ? 'Your budgets are more than you make' : signed(left / 2) + ' per paycheck';
+  bEl.classList.toggle('bad', !!inTot && left < 0);
+  var tot = $('#bt-out-total'); if (tot) tot.textContent = outTot ? wholeMoney(outTot) : '';
+  // Allocation bar: each bill's slice of your pay, then what's left (in green)
+  var base = Math.max(inTot, outTot) || 1;
+  var seg = function(v, color, title) { return v > 0 ? '<i style="flex-grow:' + v.toFixed(2) + ';background:' + color + '" title="' + esc(title) + '"></i>' : ''; };
+  var bar = bs.order.filter(function(c) { return BO[c]; }).map(function(c, i) { return seg(BO[c].amount, budgetColor(i), c); }).join('');
+  if (left > 0) bar += seg(left, 'var(--success)', 'Left');
+  if (inTot < outTot) bar += seg(0, '', '');
+  var alloc = $('#bt-alloc');
+  alloc.innerHTML = bar;
+  alloc.style.setProperty('--fill', (Math.min(1, (inTot ? Math.max(inTot, outTot) : outTot) / base) * 100) + '%');
+  alloc.hidden = !inTot && !outTot;
+  var key = $('#bt-alloc-key');
+  key.innerHTML = inTot || outTot ? '<span><i style="background:var(--text-muted)"></i>Budgeted ' + wholeMoney(outTot) + (inTot ? ' · ' + Math.round(outTot / inTot * 100) + '%' : '') + '</span>' +
+    (inTot ? '<span><i style="background:' + (left < 0 ? 'var(--danger)' : 'var(--success)') + '"></i>' + (left < 0 ? 'Short ' + wholeMoney(-left) : 'Left ' + Math.round(left / inTot * 100) + '%') + '</span>' : '') : '';
   renderBudgetCopy();
 }
 function budgetAddPicked() {
@@ -4201,6 +4229,7 @@ document.addEventListener('click', function(e) {
   renderCardDesignPicker(acct && acct.card_design_id ? acct.card_design_id : null);
   var isDeposit = acct && acct.type === 'depository';
   $('#apy-field').hidden = !isDeposit;
+  $('#apy-hint').hidden = !isDeposit;
   $('#apy-input').value = acct && acct.apy != null ? acct.apy : '';
   $('#edit-exclude').checked = !!(acct && acct.exclude_from_totals);
   $('#edit-hide').checked = !!(acct && acct.is_hidden);
