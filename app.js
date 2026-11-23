@@ -4659,8 +4659,6 @@ var CATEGORY_COLORS = [
   '#B0679A', '#B8913A', '#6D6AC9', '#D46A5A', '#5E7FA3',
   '#7D4E8F', '#9C5B3C', '#C04F86', '#A8956B', '#8C6A4F'
 ];
-// The ring's "Other" slice: small categories share it
-var OTHER_SLICE = '__other', OTHER_COLOR = '#8A857B';
 // Income sources: greens and teals (green means money in)
 var INCOME_COLORS = ['#2A6E4D', '#4E9A73', '#3F7F86', '#7FB08F', '#5C8A5A', '#2F5F6E'];
 
@@ -4693,7 +4691,7 @@ function renderTransactionMonth() {
   var month = $('#tx-month-filter').value;
   var cardId = $('#tx-card-filter').value;
   saveTxView(false);
-  if (month + '|' + cardId !== lastActKey) lastActKey = month + '|' + cardId;
+  if (month + '|' + cardId !== lastActKey) { activeDay = null; lastActKey = month + '|' + cardId; }
   var searchVal = ($('#tx-search').value || '').toLowerCase().trim();
   var breakdown = $('#tx-breakdown');
   var legend = $('#tx-category-legend');
@@ -4752,12 +4750,15 @@ function renderTransactionMonth() {
   }
 
   // Filter by active category if pie slice clicked
-  // ("Other" on the ring is several small categories; that one is filtered further down)
-  if (activeCategoryFilter && activeCategoryFilter !== OTHER_SLICE) {
+  if (activeCategoryFilter) {
     displayTx = displayTx.filter(function(tx) {
       var eff = getEffectiveTx(tx);
       return normalizeCategory(eff.category) === activeCategoryFilter;
     });
+  }
+
+  if (activeDay) {
+    displayTx = displayTx.filter(function(tx) { return parseInt(getEffectiveTx(tx).date.substring(8, 10), 10) === activeDay; });
   }
 
   // Money in view: only incoming money (no transfers between your accounts)
@@ -4769,7 +4770,7 @@ function renderTransactionMonth() {
   }
 
   // ---- Summary: spent / money in / transfers (effective amounts, skip excluded)
-  var byCategory = {}, spent = 0, moneyIn = 0, transfers = 0;
+  var byCategory = {}, spent = 0, moneyIn = 0, transfers = 0, byDay = {};
   var outByCat = {};
   filtered.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
@@ -4780,12 +4781,16 @@ function renderTransactionMonth() {
     // The chart, chips and big number follow whichever side you're looking at
     var amt = Math.abs(eff.amount), isOut = eff.amount > 0;
     if (isOut) { spent += amt; outByCat[cat] = (outByCat[cat] || 0) + amt; } else moneyIn += amt;
-    if (isOut === !incomeMode) byCategory[cat] = (byCategory[cat] || 0) + amt;
+    if (isOut === !incomeMode) {
+      byCategory[cat] = (byCategory[cat] || 0) + amt;
+      var day = parseInt(eff.date.substring(8, 10), 10);
+      byDay[day] = byDay[day] || {};
+      byDay[day][cat] = (byDay[day][cat] || 0) + amt;
+    }
   });
-  if (activeCategoryFilter && activeCategoryFilter !== OTHER_SLICE && !byCategory[activeCategoryFilter]) activeCategoryFilter = null;
-  // The big number stays on the month's total; the ring's centre shows whatever you tap
-  var shownSpent = incomeMode ? moneyIn : spent;
-  $('#act-spent-label').textContent = incomeMode ? 'Income' : 'Spent';
+  if (activeCategoryFilter && !byCategory[activeCategoryFilter]) activeCategoryFilter = null;
+  var shownSpent = activeCategoryFilter ? byCategory[activeCategoryFilter] : (incomeMode ? moneyIn : spent);
+  $('#act-spent-label').textContent = activeCategoryFilter ? activeCategoryFilter : (incomeMode ? 'Income' : 'Spent');
   $('#act-spent').textContent = (incomeMode && shownSpent > 0 && !hideMoney ? '+' : '') + formatMoney(shownSpent);
   $('#act-spent').classList.toggle('is-in', incomeMode);
   // One sentence: spent vs what came in this month (all accounts; transfers between your accounts left out)
@@ -4798,93 +4803,118 @@ function renderTransactionMonth() {
     if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
     else if (gap >= 0) net.innerHTML = 'You kept <b class="good">' + pctOf(gap) + '</b> of it';
     else net.innerHTML = 'You spent <b class="bad">' + pctOf(-gap) + ' more</b> than this';
+  } else if (activeCategoryFilter) {
+    // A category picked: its share of your income, then whether it's within its budget
+    var catAmt = outByCat[activeCategoryFilter] || 0, cb = monthBudgets(month, 'out')[activeCategoryFilter];
+    var parts = [];
+    if (moneyIn) parts.push('<b>' + pctOf(catAmt) + '</b> of income');
+    if (cb) parts.push(catAmt > cb.amount + 0.005 ? '<b class="bad">' + wholeMoney(catAmt - cb.amount) + ' over budget</b>' : '<b class="good">On budget</b>');
+    net.innerHTML = parts.join(' · ') || 'No budget set';
   }
   else if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
   else if (gap > 0) net.innerHTML = '<b class="good">' + wholeMoney(gap) + ' less</b> than you made';
   else if (gap < 0) net.innerHTML = '<b class="bad">' + wholeMoney(-gap) + ' more</b> than you made';
   else net.innerHTML = 'Spent exactly what you made';
+  $('#act-bars').setAttribute('aria-label', (incomeMode ? 'Money in' : 'Spending') + ' by day. Tap a day to see its transactions.');
 
-  $('#act-daily-note').innerHTML = cardId === 'all' ? '<button type="button" class="signin-link" id="act-set-budget">Budgets</button>' : '';
-
-  // ---- One ring. Spending by category, or (tap Income) where money came from.
-  // Legend is names only; tap a name or a slice to see its amount in the middle.
-  var entries = Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
-  var colors = {};
-  entries.forEach(function(e, i) { colors[e[0]] = (incomeMode ? INCOME_COLORS : CATEGORY_COLORS)[i % (incomeMode ? INCOME_COLORS : CATEGORY_COLORS).length]; });
-  var total = entries.reduce(function(t, e) { return t + e[1]; }, 0);
-  // Small slices look like crumbs on a ring, so anything under 4% (or past the 6th) shares one grey "Other" slice.
-  // They still get their own names in the legend.
-  var otherOf = {}, slices = entries;
-  var small = entries.filter(function(e, i) { return i >= 6 || e[1] / total < 0.04; });
-  if (small.length >= 2) {
-    small.forEach(function(e) { otherOf[e[0]] = true; colors[e[0]] = OTHER_COLOR; });
-    slices = entries.filter(function(e) { return !otherOf[e[0]]; }).concat([[OTHER_SLICE, small.reduce(function(t, e) { return t + e[1]; }, 0)]]);
-    colors[OTHER_SLICE] = OTHER_COLOR;
-  }
-  if (activeCategoryFilter === OTHER_SLICE) {
-    if (small.length < 2) activeCategoryFilter = null;
-    else displayTx = displayTx.filter(function(tx) { return otherOf[normalizeCategory(getEffectiveTx(tx).category)]; });
-  }
-  // The slice that holds what you tapped (a small category lights up "Other")
-  var litSlice = activeCategoryFilter && otherOf[activeCategoryFilter] ? OTHER_SLICE : activeCategoryFilter;
-  var ring = $('#act-ring');
-  $('#act-ring-row').classList.toggle('no-ring', !total);
-  var pct = function(a, b) { var v = a / b * 100; return (v > 0 && v < 1 ? '<1' : Math.round(v)) + '%'; };
-  if (total) {
-    var CX = 100, RO = 96, RI = 64, W = 6, GAP = 3.5, RM = (RO + RI) / 2;
-    var pt = function(r, a) { return (CX + r * Math.cos(a)).toFixed(2) + ' ' + (CX + r * Math.sin(a)).toFixed(2); };
-    var at = -Math.PI / 2, paths = '';
-    slices.forEach(function(e) {
-      var sweep = e[1] / total * 2 * Math.PI;
-      // Each slice is a filled band with a thick round-joined outline, so corners come out rounded
-      var trim = slices.length > 1 ? (GAP / 2 + W / 2) / RM : 0;
-      var a0 = at + trim, a1 = at + sweep - trim;
-      if (a1 < a0) { a0 = a1 = at + sweep / 2; }
-      var ro = RO - W / 2, ri = RI + W / 2, large = a1 - a0 > Math.PI ? 1 : 0;
-      var d = slices.length === 1
-        ? 'M' + pt(ro, 0) + 'A' + ro + ' ' + ro + ' 0 1 1 ' + pt(ro, Math.PI) + 'A' + ro + ' ' + ro + ' 0 1 1 ' + pt(ro, 0) + 'Z' +
-          'M' + pt(ri, 0) + 'A' + ri + ' ' + ri + ' 0 1 0 ' + pt(ri, Math.PI) + 'A' + ri + ' ' + ri + ' 0 1 0 ' + pt(ri, 0) + 'Z'
-        : 'M' + pt(ro, a0) + 'A' + ro + ' ' + ro + ' 0 ' + large + ' 1 ' + pt(ro, a1) + 'L' + pt(ri, a1) + 'A' + ri + ' ' + ri + ' 0 ' + large + ' 0 ' + pt(ri, a0) + 'Z';
-      var dim = litSlice && litSlice !== e[0];
-      paths += '<path class="act-ring-seg' + (dim ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" d="' + d + '" fill="' + colors[e[0]] + '" stroke="' + colors[e[0]] + '" stroke-width="' + W + '" stroke-linejoin="round" fill-rule="evenodd"><title>' + esc(e[0]) + '</title></path>';
-      at += sweep;
+  // ---- One chart: spending by day, each bar stacked by category.
+  // The category chips under it are the legend and the filter.
+  var catEntries = Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  var categoryColorMap = {};
+  catEntries.forEach(function(e, i) { categoryColorMap[e[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+  var parts = month.split('-'), y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  var daysInMonth = new Date(y, m, 0).getDate();
+  var now = new Date();
+  var isThisMonth = now.getFullYear() === y && now.getMonth() + 1 === m;
+  var lastDay = isThisMonth ? now.getDate() : daysInMonth;
+  if (activeDay && activeDay > lastDay) activeDay = null;
+  // Picked a day that doesn't have the filtered category: drop the category filter
+  if (activeDay && activeCategoryFilter && !(byDay[activeDay] || {})[activeCategoryFilter]) { activeCategoryFilter = null; return renderTransactionMonth(); }
+  var dayTotal = function(d) {
+    var o = byDay[d] || {};
+    if (activeCategoryFilter) return o[activeCategoryFilter] || 0;
+    return Object.keys(o).reduce(function(s, k) { return s + o[k]; }, 0);
+  };
+  var maxDay = 0;
+  for (var dd = 1; dd <= lastDay; dd++) maxDay = Math.max(maxDay, dayTotal(dd));
+  // Scrollable bars: Week / 2 weeks fill the width with that many days, Month fits them all
+  var vis = Math.min(actRange, daysInMonth);
+  var barsEl = $('#act-bars');
+  barsEl.style.setProperty('--vis', vis);
+  barsEl.classList.toggle('dense', vis > 14);
+  var bars = '';
+  for (var d = 1; d <= daysInMonth; d++) {
+    var future = d > lastDay;
+    var total = future ? 0 : dayTotal(d);
+    var date = new Date(y, m - 1, d);
+    var h = total && maxDay ? Math.max(4, Math.sqrt(total / maxDay) * 100) : 0;
+    var segs = '';
+    if (total) catEntries.forEach(function(e) {
+      var v = (byDay[d] || {})[e[0]];
+      if (!v || (activeCategoryFilter && activeCategoryFilter !== e[0])) return;
+      segs += '<i style="flex-grow:' + v.toFixed(2) + ';background:' + categoryColorMap[e[0]] + '"></i>';
     });
-    // Centre: the total, or what you tapped. Income is woven in as the line underneath.
-    var picked = activeCategoryFilter && (activeCategoryFilter === OTHER_SLICE || byCategory[activeCategoryFilter]);
-    var label, value, sub = '';
-    if (activeCategoryFilter === OTHER_SLICE) {
-      label = 'Other'; value = slices[slices.length - 1][1];
-      sub = small.length + ' smaller categories';
-    } else if (picked) {
-      label = activeCategoryFilter; value = byCategory[activeCategoryFilter];
-      sub = pct(value, total) + ' of ' + (incomeMode ? 'income' : 'spending');
-    }
-    // Nothing tapped: the middle shows the one number the header doesn't, how much of your income is gone (or kept)
-    var share = !picked && moneyIn && cardId === 'all';
-    ring.innerHTML = '<svg viewBox="0 0 200 200" role="img" aria-label="' + esc((incomeMode ? 'Income by source: ' : 'Spending by category: ') + slices.map(function(e) { return (e[0] === OTHER_SLICE ? 'Other' : e[0]) + ' ' + pct(e[1], total); }).join(', ')) + '">' + paths + '</svg>' +
-      (share
-        ? '<span class="act-ring-center act-ring-share" aria-live="polite"><b class="' + (spent > moneyIn ? 'bad' : 'good') + '">' + (incomeMode ? pct(Math.max(0, moneyIn - spent), moneyIn) : pct(spent, moneyIn)) + '</b><small>' + (incomeMode ? 'of income kept' : 'of income spent') + '</small></span>'
-        : '<span class="act-ring-center" aria-live="polite"><small>' + esc(picked ? label : (incomeMode ? 'Income' : 'Spent')) + '</small><b>' + (incomeMode && !hideMoney ? '+' : '') + formatMoney(picked ? value : total) + '</b>' +
-          (sub ? '<em>' + esc(sub) + '</em>' : '') + '</span>');
-  } else ring.innerHTML = '';
+    var showLabel = vis <= 14 || d === 1 || d % 7 === 1 || d === daysInMonth;
+    bars += '<button type="button" class="act-bar' + (activeDay === d ? ' on' : '') + (activeDay && activeDay !== d ? ' dim' : '') + (isThisMonth && d === now.getDate() ? ' today' : '') + '" data-day="' + d + '"' + (future ? ' disabled' : '') +
+      ' aria-pressed="' + (activeDay === d) + '" aria-label="' + MONTH_SHORT[m - 1] + ' ' + d + ': ' + formatMoney(total) + '">' +
+      '<span class="act-bar-col">' + (h ? '<span class="act-bar-fill" style="height:' + h.toFixed(1) + '%">' + segs + '</span>' : '<span class="act-bar-zero"></span>') + '</span>' +
+      '<span class="act-bar-label">' + (showLabel ? (vis <= 14 ? '<small>' + 'SMTWTFS'.charAt(date.getDay()) + '</small>' : '') + d : '') + '</span>' +
+    '</button>';
+  }
+  var keepScroll = barsEl.dataset.month === month && barsEl.dataset.vis === String(vis);
+  var prevScroll = barsEl.scrollLeft;
+  barsEl.innerHTML = bars;
+  // Start at the most recent days (or the picked day); keep position on re-render
+  if (keepScroll) barsEl.scrollLeft = prevScroll;
+  else { barsEl._focusDay = activeDay || lastDay; scrollBarsToFocus(); }
+  barsEl.dataset.month = month; barsEl.dataset.vis = String(vis);
+  $('#act-range').querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', Math.min(+b.dataset.range, daysInMonth) === vis); });
+  // ---- Budgets: this month's own, shown on the category pills (whole month, all accounts)
+  var B = monthBudgets(month, 'out'), BI = monthBudgets(month, 'in');
+  var expectedIn = Object.keys(BI).reduce(function(t, c) { return t + BI[c].amount; }, 0);
+  var budgetOn = cardId === 'all' && !activeDay && (Object.keys(B).length > 0 || expectedIn > 0);
+  if (activeDay) net.innerHTML = '';
 
-  // Legend: names only, 6 to a page, swipe for more (dots show where you are).
-  // The first item flips the ring between spending and income.
-  var flip = incomeMode ? '<button type="button" class="act-leg act-leg-flip" data-flip="out"><i class="act-leg-spend"></i><span>Spending</span></button>'
-    : moneyIn > 0 ? '<button type="button" class="act-leg act-leg-flip" data-flip="in"><i style="background:var(--success)"></i><span>Income</span></button>' : '';
-  // Income with a single source: the ring already says it all, so just offer the way back
-  var legendEntries = incomeMode && entries.length < 2 ? [] : entries;
-  var items = (flip ? [flip] : []).concat(legendEntries.map(function(e) {
-    var on = activeCategoryFilter === e[0] || (activeCategoryFilter === OTHER_SLICE && !!otherOf[e[0]]);
-    return '<button type="button" class="act-leg' + (on ? ' on' : '') + (activeCategoryFilter && !on ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '"><i style="background:' + colors[e[0]] + '"></i><span>' + esc(e[0]) + '</span></button>';
+  if (activeDay) {
+    var dayAmt = dayTotal(activeDay);
+    $('#act-spent-label').textContent = new Date(y, m - 1, activeDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + (activeCategoryFilter ? ' · ' + activeCategoryFilter : '');
+    $('#act-spent').textContent = formatMoney(dayAmt);
+    $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-clear-day">Show all of ' + MONTH_LONG[m - 1] + '</button>';
+  } else if (cardId === 'all') {
+    var anyB = Object.keys(B).length > 0;
+    $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-set-budget">Budgets</button>';
+  } else {
+    $('#act-daily-note').textContent = '';
+  }
+
+  // Legend under the bars: names only, 6 to a page, swipe for more (dots show the page).
+  // Income first (green), then spending categories in the same colours as the bars.
+  // With a day picked, only that day's categories.
+  var outEntries = Object.keys(outByCat).map(function(k) { return [k, outByCat[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  var outColors = {};
+  outEntries.forEach(function(e, i) { outColors[e[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+  var legEntries = outEntries;
+  if (activeDay && !incomeMode) {
+    var od = byDay[activeDay] || {};
+    legEntries = Object.keys(od).map(function(k) { return [k, od[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  } else if (activeDay && incomeMode) legEntries = [];
+  var incomeAmt = activeDay ? (incomeMode ? dayTotal(activeDay) : 0) : moneyIn;
+  var showIncome = incomeMode || incomeAmt > 0;
+  var legItem = function(name, color, on, isIncome) {
+    var dim = (incomeMode || activeCategoryFilter) && !on;
+    return '<button type="button" class="act-leg' + (on ? ' on' : '') + (dim ? ' dim' : '') + '"' + (isIncome ? ' data-income="1"' : ' data-cat="' + esc(name) + '"') + ' aria-pressed="' + on + '"><i style="background:' + color + '"></i><span>' + esc(name) + '</span></button>';
+  };
+  var legItems = (showIncome ? [legItem('Income', 'var(--success)', incomeMode, true)] : []).concat(legEntries.map(function(e) {
+    return legItem(e[0], outColors[e[0]] || categoryColorMap[e[0]], !incomeMode && activeCategoryFilter === e[0], false);
   }));
-  var pages = [];
-  for (var pi = 0; pi < items.length; pi += 6) pages.push('<div class="act-leg-page">' + items.slice(pi, pi + 6).join('') + '</div>');
-  var keepLeg = legend.dataset.key === month + '|' + cardId + '|' + incomeMode ? legend.scrollLeft : 0;
-  legend.innerHTML = entries.length ? pages.join('') : flip + '<p class="act-empty-note">' + (incomeMode ? 'Nothing has come in yet.' : 'Nothing yet this month.') + '</p>';
-  legend.dataset.key = month + '|' + cardId + '|' + incomeMode;
+  var legPages = [];
+  for (var lp = 0; lp < legItems.length; lp += 6) legPages.push('<div class="act-leg-page">' + legItems.slice(lp, lp + 6).join('') + '</div>');
+  var legKey = month + '|' + cardId + '|' + (activeDay || '');
+  var keepLeg = legend.dataset.key === legKey ? legend.scrollLeft : 0;
+  legend.innerHTML = legPages.join('') || '<p class="act-empty-note">' + (activeDay ? 'Nothing this day.' : 'Nothing yet this month.') + '</p>';
+  legend.dataset.key = legKey;
   legend.scrollLeft = keepLeg;
-  $('#act-leg-dots').innerHTML = pages.length > 1 ? pages.map(function(_, i) { return '<button type="button" data-page="' + i + '" aria-label="Page ' + (i + 1) + ' of ' + pages.length + '"></button>'; }).join('') : '';
+  $('#act-leg-dots').innerHTML = legPages.length > 1 ? legPages.map(function(_, i) { return '<button type="button" data-page="' + i + '" aria-label="Page ' + (i + 1) + ' of ' + legPages.length + '"></button>'; }).join('') : '';
   updateLegendDots();
 
   // ---- Transactions grouped by day
@@ -5008,7 +5038,6 @@ function closePicker() {
   });
 })();
 
-var incomeMode = false;   // Activity: false = spending, true = money in
 // Which legend page you're on
 function updateLegendDots() {
   var leg = $('#tx-category-legend'), dots = $('#act-leg-dots');
@@ -5016,28 +5045,56 @@ function updateLegendDots() {
   var at = Math.round(leg.scrollLeft / Math.max(1, leg.clientWidth));
   Array.prototype.forEach.call(dots.children, function(d, i) { d.classList.toggle('on', i === at); d.setAttribute('aria-current', i === at ? 'true' : 'false'); });
 }
-(function wireActCharts() {
-  var ring = $('#act-ring'), legend = $('#tx-category-legend'), note = $('#act-daily-note');
-  if (!ring) return;
-  var pick = function(cat) { activeCategoryFilter = activeCategoryFilter === cat ? null : cat; renderTransactionMonth(); };
-  ring.addEventListener('click', function(e) {
-    var c = e.target.closest('.act-ring-seg');
-    if (c) pick(c.dataset.cat);
-    else if (activeCategoryFilter) { activeCategoryFilter = null; renderTransactionMonth(); }   // tap the middle to go back to the total
+var activeDay = null;
+var incomeMode = false;   // Activity: false = spending, true = money in
+
+// Scroll the day bars so the focus day (today, or the picked day) is at the right edge.
+// If the tab is hidden (width 0) this waits until it's shown.
+function scrollBarsToFocus() {
+  var el = $('#act-bars');
+  if (!el || !el._focusDay || !el.clientWidth) return;
+  var col = el.scrollWidth / el.children.length;
+  el.scrollLeft = Math.max(0, el._focusDay * col - el.clientWidth);
+  el._focusDay = null;
+}
+if (window.ResizeObserver) {
+  new ResizeObserver(function() { requestAnimationFrame(function() { scrollBarsToFocus(); updateLegendDots(); }); })
+    .observe(document.getElementById('tx-content'));
+}
+var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 7;
+(function wireActBars() {
+  var bars = $('#act-bars'), range = $('#act-range'), note = $('#act-daily-note');
+  if (!bars) return;
+  bars.addEventListener('click', function(e) {
+    var b = e.target.closest('.act-bar');
+    if (!b || b.disabled) return;
+    var d = +b.dataset.day;
+    activeDay = activeDay === d ? null : d;
+    renderTransactionMonth();
   });
-  legend.addEventListener('click', function(e) {
-    var b = e.target.closest('.act-leg');
+  range.addEventListener('click', function(e) {
+    var b = e.target.closest('button[data-range]');
     if (!b) return;
-    if (b.dataset.flip) { incomeMode = b.dataset.flip === 'in'; activeCategoryFilter = null; renderTransactionMonth(); return; }
-    pick(b.dataset.cat);
+    actRange = +b.dataset.range;
+    try { localStorage.setItem('alenjo_act_range', String(actRange)); } catch (err) {}
+    renderTransactionMonth();
+  });
+  note.addEventListener('click', function(e) {
+    if (e.target.id === 'act-clear-day') { activeDay = null; renderTransactionMonth(); }
+    if (e.target.id === 'act-set-budget') openBudgetSheet('out');
+  });
+  // Legend: tap a name to filter (again to clear); Income switches the bars to money in
+  var legend = $('#tx-category-legend');
+  legend.addEventListener('click', function(e) {
+    var el = e.target.closest('.act-leg'); if (!el) return;
+    if (el.dataset.income) { incomeMode = !incomeMode; activeCategoryFilter = null; }
+    else { incomeMode = false; activeCategoryFilter = activeCategoryFilter === el.dataset.cat ? null : el.dataset.cat; }
+    renderTransactionMonth();
   });
   legend.addEventListener('scroll', function() { requestAnimationFrame(updateLegendDots); }, { passive: true });
   $('#act-leg-dots').addEventListener('click', function(e) {
     var d = e.target.closest('[data-page]'); if (!d) return;
     legend.scrollTo({ left: +d.dataset.page * legend.clientWidth, behavior: 'smooth' });
-  });
-  note.addEventListener('click', function(e) {
-    if (e.target.id === 'act-set-budget') openBudgetSheet('out');
   });
 })();
 
