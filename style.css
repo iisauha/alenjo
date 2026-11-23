@@ -3956,3 +3956,8 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 #account-edit-modal .card-design-picker { padding: 4px 4px 8px; margin: 0 -4px; scroll-padding-inline: 4px; }
 #account-edit-modal .card-design-option { overflow: visible; }
 #account-edit-modal .card-design-option .card-design-option-img { border-radius: inherit; overflow: hidden; }
+/* Legend: picking a name keeps everything in place; the others just grey out */
+.act-leg.on { background: transparent; font-weight: 500; }
+/* "the total you made": tap to see income */
+.act-made-link { display: inline; min-height: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dashed var(--success); text-decoration-thickness: 1.5px; text-underline-offset: 4px; -webkit-tap-highlight-color: transparent; }
+.act-made-link:active { opacity: 0.6; }

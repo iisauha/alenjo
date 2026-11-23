@@ -4801,8 +4801,8 @@ function renderTransactionMonth() {
   if (cardId !== 'all' || (!moneyIn && !spent)) net.innerHTML = '';
   else if (incomeMode) {
     if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
-    else if (gap >= 0) net.innerHTML = 'You kept <b class="good">' + pctOf(gap) + '</b> of it';
-    else net.innerHTML = 'You spent <b class="bad">' + pctOf(-gap) + ' more</b> than this';
+    else if (gap >= 0) net.innerHTML = 'You kept <b class="good">' + pctOf(gap) + '</b> of it · <button type="button" class="act-made-link" data-show-income="0">Back to spending</button>';
+    else net.innerHTML = 'You spent <b class="bad">' + pctOf(-gap) + ' more</b> than this · <button type="button" class="act-made-link" data-show-income="0">Back to spending</button>';
   } else if (activeCategoryFilter) {
     // A category picked: its share of your income, then whether it's within its budget
     var catAmt = outByCat[activeCategoryFilter] || 0, cb = monthBudgets(month, 'out')[activeCategoryFilter];
@@ -4812,9 +4812,10 @@ function renderTransactionMonth() {
     net.innerHTML = parts.join(' · ') || 'No budget set';
   }
   else if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
-  else if (gap > 0) net.innerHTML = '<b class="good">' + wholeMoney(gap) + ' less</b> than you made';
-  else if (gap < 0) net.innerHTML = '<b class="bad">' + wholeMoney(-gap) + ' more</b> than you made';
-  else net.innerHTML = 'Spent exactly what you made';
+  // "the total you made" is a dashed green link: tap it to see your income
+  else if (gap > 0) net.innerHTML = '<b class="good">' + wholeMoney(gap) + ' less</b>' + ' than <button type="button" class="act-made-link" data-show-income="1">the total you made</button>';
+  else if (gap < 0) net.innerHTML = '<b class="bad">' + wholeMoney(-gap) + ' more</b>' + ' than <button type="button" class="act-made-link" data-show-income="1">the total you made</button>';
+  else net.innerHTML = 'Spent exactly' + ' <button type="button" class="act-made-link" data-show-income="1">the total you made</button>';
   $('#act-bars').setAttribute('aria-label', (incomeMode ? 'Money in' : 'Spending') + ' by day. Tap a day to see its transactions.');
 
   // ---- One chart: spending by day, each bar stacked by category.
@@ -4898,15 +4899,13 @@ function renderTransactionMonth() {
     var od = byDay[activeDay] || {};
     legEntries = Object.keys(od).map(function(k) { return [k, od[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
   } else if (activeDay && incomeMode) legEntries = [];
-  var incomeAmt = activeDay ? (incomeMode ? dayTotal(activeDay) : 0) : moneyIn;
-  var showIncome = incomeMode || incomeAmt > 0;
   var legItem = function(name, color, on, isIncome) {
     var dim = (incomeMode || activeCategoryFilter) && !on;
     return '<button type="button" class="act-leg' + (on ? ' on' : '') + (dim ? ' dim' : '') + '"' + (isIncome ? ' data-income="1"' : ' data-cat="' + esc(name) + '"') + ' aria-pressed="' + on + '"><i style="background:' + color + '"></i><span>' + esc(name) + '</span></button>';
   };
-  var legItems = (showIncome ? [legItem('Income', 'var(--success)', incomeMode, true)] : []).concat(legEntries.map(function(e) {
+  var legItems = legEntries.map(function(e) {
     return legItem(e[0], outColors[e[0]] || categoryColorMap[e[0]], !incomeMode && activeCategoryFilter === e[0], false);
-  }));
+  });
   var legPages = [];
   for (var lp = 0; lp < legItems.length; lp += 6) legPages.push('<div class="act-leg-page">' + legItems.slice(lp, lp + 6).join('') + '</div>');
   var legKey = month + '|' + cardId + '|' + (activeDay || '');
@@ -5083,7 +5082,13 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
     if (e.target.id === 'act-clear-day') { activeDay = null; renderTransactionMonth(); }
     if (e.target.id === 'act-set-budget') openBudgetSheet('out');
   });
-  // Legend: tap a name to filter (again to clear); Income switches the bars to money in
+  // "the total you made" / "Back to spending" under the big number
+  $('#act-net').addEventListener('click', function(e) {
+    var b = e.target.closest('[data-show-income]'); if (!b) return;
+    incomeMode = b.dataset.showIncome === '1'; activeCategoryFilter = null;
+    renderTransactionMonth();
+  });
+  // Legend: tap a name to filter (again to clear)
   var legend = $('#tx-category-legend');
   legend.addEventListener('click', function(e) {
     var el = e.target.closest('.act-leg'); if (!el) return;
@@ -6469,6 +6474,62 @@ function flashSaved(btn) {
       if (cancel) cancel.click();
     }
   }, true);
+  // Same as tapping outside: used by swipe-down below
+  window.closePopupOverlay = function(t) {
+    downOn = t;
+    t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  };
+})();
+
+// Swipe a bottom popup down to close it (as well as tapping outside or Cancel).
+// Only starts when the popup is scrolled to the top and the drag is mostly downward,
+// and never from a slider, a sideways strip (card designs) or a crop/drawing area.
+(function wireSwipeToClose() {
+  var card = null, overlay = null, y0 = 0, x0 = 0, t0 = 0, dy = 0, dragging = false;
+  function sheetOf(el) {
+    var c = el.closest('.action-sheet, .modal-card');
+    if (!c) return null;
+    var ov = c.closest('.action-sheet-overlay, .modal-overlay');
+    if (!ov || !ov.classList.contains('visible')) return null;
+    if (getComputedStyle(ov).alignItems !== 'flex-end') return null;   // centred dialogs stay put
+    return c;
+  }
+  document.addEventListener('touchstart', function(e) {
+    if (e.touches.length !== 1) return;
+    var t = e.target;
+    if (t.closest('input[type="range"], .card-design-picker, canvas, .card-crop-card, .card-refine-card, .act-legend, textarea')) return;
+    card = sheetOf(t);
+    if (!card) return;
+    overlay = card.closest('.action-sheet-overlay, .modal-overlay');
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; t0 = Date.now(); dy = 0; dragging = false;
+  }, { passive: true });
+  document.addEventListener('touchmove', function(e) {
+    if (!card) return;
+    var my = e.touches[0].clientY - y0, mx = e.touches[0].clientX - x0;
+    if (!dragging) {
+      if (my < 8 || Math.abs(mx) > my || card.scrollTop > 0) { if (Math.abs(my) > 8 || Math.abs(mx) > 8) card = null; return; }
+      dragging = true;
+      card.style.transition = 'none';
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    }
+    dy = Math.max(0, my);
+    card.style.transform = 'translateY(' + dy + 'px)';
+    e.preventDefault();
+  }, { passive: false });
+  function end() {
+    if (!card) return;
+    var c = card, ov = overlay, v = dy / Math.max(1, Date.now() - t0);
+    card = null;
+    if (!dragging) return;
+    dragging = false;
+    c.style.transition = '';
+    var shut = dy > Math.min(140, c.offsetHeight * 0.3) || (v > 0.6 && dy > 40);
+    // Let the popup's own closing animation carry on from where the finger left it
+    requestAnimationFrame(function() { c.style.transform = ''; });
+    if (shut) window.closePopupOverlay(ov);
+  }
+  document.addEventListener('touchend', end);
+  document.addEventListener('touchcancel', end);
 })();
 
 // Settings > Your logos: rename in place, delete with a second tap
