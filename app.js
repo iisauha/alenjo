@@ -3053,6 +3053,8 @@ function getDisplayBalance(account, type) {
 // feed can lag the balance), keep the bank's number rather than show a wrong one.
 function creditAfterPending(account, current, limit, available) {
   var bank = limit - available;
+  // Robinhood: always show Robinhood's own figure, even in whole dollars (Isaiah's choice)
+  if (account.institution_id === 'ins_54') return bank;
   var isWhole = function(v) { return Math.abs(v - Math.round(v)) < 0.0001; };
   if (!isWhole(available) || !isWhole(limit) || !account.plaid_account_id || !txData || !txData.length) return bank;
   var pendingCents = 0;
