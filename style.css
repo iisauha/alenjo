@@ -3853,8 +3853,3 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .budget-copy { flex: none; min-height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text); font: 600 0.8125rem 'Inter', sans-serif; white-space: nowrap; cursor: pointer; }
 .budget-copy.confirm { border-color: var(--warning); color: var(--warning); }
 .budget-copy:disabled { border-color: transparent; background: none; padding-right: 0; color: var(--text-muted); font-weight: 500; cursor: default; }
-
-/* Plaid billing (Settings > Bank connections) */
-.bill-row { cursor: default; }
-.bill-amt { flex: 0 0 auto; font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; }
-.bill-total .set-row-text > span:first-child { font-weight: 600; }
