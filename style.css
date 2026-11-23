@@ -3860,20 +3860,6 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .budget-add .btn-primary { min-height: 48px; }
 .budget-sheet > .action-sheet-cancel { margin-top: 18px; }
 
-/* Activity: one ring, names-only legend underneath; tap a name or slice to see its amount in the middle */
-.act-ring-row { display: flex; flex-direction: column; align-items: center; gap: 18px; margin-top: 18px; }
-.act-ring-row.no-ring .act-ring { display: none; }
-.act-ring { position: relative; width: min(232px, 64vw); aspect-ratio: 1; }
-.act-ring svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.act-ring-seg { cursor: pointer; transition: opacity 0.2s; -webkit-tap-highlight-color: transparent; }
-.act-ring-seg.dim { opacity: 0.2; }
-.act-ring-center { position: absolute; inset: 22%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; pointer-events: none; }
-.act-ring-center small { max-width: 100%; font-size: 0.8125rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.act-ring-center b { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
-.act-ring-center b.good { color: var(--success); }
-.act-ring-center em { font-style: normal; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
-.act-ring-center em.good { color: var(--success); }
-.act-ring-center em.bad { color: var(--danger); }
 .act-legend { display: flex; width: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 .act-legend::-webkit-scrollbar { display: none; }
 .act-leg-page { flex: 0 0 100%; display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 0 4px; padding: 0 4px; scroll-snap-align: start; }
@@ -3911,10 +3897,6 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .budget-sheet:not(.adding) .budget-add { display: none; }
 .budget-sheet .budget-add { margin-top: 4px; }
 .budget-sheet .budget-table { margin-bottom: 12px; }
-.act-ring-share b { font-size: 2.25rem; letter-spacing: -0.03em; }
-.act-ring-share b.good { color: var(--success); }
-.act-ring-share b.bad { color: var(--danger); }
-.act-ring-share small { order: 2; }
 /* Legend page dots: same look as the account carousels on Home (small round dots, active one in green) */
 .act-leg-dots { display: flex; justify-content: center; gap: 0; margin-top: -6px; }
 .act-leg-dots:empty { display: none; }
@@ -3934,3 +3916,43 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 #account-edit-modal .card-design-picker { gap: 8px; padding-bottom: 4px; }
 #account-edit-modal .card-design-option { flex: 0 0 88px; height: 56px; border-radius: 9px; }
 .manage-card .modal-actions { margin-top: 12px; padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+
+/* Activity: day bars (tap a day to filter), range under them, names-only legend below */
+.act-range { display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--bg-elevated); }
+.act-range button { min-height: 30px; padding: 0 10px; border: none; border-radius: 8px; background: transparent; color: var(--text-muted); font: 600 0.75rem 'Inter', sans-serif; cursor: pointer; }
+.act-range button.on { background: var(--bg-card); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+.act-bars { --vis: 7; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin-top: 10px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.act-bars::-webkit-scrollbar { display: none; }
+.act-bar { flex: 0 0 calc(100% / var(--vis)); scroll-snap-align: start; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 0; border: none; background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; -webkit-tap-highlight-color: transparent; }
+.act-bar:disabled { cursor: default; opacity: 0.35; }
+.act-bar-col { position: relative; height: 96px; display: flex; align-items: flex-end; justify-content: center; border-radius: 8px; }
+.act-bar-fill { display: flex; flex-direction: column-reverse; width: 62%; max-width: 28px; border-radius: 5px; overflow: hidden; transition: opacity 0.15s; }
+.act-bar-fill i { display: block; min-height: 1px; }
+.act-bar-zero { width: 62%; max-width: 28px; height: 2px; border-radius: 1px; background: var(--track); }
+.act-bar-label { display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 30px; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.act-bar-label small { font-size: 0.625rem; opacity: 0.7; }
+.act-bar.today .act-bar-label { color: var(--text); font-weight: 600; }
+.act-bar.on .act-bar-col { background: var(--bg-elevated); }
+.act-bar.on .act-bar-label { color: var(--accent); font-weight: 700; }
+.act-bar.dim .act-bar-fill { opacity: 0.35; }
+.act-bars.dense .act-bar-fill { width: 70%; border-radius: 2px; }
+.act-bars.dense .act-bar-label { min-height: 16px; font-size: 0.625rem; }
+.act-bars.dense .act-bar-col { border-radius: 4px; }
+@media (hover: hover) { .act-bar:not(:disabled):hover .act-bar-col { background: color-mix(in srgb, var(--text) 5%, transparent); } }
+.act-range button { min-height: 36px; }
+.act-range { justify-content: center; padding: 0; background: transparent; margin-top: 4px; }
+.act-range button { min-width: 44px; min-height: 36px; border-radius: 18px; box-shadow: none; }
+.act-range button.on { background: var(--bg-elevated); color: var(--accent); box-shadow: none; }
+.act-bar-col { height: 88px; }
+.act-bar.on .act-bar-col { background: transparent; }
+.act-bar.dim .act-bar-fill { opacity: 1; }
+.act-bar.dim .act-bar-fill i { background: color-mix(in srgb, var(--text) 16%, transparent) !important; }
+.act-bar-fill i { transition: background-color 0.2s; }
+@media (hover: hover) { .act-bar.on:hover .act-bar-col { background: transparent; } }
+.act-legend { margin-top: 8px; }
+.act-sub b.good { color: var(--success); }
+.act-sub b.bad { color: var(--danger); }
+/* Card-design strip: leave room for the green "selected" outline so it's never clipped at the edges */
+#account-edit-modal .card-design-picker { padding: 4px 4px 8px; margin: 0 -4px; scroll-padding-inline: 4px; }
+#account-edit-modal .card-design-option { overflow: visible; }
+#account-edit-modal .card-design-option .card-design-option-img { border-radius: inherit; overflow: hidden; }
