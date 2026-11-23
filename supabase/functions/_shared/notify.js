@@ -3,7 +3,7 @@
 // sends to every device where you allowed notifications.
 import { sendPush } from './webpush.js';
 
-const DEFAULTS = { purchases: true, deposits: true, min_amount: 0, quiet: true, quiet_start: 22, quiet_end: 7, tz: 'America/New_York' };
+const DEFAULTS = { purchases: true, deposits: true, bills: true, min_amount: 0, quiet: true, quiet_start: 22, quiet_end: 7, tz: 'America/New_York' };
 
 let vapidCache = null;
 export async function vapidConfig(admin) {

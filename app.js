@@ -802,8 +802,9 @@ function refreshSettingsSummary() {
   var put = function(id, text) { var el = $('#' + id); if (el && el.textContent !== text) el.textContent = text; };
   var opts = $('#notif-options'), on = opts && !opts.hidden;
   if (on && notifSettings) {
-    var kinds = [notifSettings.purchases ? 'purchases' : '', notifSettings.deposits ? 'deposits' : ''].filter(Boolean);
-    put('set-sum-notif', kinds.length ? 'On · ' + kinds.join(' and ') : 'On · everything paused');
+    var kinds = [notifSettings.purchases ? 'purchases' : '', notifSettings.deposits ? 'deposits' : '', notifSettings.bills !== false ? 'payments due' : ''].filter(Boolean);
+    var said = kinds.length > 1 ? kinds.slice(0, -1).join(', ') + ' and ' + kinds[kinds.length - 1] : kinds[0];
+    put('set-sum-notif', kinds.length ? 'On · ' + said : 'On · everything paused');
   } else {
     put('set-sum-notif', typeof Notification !== 'undefined' && Notification.permission === 'denied' ? 'Blocked in iPhone Settings' : 'Off');
   }
@@ -2321,6 +2322,7 @@ function paintNotifSettings(s) {
   opts.classList.add('no-anim');
   $('#notif-purchases').checked = !!s.purchases;
   $('#notif-deposits').checked = !!s.deposits;
+  $('#notif-bills').checked = s.bills !== false;
   $('#notif-quiet').checked = !!s.quiet;
   if (document.activeElement !== $('#notif-min')) $('#notif-min').value = Number(s.min_amount) ? String(+s.min_amount) : '';
   void opts.offsetWidth;
@@ -2379,7 +2381,7 @@ async function renderNotifications() {
       '<span class="notif-device-actions">' + (mine ? '<button type="button" class="notif-test" data-test-device="1">Test</button>' : '') +
       '<button type="button" class="notif-remove" data-remove-device="' + esc(d.id) + '"' + (mine ? ' data-mine="1"' : '') + '>Remove</button></span></div>';
   }).join('');
-  notifSettings = st.data || { purchases: true, deposits: true, min_amount: 0, quiet: true };
+  notifSettings = st.data || { purchases: true, deposits: true, bills: true, min_amount: 0, quiet: true };
   try {
     localStorage.setItem(NOTIF_CACHE, JSON.stringify(notifSettings));
     localStorage.setItem(notifViewKey(), JSON.stringify(view));
@@ -2444,6 +2446,7 @@ async function sendTestPush(endpoint) {
   });
   $('#notif-purchases').addEventListener('change', function() { saveNotifSettings({ purchases: this.checked }); });
   $('#notif-deposits').addEventListener('change', function() { saveNotifSettings({ deposits: this.checked }); });
+  $('#notif-bills').addEventListener('change', function() { saveNotifSettings({ bills: this.checked }); });
   $('#notif-quiet').addEventListener('change', function() { saveNotifSettings({ quiet: this.checked }); });
   $('#notif-min').addEventListener('change', function() {
     var v = parseFloat(String(this.value).replace(/[^0-9.]/g, ''));
