@@ -3671,37 +3671,16 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .act-cat.two small { padding-left: 15px; font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .act-cat.two.on { background: var(--text); color: var(--bg); border-color: var(--text); }
 .act-cat.two.on small { color: var(--bg); opacity: 0.75; }
-/* Budget sheet: category pills like the transaction category picker */
+/* Budget sheet: a bills table, like a notes-app list */
 .budget-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.budget-total { font-size: 0.8125rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .budget-help { margin: 4px 0 12px; font-size: 0.875rem; color: var(--text-muted); line-height: 1.45; }
-.budget-help[hidden] { display: none; }
 .budget-copy { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 14px; margin: 8px 0 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); color: var(--text); font: 600 0.875rem 'Inter', sans-serif; text-align: left; cursor: pointer; }
 .budget-copy[hidden] { display: none; }
 .budget-copy b { font-weight: 500; color: var(--text-muted); white-space: nowrap; }
-.budget-editor { margin: 10px 0 12px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
-.budget-editor[hidden] { display: none; }
-.budget-ed-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-.budget-ed-top b { font-size: 1rem; }
-.budget-ed-top small { font-size: 0.75rem; color: var(--text-muted); text-align: right; }
-.budget-ed-row { display: flex; gap: 8px; }
-.budget-ed-amt { flex: 1; display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text-muted); font-family: var(--serif); font-size: 1.375rem; }
-.budget-ed-amt input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; outline: none; }
-.budget-ed-amt input::placeholder { color: var(--text-muted); opacity: 0.6; }
-.budget-ed-set { flex: none; min-width: 72px; min-height: 48px; border: 0; border-radius: 12px; background: var(--accent); color: var(--bg); font: 600 1rem 'Inter', sans-serif; cursor: pointer; }
-.budget-ed-clear { display: block; margin: 8px 0 -4px; min-height: 40px; padding: 0; border: 0; background: none; color: var(--text-muted); font: 500 0.8125rem 'Inter', sans-serif; cursor: pointer; }
-.budget-ed-clear[hidden] { display: none; }
-.budget-pills { max-height: min(38vh, 320px); overflow-y: auto; padding-bottom: 6px; margin-bottom: 12px; }
-.budget-pill { gap: 8px; }
-.budget-pill b { font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.budget-pill.set { border-color: var(--text-muted); }
-.budget-pill.on b { color: inherit; }
 
 .act-cat.two.b-good small { color: var(--success); }
 .act-cat.two.b-bad small { color: var(--danger); }
 .act-cat.two.on.b-good small, .act-cat.two.on.b-bad small { color: var(--bg); }
-.budget-ed-amt { min-width: 0; }
-.budget-ed-amt input { width: 100%; }
 
 /* Spent vs made, in one sentence */
 .act-net { font-size: 0.875rem; color: var(--text-muted); }
@@ -3710,11 +3689,6 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .act-net b.bad { color: var(--danger); }
 /* Budget sheet sections */
 .budget-sec { margin: 4px 0 8px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
-.budget-pills .cat-pills { margin-bottom: 14px; }
-.budget-pill.is-income.set { border-color: var(--success); }
-.budget-pill.is-income.set b { color: var(--success); }
-.budget-new { margin: 0 0 12px; }
-.budget-pills { margin-bottom: 10px; }
 .act-net b:not(.good):not(.bad) { color: var(--text); }
 
 /* Home chart colour follows the change since the start of the range */
@@ -3833,3 +3807,43 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .mfa-trust input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
 .signin-links { display: flex; justify-content: center; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.8125rem; }
 .signin-links a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 6px; }
+
+/* Budget table: net pay on top, one row per budget, what's left at the bottom */
+.budget-table { margin: 10px 0 18px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--bg-card); }
+.bt-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 48px; border-top: 1px solid var(--border); }
+.bt-row:first-child { border-top: 0; }
+.bt-name, .bt-amt { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 6px 10px; }
+.bt-amt { border-left: 1px solid var(--border); }
+.bt-name { font-size: 0.9375rem; font-weight: 500; }
+.bt-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-name small { font-size: inherit; font-weight: 400; opacity: 0.8; }
+.bt-gap { height: 14px; border-top: 1px solid var(--border); }
+.bt-row + .bt-gap, .bt-gap + .bt-row { border-top: 1px solid var(--border); }
+.bt-empty { padding: 14px 12px; border-top: 1px solid var(--border); font-size: 0.875rem; color: var(--text-muted); }
+/* Tinted chips, like highlighted text in a note */
+.bt-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 34px; padding: 0 8px; border-radius: 8px; background: color-mix(in srgb, currentColor 13%, transparent); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.bt-chip input { width: 8ch; max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: max(16px, 1rem); outline: none; }
+@supports (field-sizing: content) { .bt-chip input { width: auto; min-width: 2ch; field-sizing: content; } }
+.bt-chip input::placeholder { color: inherit; opacity: 0.45; }
+.bt-chip:focus-within { box-shadow: 0 0 0 1.5px currentColor; }
+.bt-pay { color: var(--success); }
+.bt-pay2 { color: var(--warning); }
+.bt-pay2 .bt-chip { font-weight: 600; }
+.bt-out { color: var(--danger); }
+.bt-out .bt-name { padding-right: 0; }
+.bt-del { flex: none; margin-left: auto; width: 40px; min-height: 44px; border: 0; background: none; color: var(--text-muted); font-size: 1.25rem; line-height: 1; cursor: pointer; }
+.bt-left { color: var(--success); }
+.bt-left .bt-name { color: var(--text); font-weight: 600; }
+.bt-left .bt-chip { font-weight: 600; }
+.bt-left .bt-chip.bad { color: var(--danger); }
+.bt-left .bt-chip.none { background: none; padding: 0; color: var(--text-muted); font-weight: 400; font-size: 0.875rem; }
+.budget-add-sec { margin-top: 0; }
+.budget-add { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.budget-add .app-select, .budget-add .app-input { width: 100%; min-height: 44px; }
+.budget-add-row { display: flex; gap: 8px; }
+.budget-add-amt { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-muted); }
+.budget-add-amt input { flex: 1; width: 100%; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: max(16px, 1rem); outline: none; }
+.budget-add .btn-primary { flex: 0 0 auto; width: auto; min-width: 72px; min-height: 44px; padding: 0 18px; }
+.budget-add-avg { font-size: 0.75rem; color: var(--text-muted); }
+.budget-add-avg:empty { display: none; }
+
