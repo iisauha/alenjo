@@ -82,8 +82,24 @@ function sameSecret(a: string, b: string) {
   return d === 0;
 }
 
-// Money moving between your own accounts or paying a card isn't a purchase or a deposit
-const NOT_NOTIFIABLE = new Set(['TRANSFER_IN', 'TRANSFER_OUT', 'LOAN_PAYMENTS']);
+// Money moving between your own accounts or paying a card isn't a purchase or a deposit.
+// Money someone else sends you is a deposit, even though Plaid files it under
+// TRANSFER_IN: Venmo, Zelle, Cash App (TRANSFER_IN_FROM_APPS), payouts
+// (TRANSFER_IN_OTHER_TRANSFER_IN) and cash or check deposits (TRANSFER_IN_DEPOSIT).
+const OWN_MONEY_IN = new Set([
+  'TRANSFER_IN_ACCOUNT_TRANSFER',
+  'TRANSFER_IN_SAVINGS',
+  'TRANSFER_IN_INVESTMENT_AND_RETIREMENT_FUNDS',
+  'TRANSFER_IN_CASH_ADVANCES_AND_LOANS',
+]);
+function notifiable(tx: any, accountType: string | undefined) {
+  const cat = tx.personal_finance_category || {};
+  if (cat.primary === 'TRANSFER_OUT' || cat.primary === 'LOAN_PAYMENTS') return false;
+  if (cat.primary !== 'TRANSFER_IN') return true;
+  // On a card or loan, money in under "transfer" is a payment toward it
+  if (accountType === 'credit' || accountType === 'loan') return false;
+  return typeof cat.detailed === 'string' && !OWN_MONEY_IN.has(cat.detailed);
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -270,9 +286,8 @@ Deno.serve(async (req: Request) => {
 
           if (!firstSync) {
             if (internal) {
-              const primary = tx.personal_finance_category?.primary;
               const day = tx.authorized_date || tx.date;
-              if (!NOT_NOTIFIABLE.has(primary) && day >= recentCutoff && tx.amount) {
+              if (notifiable(tx, plaidToAccount[tx.account_id]?.type) && day >= recentCutoff && tx.amount) {
                 if (!accountLabels) {
                   const { data: labels } = await adminClient.rpc('get_account_labels', { p_user_id: user.id });
                   accountLabels = Object.fromEntries((labels || []).map((l: any) => [l.plaid_account_id, l.label]));
