@@ -3568,16 +3568,8 @@ function budgetInput(side, cat, v, aria, extra) {
 function renderBudgetSheet(preselect) {
   var bs = budgetSheet, mName = budgetMonthName(bs.month);
   var BO = monthBudgets(bs.month, 'out'), BIn = monthBudgets(bs.month, 'in');
-  $('#budget-title').textContent = 'Budgets · ' + mName;
-  // Reuse last month's: shown whenever last month had budgets and this month's aren't already the same
-  var prev = prevMonthKey(bs.month), PO = (budgets[prev] || {}).out || {}, PI = (budgets[prev] || {}).in || {};
-  var nPrev = Object.keys(PO).length + Object.keys(PI).length;
-  var copy = $('#budget-copy');
-  var same = function(A, B) { var k = Object.keys(A); return k.length === Object.keys(B).length && k.every(function(c) { return B[c] && Math.abs(B[c].amount - A[c].amount) < 0.005; }); };
-  copy.hidden = !nPrev || (same(PO, BO) && same(PI, BIn));
-  if (copy.hidden) copy.dataset.confirm = '';
-  else if (copy.dataset.confirm === bs.month) copy.innerHTML = 'Replace ' + esc(mName) + '’s budgets? <b>Tap to confirm</b>';
-  else copy.innerHTML = 'Use ' + esc(budgetMonthName(prev)) + '’s budgets <b>' + nPrev + ' set</b>';
+  $('#budget-title').textContent = 'Budgets · ' + mName.slice(0, 3);
+  renderBudgetCopy();
 
   Object.keys(BO).forEach(function(c) { if (bs.order.indexOf(c) < 0) bs.order.push(c); });
   bs.order = bs.order.filter(function(c) { return BO[c]; });
@@ -3596,7 +3588,7 @@ function renderBudgetSheet(preselect) {
   });
   html += '<div class="bt-gap" role="presentation"></div>' +
     budgetRow('bt-left', 'Remaining <small>(monthly)</small>', '<span class="bt-chip" id="bt-left-m"></span>') +
-    budgetRow('bt-left', 'Remaining <small>(biweekly)</small>', '<span class="bt-chip" id="bt-left-b"></span>');
+    budgetRow('bt-left bt-left2', 'Remaining <small>(biweekly)</small>', '<span class="bt-chip" id="bt-left-b"></span>');
   $('#budget-table').innerHTML = html;
   refreshBudgetTotals();
 
@@ -3604,11 +3596,26 @@ function renderBudgetSheet(preselect) {
   var sel = $('#budget-add-cat'), keep = preselect || sel.value;
   var free = budgetCategories('out').filter(function(c) { return !BO[c]; });
   if (preselect && free.indexOf(preselect) < 0) free.unshift(preselect);
-  sel.innerHTML = '<option value="">Choose a category</option>' + free.map(function(c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('') +
+  sel.innerHTML = '<option value="">Add a category</option>' + free.map(function(c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('') +
     '<option value="__new">New category…</option>';
   sel.value = keep && (keep === '__new' || free.indexOf(keep) >= 0) ? keep : '';
   budgetAddPicked();
-  $('#budget-help').textContent = 'Amounts are monthly for ' + mName + '. Biweekly is half of monthly (two paychecks a month). Clear an amount to remove it.';
+}
+// "Use October's": always offered when last month had budgets; says so when they already match
+function renderBudgetCopy() {
+  var bs = budgetSheet, mName = budgetMonthName(bs.month);
+  var BO = monthBudgets(bs.month, 'out'), BIn = monthBudgets(bs.month, 'in');
+  var prev = prevMonthKey(bs.month), PO = (budgets[prev] || {}).out || {}, PI = (budgets[prev] || {}).in || {};
+  var nPrev = Object.keys(PO).length + Object.keys(PI).length, pName = budgetMonthName(prev);
+  var copy = $('#budget-copy');
+  var same = function(A, B) { var k = Object.keys(A); return k.length === Object.keys(B).length && k.every(function(c) { return B[c] && Math.abs(B[c].amount - A[c].amount) < 0.005; }); };
+  var matches = nPrev && same(PO, BO) && same(PI, BIn);
+  copy.hidden = !nPrev;
+  copy.disabled = !!matches;
+  copy.classList.toggle('confirm', !matches && copy.dataset.confirm === bs.month);
+  if (!nPrev || matches) copy.dataset.confirm = '';
+  copy.textContent = matches ? 'Same as ' + pName : copy.dataset.confirm === bs.month ? 'Replace? Tap again' : 'Use ' + pName + '\u2019s';
+  copy.setAttribute('aria-label', matches ? mName + '\u2019s budgets match ' + pName + '\u2019s' : 'Use ' + pName + '\u2019s budgets for ' + mName);
 }
 // Remaining = pay coming in minus every budget going out
 function refreshBudgetTotals() {
@@ -3622,6 +3629,7 @@ function refreshBudgetTotals() {
     el.classList.toggle('bad', !!inTot && p[1] < 0);
     el.classList.toggle('none', !inTot);
   });
+  renderBudgetCopy();
 }
 function budgetAddPicked() {
   var cat = $('#budget-add-cat').value, isNew = cat === '__new';

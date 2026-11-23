@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261123131350';</script>
+  <script>var _v = '20261123132744';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261123131350">
+  <link rel="stylesheet" href="style.css?v=20261123132744">
 </head>
 <body>
 
@@ -747,20 +747,17 @@
 
   <div id="budget-sheet" class="action-sheet-overlay" aria-hidden="true">
     <div class="action-sheet budget-sheet" role="dialog" aria-modal="true" aria-labelledby="budget-title">
-      <div class="budget-head"><h2 id="budget-title" class="delete-title">Budgets</h2></div>
-      <button type="button" id="budget-copy" class="budget-copy" hidden></button>
+      <div class="budget-head"><h2 id="budget-title" class="delete-title">Budgets</h2><button type="button" id="budget-copy" class="budget-copy" hidden></button></div>
       <div id="budget-table" class="budget-table" role="table" aria-label="Budget"></div>
-      <p class="budget-sec budget-add-sec">Add a budget</p>
       <div class="budget-add">
-        <select id="budget-add-cat" class="app-select" aria-label="Category"></select>
-        <input type="text" id="budget-add-name" class="app-input" maxlength="40" placeholder="Category name" enterkeyhint="next" hidden>
         <div class="budget-add-row">
+          <select id="budget-add-cat" class="app-select" aria-label="Category to add"></select>
           <label class="budget-add-amt"><span aria-hidden="true">$</span><input id="budget-add-amt" inputmode="decimal" autocomplete="off" placeholder="Monthly" aria-label="Monthly amount" enterkeyhint="done"></label>
           <button class="btn-primary" id="budget-add-btn" type="button">Add</button>
         </div>
+        <input type="text" id="budget-add-name" class="app-input" maxlength="40" placeholder="New category name" enterkeyhint="next" hidden>
         <small id="budget-add-avg" class="budget-add-avg"></small>
       </div>
-      <p id="budget-help" class="budget-help"></p>
       <button type="button" id="budget-cancel" class="action-sheet-cancel">Done</button>
     </div>
   </div>
