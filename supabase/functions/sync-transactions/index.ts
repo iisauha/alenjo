@@ -490,6 +490,7 @@ Deno.serve(async (req: Request) => {
                 last_payment_amount: cc.last_payment_amount,
                 last_payment_date: cc.last_payment_date || null,
                 last_statement_balance: cc.last_statement_balance,
+                last_statement_issue_date: cc.last_statement_issue_date || null,
                 minimum_payment_amount: cc.minimum_payment_amount,
                 next_payment_due_date: cc.next_payment_due_date || null,
                 updated_at: new Date().toISOString(),

@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261122232607';</script>
+  <script>var _v = '20261123114356';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261122232607">
+  <link rel="stylesheet" href="style.css?v=20261123114356">
 </head>
 <body>
 
@@ -436,6 +436,10 @@
           <label class="set-row">
             <span>Minimum amount</span>
             <span class="notif-min"><span>$</span><input type="text" id="notif-min" class="app-input" inputmode="decimal" placeholder="Any" maxlength="8" aria-label="Minimum amount in dollars"></span>
+          </label>
+          <label class="set-row">
+            <span class="set-row-text"><span>Payments due</span><span class="set-hint">Cards and loans, 2 days before and on the day</span></span>
+            <input type="checkbox" id="notif-bills" class="set-switch" role="switch">
           </label>
           <label class="set-row">
             <span class="set-row-text"><span>Quiet overnight</span><span class="set-hint">10 PM to 7 AM, then one summary</span></span>
