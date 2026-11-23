@@ -3562,7 +3562,7 @@ var budgetSheet = { month: '', order: [] };
 function curMonthKey() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
 function budgetMonthName(m) { var p = m.split('-'); return MONTH_LONG[+p[1] - 1]; }
 // 1475 -> "1475", 4.15 -> "4.15", 1556.3 -> "1556.30"
-function budgetAmtText(v) { var s = (Math.round(v * 100) / 100).toFixed(2); return s.replace(/\.00$/, ''); }
+function budgetAmtText(v) { var n = Math.round(v * 100) / 100; return n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }); }
 // What you typed, as an amount; null for empty, NaN for nonsense
 function budgetParse(raw) {
   raw = String(raw || '').replace(/[$,\s−-]/g, '');
@@ -3576,8 +3576,10 @@ function openBudgetSheet(side, focusCat) {
   // Biggest first, like a bills list; stays put while the sheet is open, new rows go at the end
   budgetSheet = { month: month, order: Object.keys(BO).sort(function(a, b) { return BO[b].amount - BO[a].amount || a.localeCompare(b); }) };
   $('#budget-add-amt').value = ''; $('#budget-add-name').value = '';
-  renderBudgetSheet(side === 'out' && focusCat && !BO[focusCat] ? focusCat : null);
+  var pre = side === 'out' && focusCat && !BO[focusCat] ? focusCat : null;
+  renderBudgetSheet(pre);
   var sheet = $('#budget-sheet');
+  sheet.querySelector('.budget-sheet').classList.toggle('adding', !!pre);
   sheet.querySelector('.action-sheet').scrollTop = 0;
   sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false');
   if (!focusCat) return;
@@ -3588,16 +3590,14 @@ function openBudgetSheet(side, focusCat) {
     if (el) { el.focus(); if (el.select) el.select(); }
   }, 250);
 }
-function budgetRow(cls, dot, label, sub, input, del) {
-  return '<div class="bt-row ' + cls + '">' + (dot ? '<i class="bt-dot" style="background:' + dot + '"></i>' : '') +
-    '<span class="bt-name"><span>' + label + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + input + (del || '') + '</div>';
+function budgetRow(cls, label, input) {
+  return '<div class="bt-row ' + cls + '"><span class="bt-name"><span>' + label + '</span></span>' + input + '</div>';
 }
 function budgetInput(side, cat, v, aria, extra) {
   return '<label class="bt-chip"><span aria-hidden="true">$</span>' +
     '<input inputmode="decimal" autocomplete="off" enterkeyhint="done" data-side="' + side + '" data-cat="' + esc(cat) + '"' + (extra || '') +
     ' value="' + (v ? budgetAmtText(v) : '') + '" placeholder="0" aria-label="' + esc(aria) + '"></label>';
 }
-function budgetColor(i) { return CATEGORY_COLORS[i % CATEGORY_COLORS.length]; }
 function renderBudgetSheet(preselect) {
   var bs = budgetSheet, mName = budgetMonthName(bs.month);
   var BO = monthBudgets(bs.month, 'out'), BIn = monthBudgets(bs.month, 'in');
@@ -3607,30 +3607,18 @@ function renderBudgetSheet(preselect) {
   Object.keys(BO).forEach(function(c) { if (bs.order.indexOf(c) < 0) bs.order.push(c); });
   bs.order = bs.order.filter(function(c) { return BO[c]; });
   var pay = BIn.Income ? BIn.Income.amount : 0;
-  // Top: what's left once every bill and budget is paid, and how your pay splits up
-  var html = '<div class="bt-summary">' +
-    '<span class="bt-sum-label">Left each month</span>' +
-    '<span class="bt-sum-value" id="bt-left-m"></span>' +
-    '<span class="bt-sum-sub" id="bt-left-b"></span>' +
-    '<div class="bt-alloc" id="bt-alloc" aria-hidden="true"></div>' +
-    '<div class="bt-alloc-key" id="bt-alloc-key"></div></div>';
+  // One big number: what's left each month. Your pay sits in the line under it, tap to edit.
+  var html = '<div class="bt-hero"><small>Left each month</small><b id="bt-left-m"></b>' +
+    '<label class="bt-pay-line">from <span class="bt-pay-in"><span aria-hidden="true">$</span><input inputmode="decimal" autocomplete="off" enterkeyhint="done" data-side="in" data-cat="Income" id="bt-pay-m" value="' + (pay ? budgetAmtText(pay) : '') + '" placeholder="0" aria-label="Take-home pay each month"></span> take-home pay</label></div>';
 
-  html += '<div class="bt-sec"><span>Income</span></div><div class="bt-group">' +
-    budgetRow('bt-pay', 'var(--success)', 'Net pay', 'Monthly', budgetInput('in', 'Income', pay, 'Net pay, monthly', ' id="bt-pay-m"')) +
-    budgetRow('bt-pay2', '', 'Per paycheck', 'Every 2 weeks', budgetInput('in', 'Income', pay / 2, 'Net pay, biweekly', ' id="bt-pay-b" data-biweekly="1"'));
+  html += '<div class="bt-group">';
   // Any other money you expect in, besides pay
   Object.keys(BIn).filter(function(c) { return c !== 'Income'; }).sort().forEach(function(c) {
-    html += budgetRow('bt-pay bt-other', 'var(--success)', esc(c), 'Monthly', budgetInput('in', c, BIn[c].amount, c + ', monthly'));
+    html += budgetRow('bt-pay', esc(c), budgetInput('in', c, BIn[c].amount, c + ', monthly'));
   });
-  html += '</div>';
-
-  html += '<div class="bt-sec"><span>Bills &amp; budgets</span><b id="bt-out-total"></b></div><div class="bt-group">';
-  if (!bs.order.length) html += '<div class="bt-empty">No bills or spending budgets yet. Add one below.</div>';
-  bs.order.forEach(function(c, i) {
-    html += budgetRow('bt-out', budgetColor(i), esc(c), '', budgetInput('out', c, BO[c].amount, c + ', monthly'),
-      '<button type="button" class="bt-del" data-del="' + esc(c) + '" aria-label="Remove ' + esc(c) + ' budget"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>');
-  });
-  html += '</div>';
+  bs.order.forEach(function(c) { html += budgetRow('bt-out', esc(c), budgetInput('out', c, BO[c].amount, c + ', monthly')); });
+  html += '<button type="button" class="bt-row bt-add-open" id="bt-add-open">+ Add budget</button></div>';
+  if (bs.order.length) html += '<p class="bt-foot">Clear an amount to remove it.</p>';
   $('#budget-table').innerHTML = html;
   refreshBudgetTotals();
 
@@ -3652,40 +3640,23 @@ function renderBudgetCopy() {
   var copy = $('#budget-copy');
   var same = function(A, B) { var k = Object.keys(A); return k.length === Object.keys(B).length && k.every(function(c) { return B[c] && Math.abs(B[c].amount - A[c].amount) < 0.005; }); };
   var matches = nPrev && same(PO, BO) && same(PI, BIn);
-  copy.hidden = !nPrev;
+  // Only offered while this month is still empty, so it never sits there competing with your list
+  copy.hidden = !nPrev || Object.keys(BO).length + Object.keys(BIn).length > 0;
   copy.disabled = !!matches;
   copy.classList.toggle('confirm', !matches && copy.dataset.confirm === bs.month);
   if (!nPrev || matches) copy.dataset.confirm = '';
   copy.textContent = matches ? 'Same as ' + pName : copy.dataset.confirm === bs.month ? 'Replace? Tap again' : 'Use ' + pName + '\u2019s';
   copy.setAttribute('aria-label', matches ? mName + '\u2019s budgets match ' + pName + '\u2019s' : 'Use ' + pName + '\u2019s budgets for ' + mName);
 }
-// Remaining = pay coming in minus every budget going out
+// Left = pay coming in minus every budget going out
 function refreshBudgetTotals() {
   var bs = budgetSheet, BO = monthBudgets(bs.month, 'out'), BIn = monthBudgets(bs.month, 'in');
   var inTot = Object.keys(BIn).reduce(function(t, c) { return t + BIn[c].amount; }, 0);
   var outTot = Object.keys(BO).reduce(function(t, c) { return t + BO[c].amount; }, 0);
   var left = Math.round((inTot - outTot) * 100) / 100;
-  var signed = function(v) { return (v < 0 ? '−' : '') + wholeMoney(v); };
-  var mEl = $('#bt-left-m'), bEl = $('#bt-left-b');
-  if (!mEl) return;
-  mEl.textContent = inTot ? signed(left) : '—';
-  mEl.classList.toggle('bad', !!inTot && left < 0);
-  bEl.textContent = !inTot ? 'Add your net pay to see what’s left' : left < 0 ? 'Your budgets are more than you make' : signed(left / 2) + ' per paycheck';
-  bEl.classList.toggle('bad', !!inTot && left < 0);
-  var tot = $('#bt-out-total'); if (tot) tot.textContent = outTot ? wholeMoney(outTot) : '';
-  // Allocation bar: each bill's slice of your pay, then what's left (in green)
-  var base = Math.max(inTot, outTot) || 1;
-  var seg = function(v, color, title) { return v > 0 ? '<i style="flex-grow:' + v.toFixed(2) + ';background:' + color + '" title="' + esc(title) + '"></i>' : ''; };
-  var bar = bs.order.filter(function(c) { return BO[c]; }).map(function(c, i) { return seg(BO[c].amount, budgetColor(i), c); }).join('');
-  if (left > 0) bar += seg(left, 'var(--success)', 'Left');
-  if (inTot < outTot) bar += seg(0, '', '');
-  var alloc = $('#bt-alloc');
-  alloc.innerHTML = bar;
-  alloc.style.setProperty('--fill', (Math.min(1, (inTot ? Math.max(inTot, outTot) : outTot) / base) * 100) + '%');
-  alloc.hidden = !inTot && !outTot;
-  var key = $('#bt-alloc-key');
-  key.innerHTML = inTot || outTot ? '<span><i style="background:var(--text-muted)"></i>Budgeted ' + wholeMoney(outTot) + (inTot ? ' · ' + Math.round(outTot / inTot * 100) + '%' : '') + '</span>' +
-    (inTot ? '<span><i style="background:' + (left < 0 ? 'var(--danger)' : 'var(--success)') + '"></i>' + (left < 0 ? 'Short ' + wholeMoney(-left) : 'Left ' + Math.round(left / inTot * 100) + '%') + '</span>' : '') : '';
+  var el = $('#bt-left-m'); if (!el) return;
+  el.textContent = inTot ? (left < 0 ? '−' : '') + wholeMoney(left) : '—';
+  el.classList.toggle('bad', !!inTot && left < 0);
   renderBudgetCopy();
 }
 function budgetAddPicked() {
@@ -3726,7 +3697,6 @@ function saveMonthBudget(month, side, cat, amount) {
     saveMonthBudget(bs.month, side, cat, v).then(saved);
     if (side === 'in' && cat === 'Income') {
       $('#bt-pay-m').value = v ? budgetAmtText(v) : '';
-      $('#bt-pay-b').value = v ? budgetAmtText(v / 2) : '';
     } else if (v === null) {
       renderBudgetSheet();   // a cleared row leaves the table
       return;
@@ -3735,6 +3705,11 @@ function saveMonthBudget(month, side, cat, amount) {
   });
   table.addEventListener('keydown', function(e) { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); e.target.blur(); } });
   table.addEventListener('click', function(e) {
+    if (e.target.closest('#bt-add-open')) {
+      sheet.querySelector('.budget-sheet').classList.add('adding');
+      setTimeout(function() { $('#budget-add-amt').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); var h = sheet.querySelector('.budget-add .picker-hit'); if (h) h.click(); }, 60);
+      return;
+    }
     var del = e.target.closest('[data-del]'); if (!del) return;
     saveMonthBudget(budgetSheet.month, 'out', del.dataset.del, null).then(saved);
     renderBudgetSheet();
@@ -3759,6 +3734,7 @@ function saveMonthBudget(month, side, cat, amount) {
     saveMonthBudget(bs.month, 'out', cat, v).then(saved);
     if (bs.order.indexOf(cat) < 0) bs.order.push(cat);
     $('#budget-add-amt').value = ''; $('#budget-add-name').value = ''; sel.value = '';
+    sheet.querySelector('.budget-sheet').classList.remove('adding');
     renderBudgetSheet();
   }
   $('#budget-add-btn').addEventListener('click', addIt);
@@ -4677,15 +4653,6 @@ function prevMonthKey(month) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 function wholeMoney(v) { return formatMoney(v); }   // keeps the cents
-// One category: the line under its name, how full its bar is, and its colour state.
-// A budget is just a monthly amount for a category; everything in that category counts toward it.
-function budgetStatus(b, got, side) {
-  var amt = b.amount, g = Math.round(got * 100) / 100, a = Math.round(amt * 100) / 100;   // exact to the cent
-  var base = wholeMoney(g) + ' / ' + wholeMoney(a);
-  // Spending: red only when over. Income: green once the expected amount is in.
-  if (side === 'in') return { sub: base, cls: g >= a ? 'good' : '' };
-  return { sub: g > a ? base + ' · ' + wholeMoney(g - a) + ' over' : base, cls: g > a ? 'bad' : '' };   // on track is the normal state: only over budget gets a colour
-}
 // Spending categories never use green: green means income
 var CATEGORY_COLORS = [
   '#4F6BD8', '#D98A2B', '#8A5CC2', '#C2524A', '#3E8CC7',
@@ -4724,7 +4691,7 @@ function renderTransactionMonth() {
   var month = $('#tx-month-filter').value;
   var cardId = $('#tx-card-filter').value;
   saveTxView(false);
-  if (month + '|' + cardId !== lastActKey) { legendAll = false; lastActKey = month + '|' + cardId; }
+  if (month + '|' + cardId !== lastActKey) lastActKey = month + '|' + cardId;
   var searchVal = ($('#tx-search').value || '').toLowerCase().trim();
   var breakdown = $('#tx-breakdown');
   var legend = $('#tx-category-legend');
@@ -4813,8 +4780,9 @@ function renderTransactionMonth() {
     if (isOut === !incomeMode) byCategory[cat] = (byCategory[cat] || 0) + amt;
   });
   if (activeCategoryFilter && !byCategory[activeCategoryFilter]) activeCategoryFilter = null;
-  var shownSpent = activeCategoryFilter ? byCategory[activeCategoryFilter] : (incomeMode ? moneyIn : spent);
-  $('#act-spent-label').textContent = activeCategoryFilter ? activeCategoryFilter : (incomeMode ? 'Income' : 'Spent');
+  // The big number stays on the month's total; the ring's centre shows whatever you tap
+  var shownSpent = incomeMode ? moneyIn : spent;
+  $('#act-spent-label').textContent = incomeMode ? 'Income' : 'Spent';
   $('#act-spent').textContent = (incomeMode && shownSpent > 0 && !hideMoney ? '+' : '') + formatMoney(shownSpent);
   $('#act-spent').classList.toggle('is-in', incomeMode);
   // One sentence: spent vs what came in this month (all accounts; transfers between your accounts left out)
@@ -4827,115 +4795,67 @@ function renderTransactionMonth() {
     if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
     else if (gap >= 0) net.innerHTML = 'You kept <b class="good">' + pctOf(gap) + '</b> of it';
     else net.innerHTML = 'You spent <b class="bad">' + pctOf(-gap) + ' more</b> than this';
-  } else if (activeCategoryFilter) {
-    net.innerHTML = moneyIn ? '<b>' + pctOf(outByCat[activeCategoryFilter] || 0) + '</b> of your income' : 'Nothing has come in yet';
   }
   else if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
   else if (gap > 0) net.innerHTML = '<b class="good">' + wholeMoney(gap) + ' less</b> than you made';
   else if (gap < 0) net.innerHTML = '<b class="bad">' + wholeMoney(-gap) + ' more</b> than you made';
   else net.innerHTML = 'Spent exactly what you made';
 
-  // ---- Budgets: this month's own (whole month, all accounts)
-  var B = monthBudgets(month, 'out'), BI = monthBudgets(month, 'in');
-  var sumOf = function(o) { return Object.keys(o).reduce(function(t, c) { return t + o[c].amount; }, 0); };
-  var expectedIn = sumOf(BI);
-  var budgetOn = cardId === 'all' && (Object.keys(B).length > 0 || expectedIn > 0);
-  $('#act-daily-note').innerHTML = cardId === 'all' ? '<button type="button" class="signin-link" id="act-set-budget">' + (budgetOn ? 'Edit budgets' : 'Set budgets') + '</button>' : '';
+  $('#act-daily-note').innerHTML = cardId === 'all' ? '<button type="button" class="signin-link" id="act-set-budget">Budgets</button>' : '';
 
-  // Colours: spending by size (never green); income in greens
-  var outEntries = Object.keys(outByCat).map(function(k) { return [k, outByCat[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
-  var outColors = {};
-  outEntries.forEach(function(e, i) { outColors[e[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
-  var inEntries = incomeMode ? Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; }) : [];
-  var inColors = {};
-  inEntries.forEach(function(e, i) { inColors[e[0]] = INCOME_COLORS[i % INCOME_COLORS.length]; });
-
-  // ---- Money in vs money out: two bars on one scale. Tap one to switch the ring below.
-  var flow = $('#act-flow');
-  var showFlow = moneyIn > 0 || spent > 0 || budgetOn;
-  flow.hidden = !showFlow;
-  if (showFlow) {
-    // Income shows a tick at what you expect to make. Spending has no single total budget
-    // (budgets are per category), so its bar just shows where it went, by colour.
-    var inGoal = budgetOn ? expectedIn : 0;
-    var scale = Math.max(moneyIn, spent, inGoal) || 1;
-    var pct = function(v) { return (Math.min(1, v / scale) * 100).toFixed(2) + '%'; };
-    var outSegs = outEntries.map(function(e) {
-      var dim = activeCategoryFilter && !incomeMode && activeCategoryFilter !== e[0];
-      return '<i style="flex-grow:' + e[1].toFixed(2) + ';background:' + outColors[e[0]] + (dim ? ';opacity:.25' : '') + '"></i>';
-    }).join('');
-    var flowRow = function(side, label, amt, fill, goal, on) {
-      var sub = '';
-      if (goal) {
-        var over = side === 'out' ? amt - goal : 0;
-        sub = over > 0.005 ? '<small class="bad">' + wholeMoney(over) + ' over</small>'
-          : '<small' + (side === 'in' && amt >= goal ? ' class="good"' : '') + '>of ' + wholeMoney(goal) + '</small>';
-      }
-      return '<button type="button" class="act-flow-row' + (on ? ' on' : '') + '" data-flow="' + side + '" aria-pressed="' + on + '">' +
-        '<span class="act-flow-label">' + label + '</span>' +
-        '<span class="act-flow-track">' + (amt ? '<span class="act-flow-fill" style="width:' + pct(amt) + '">' + fill + '</span>' : '') +
-          (goal ? '<i class="act-flow-goal" style="left:' + pct(goal) + '"></i>' : '') + '</span>' +
-        '<span class="act-flow-amt"><b class="' + (side === 'in' ? 'good' : '') + '">' + (side === 'in' && amt && !hideMoney ? '+' : '') + wholeMoney(amt) + '</b>' + sub + '</span>' +
-      '</button>';
-    };
-    flow.innerHTML = flowRow('in', 'Income', moneyIn, '<i style="flex-grow:1;background:var(--success)"></i>', inGoal, incomeMode) +
-      flowRow('out', 'Spent', spent, outSegs, 0, !incomeMode);
-  }
-
-  // ---- Ring: where it went (or where it came from), with each slice's share on it
-  var ringEntries = incomeMode ? inEntries : outEntries;
-  var ringColors = incomeMode ? inColors : outColors;
-  var ringTotal = ringEntries.reduce(function(t, e) { return t + e[1]; }, 0);
+  // ---- One ring. Spending by category, or (tap Income) where money came from.
+  // Legend is names only; tap a name or a slice to see its amount in the middle.
+  var entries = Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  var colors = {};
+  entries.forEach(function(e, i) { colors[e[0]] = (incomeMode ? INCOME_COLORS : CATEGORY_COLORS)[i % (incomeMode ? INCOME_COLORS : CATEGORY_COLORS).length]; });
+  var total = entries.reduce(function(t, e) { return t + e[1]; }, 0);
   var ring = $('#act-ring');
-  $('#act-ring-row').classList.toggle('no-ring', !ringTotal);
-  if (ringTotal) {
-    var R = 48, C = 2 * Math.PI * R, gap = ringEntries.length > 1 ? 1.4 : 0, at = 0;
-    var arcs = '', labels = '';
-    ringEntries.forEach(function(e) {
-      var frac = e[1] / ringTotal, len = frac * C;
+  $('#act-ring-row').classList.toggle('no-ring', !total);
+  var pct = function(a, b) { var v = a / b * 100; return (v > 0 && v < 1 ? '<1' : Math.round(v)) + '%'; };
+  if (total) {
+    var CX = 100, RO = 96, RI = 64, W = 6, GAP = 3.5, RM = (RO + RI) / 2;
+    var pt = function(r, a) { return (CX + r * Math.cos(a)).toFixed(2) + ' ' + (CX + r * Math.sin(a)).toFixed(2); };
+    var at = -Math.PI / 2, paths = '';
+    entries.forEach(function(e) {
+      var sweep = e[1] / total * 2 * Math.PI;
+      // Each slice is a filled band with a thick round-joined outline, so corners come out rounded
+      var trim = entries.length > 1 ? (GAP / 2 + W / 2) / RM : 0;
+      var a0 = at + trim, a1 = at + sweep - trim;
+      if (a1 < a0) { a0 = a1 = at + sweep / 2; }
+      var ro = RO - W / 2, ri = RI + W / 2, large = a1 - a0 > Math.PI ? 1 : 0;
+      var d = entries.length === 1
+        ? 'M' + pt(ro, 0) + 'A' + ro + ' ' + ro + ' 0 1 1 ' + pt(ro, Math.PI) + 'A' + ro + ' ' + ro + ' 0 1 1 ' + pt(ro, 0) + 'Z' +
+          'M' + pt(ri, 0) + 'A' + ri + ' ' + ri + ' 0 1 0 ' + pt(ri, Math.PI) + 'A' + ri + ' ' + ri + ' 0 1 0 ' + pt(ri, 0) + 'Z'
+        : 'M' + pt(ro, a0) + 'A' + ro + ' ' + ro + ' 0 ' + large + ' 1 ' + pt(ro, a1) + 'L' + pt(ri, a1) + 'A' + ri + ' ' + ri + ' 0 ' + large + ' 0 ' + pt(ri, a0) + 'Z';
       var dim = activeCategoryFilter && activeCategoryFilter !== e[0];
-      arcs += '<circle class="act-ring-seg' + (dim ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" cx="60" cy="60" r="' + R + '" stroke="' + ringColors[e[0]] + '"' +
-        ' stroke-dasharray="' + Math.max(0.01, len - gap).toFixed(2) + ' ' + C.toFixed(2) + '" stroke-dashoffset="' + (-at).toFixed(2) + '"><title>' + esc(e[0]) + ': ' + wholeMoney(e[1]) + '</title></circle>';
-      if (frac >= 0.06 && ringEntries.length > 1) {
-        var ang = ((at + len / 2) / C) * 2 * Math.PI - Math.PI / 2;
-        labels += '<text x="' + (60 + R * Math.cos(ang)).toFixed(1) + '" y="' + (60 + R * Math.sin(ang)).toFixed(1) + '"' + (dim ? ' class="dim"' : '') + '>' + Math.round(frac * 100) + '%</text>';
-      }
-      at += len;
+      paths += '<path class="act-ring-seg' + (dim ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" d="' + d + '" fill="' + colors[e[0]] + '" stroke="' + colors[e[0]] + '" stroke-width="' + W + '" stroke-linejoin="round" fill-rule="evenodd"><title>' + esc(e[0]) + '</title></path>';
+      at += sweep;
     });
-    var centerAmt = activeCategoryFilter && byCategory[activeCategoryFilter] ? byCategory[activeCategoryFilter] : ringTotal;
-    var centerLabel = activeCategoryFilter ? Math.round(centerAmt / ringTotal * 100) + '% of ' + (incomeMode ? 'income' : 'spending') : (incomeMode ? 'Came in' : 'Spent');
-    ring.innerHTML = '<svg viewBox="0 0 120 120" role="img" aria-label="' + esc((incomeMode ? 'Income by source: ' : 'Spending by category: ') + ringEntries.map(function(e) { return e[0] + ' ' + Math.round(e[1] / ringTotal * 100) + '%'; }).join(', ')) + '">' +
-      '<g transform="rotate(-90 60 60)">' + arcs + '</g>' + labels + '</svg>' +
-      '<span class="act-ring-center"><b>' + (hideMoney ? '****' : '$' + Math.round(centerAmt).toLocaleString('en-US')) + '</b><small>' + esc(centerLabel) + '</small></span>';
+    // Centre: the total, or what you tapped. Income is woven in as the line underneath.
+    var picked = activeCategoryFilter && byCategory[activeCategoryFilter];
+    var label, value, sub = '', subCls = '';
+    if (picked) {
+      label = activeCategoryFilter; value = byCategory[activeCategoryFilter];
+      sub = pct(value, total) + ' of ' + (incomeMode ? 'income' : 'spending');
+    } else if (incomeMode) {
+      label = 'Income'; value = moneyIn;
+      if (moneyIn) { sub = moneyIn >= spent ? 'You kept ' + pct(moneyIn - spent, moneyIn) : 'Spent ' + pct(spent - moneyIn, moneyIn) + ' more'; subCls = moneyIn >= spent ? 'good' : 'bad'; }
+    } else {
+      label = 'Spent'; value = spent;
+      if (moneyIn && cardId === 'all') { sub = pct(spent, moneyIn) + ' of income'; subCls = spent > moneyIn ? 'bad' : 'good'; }
+    }
+    ring.innerHTML = '<svg viewBox="0 0 200 200" role="img" aria-label="' + esc((incomeMode ? 'Income by source: ' : 'Spending by category: ') + entries.map(function(e) { return e[0] + ' ' + pct(e[1], total); }).join(', ')) + '">' + paths + '</svg>' +
+      '<span class="act-ring-center" aria-live="polite"><small>' + esc(label) + '</small><b class="' + (incomeMode && !picked ? 'good' : '') + '">' + (incomeMode && value && !hideMoney ? '+' : '') + formatMoney(value) + '</b>' +
+      (sub ? '<em class="' + subCls + '">' + esc(sub) + '</em>' : '') + '</span>';
   } else ring.innerHTML = '';
 
-  // ---- Legend beside the ring: tap a row to filter the list, tap again to clear
-  var legendEntries = ringEntries.slice();
-  if (!incomeMode && budgetOn) {
-    // Budgeted categories with nothing yet this month still get a row (e.g. rent not paid yet)
-    Object.keys(B).filter(function(c) { return !outByCat[c]; }).forEach(function(c, j) {
-      outColors[c] = CATEGORY_COLORS[(outEntries.length + j) % CATEGORY_COLORS.length];
-      legendEntries.push([c, 0]);
-    });
-  }
-  var LEGEND_MAX = 5;
-  var shown = legendAll || legendEntries.length <= LEGEND_MAX + 1 ? legendEntries : legendEntries.slice(0, LEGEND_MAX);
-  if (activeCategoryFilter && shown.indexOf(legendEntries.filter(function(e) { return e[0] === activeCategoryFilter; })[0]) === -1) shown = legendEntries;
-  legend.innerHTML = shown.map(function(e) {
+  // Legend: names only. The first item flips the ring between spending and income.
+  var flip = incomeMode ? '<button type="button" class="act-leg act-leg-flip" data-flip="out"><i class="act-leg-spend"></i>Spending</button>'
+    : moneyIn > 0 ? '<button type="button" class="act-leg act-leg-flip" data-flip="in"><i style="background:var(--success)"></i>Income</button>' : '';
+  legend.innerHTML = entries.length ? flip + entries.map(function(e) {
     var on = activeCategoryFilter === e[0];
-    var bb = cardId === 'all' ? (incomeMode ? BI : B)[e[0]] : null, sub = '';
-    if (bb) {
-      var over = incomeMode ? 0 : e[1] - bb.amount;
-      sub = over > 0.005 ? '<small class="bad">' + wholeMoney(over) + ' over</small>'
-        : '<small' + (incomeMode && e[1] >= bb.amount ? ' class="good"' : '') + '>of ' + wholeMoney(bb.amount) + '</small>';
-    }
-    return '<button type="button" class="act-leg' + (on ? ' on' : '') + (activeCategoryFilter && !on ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
-      '<i style="background:' + (ringColors[e[0]] || outColors[e[0]]) + '"></i><span class="act-leg-name">' + esc(e[0]) + '</span>' +
-      '<span class="act-leg-amt"><b>' + wholeMoney(e[1]) + '</b>' + sub + '</span></button>';
-  }).join('') +
-    (legendEntries.length > shown.length ? '<button type="button" class="act-leg-more" data-more="1">' + (legendEntries.length - shown.length) + ' more</button>'
-      : legendAll && legendEntries.length > LEGEND_MAX + 1 ? '<button type="button" class="act-leg-more" data-more="0">Show less</button>' : '') ||
-    '<p class="act-empty-note">' + (incomeMode ? 'Nothing has come in yet.' : 'Nothing yet this month.') + '</p>';
+    return '<button type="button" class="act-leg' + (on ? ' on' : '') + (activeCategoryFilter && !on ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '"><i style="background:' + colors[e[0]] + '"></i>' + esc(e[0]) + '</button>';
+  }).join('') : flip + '<p class="act-empty-note">' + (incomeMode ? 'Nothing has come in yet.' : 'Nothing yet this month.') + '</p>';
 
   // ---- Transactions grouped by day
   displayTx.sort(function(a, b) {
@@ -5059,28 +4979,23 @@ function closePicker() {
 })();
 
 var incomeMode = false;   // Activity: false = spending, true = money in
-var legendAll = false;    // Activity legend: show every category, not just the top ones
 (function wireActCharts() {
-  var flow = $('#act-flow'), ring = $('#act-ring'), legend = $('#tx-category-legend'), note = $('#act-daily-note');
-  if (!flow) return;
-  flow.addEventListener('click', function(e) {
-    var b = e.target.closest('.act-flow-row');
-    if (!b) return;
-    var wantIn = b.dataset.flow === 'in';
-    if (wantIn === incomeMode && !activeCategoryFilter) return;
-    incomeMode = wantIn; activeCategoryFilter = null; legendAll = false;
-    renderTransactionMonth();
-  });
+  var ring = $('#act-ring'), legend = $('#tx-category-legend'), note = $('#act-daily-note');
+  if (!ring) return;
   var pick = function(cat) { activeCategoryFilter = activeCategoryFilter === cat ? null : cat; renderTransactionMonth(); };
-  ring.addEventListener('click', function(e) { var c = e.target.closest('.act-ring-seg'); if (c) pick(c.dataset.cat); });
+  ring.addEventListener('click', function(e) {
+    var c = e.target.closest('.act-ring-seg');
+    if (c) pick(c.dataset.cat);
+    else if (activeCategoryFilter) { activeCategoryFilter = null; renderTransactionMonth(); }   // tap the middle to go back to the total
+  });
   legend.addEventListener('click', function(e) {
-    var more = e.target.closest('.act-leg-more');
-    if (more) { legendAll = more.dataset.more === '1'; renderTransactionMonth(); return; }
     var b = e.target.closest('.act-leg');
-    if (b) pick(b.dataset.cat);
+    if (!b) return;
+    if (b.dataset.flip) { incomeMode = b.dataset.flip === 'in'; activeCategoryFilter = null; renderTransactionMonth(); return; }
+    pick(b.dataset.cat);
   });
   note.addEventListener('click', function(e) {
-    if (e.target.id === 'act-set-budget') openBudgetSheet(incomeMode ? 'in' : 'out', incomeMode ? 'Income' : activeCategoryFilter);
+    if (e.target.id === 'act-set-budget') openBudgetSheet('out');
   });
 })();
 
