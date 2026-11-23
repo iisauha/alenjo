@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261123130741';</script>
+  <script>var _v = '20261123131350';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261123130741">
+  <link rel="stylesheet" href="style.css?v=20261123131350">
 </head>
 <body>
 
@@ -747,22 +747,20 @@
 
   <div id="budget-sheet" class="action-sheet-overlay" aria-hidden="true">
     <div class="action-sheet budget-sheet" role="dialog" aria-modal="true" aria-labelledby="budget-title">
-      <div class="budget-head"><h2 id="budget-title" class="delete-title">Budgets</h2><span id="budget-total" class="budget-total"></span></div>
+      <div class="budget-head"><h2 id="budget-title" class="delete-title">Budgets</h2></div>
       <button type="button" id="budget-copy" class="budget-copy" hidden></button>
-      <p id="budget-help" class="budget-help"></p>
-      <div id="budget-editor" class="budget-editor" hidden>
-        <div class="budget-ed-top"><b id="budget-ed-name"></b><small id="budget-ed-avg"></small></div>
-        <div class="budget-ed-row">
-          <label class="budget-ed-amt"><span aria-hidden="true">$</span><input id="budget-ed-amt" inputmode="decimal" autocomplete="off" placeholder="None" aria-label="Monthly amount"></label>
-          <button type="button" id="budget-ed-set" class="budget-ed-set">Set</button>
+      <div id="budget-table" class="budget-table" role="table" aria-label="Budget"></div>
+      <p class="budget-sec budget-add-sec">Add a budget</p>
+      <div class="budget-add">
+        <select id="budget-add-cat" class="app-select" aria-label="Category"></select>
+        <input type="text" id="budget-add-name" class="app-input" maxlength="40" placeholder="Category name" enterkeyhint="next" hidden>
+        <div class="budget-add-row">
+          <label class="budget-add-amt"><span aria-hidden="true">$</span><input id="budget-add-amt" inputmode="decimal" autocomplete="off" placeholder="Monthly" aria-label="Monthly amount" enterkeyhint="done"></label>
+          <button class="btn-primary" id="budget-add-btn" type="button">Add</button>
         </div>
-        <button type="button" id="budget-ed-clear" class="budget-ed-clear" hidden>Remove budget</button>
+        <small id="budget-add-avg" class="budget-add-avg"></small>
       </div>
-      <div id="budget-pills" class="budget-pills"></div>
-      <div class="recat-new budget-new">
-        <input type="text" id="budget-new-cat" class="app-input" maxlength="40" placeholder="New category" enterkeyhint="done">
-        <button class="btn-primary" id="budget-new-add" type="button">Add</button>
-      </div>
+      <p id="budget-help" class="budget-help"></p>
       <button type="button" id="budget-cancel" class="action-sheet-cancel">Done</button>
     </div>
   </div>
