@@ -3363,50 +3363,12 @@ function renderClosedAccounts() {
   }).join('');
 }
 
-// Plaid billing: a flat monthly fee per connection (Plaid calls it an Item) for each
-// subscription product on it, never per account or per call. Rates are from Alenjo's own Plaid
-// invoices. Which products a connection pays for follows sync-transactions: Transactions always;
-// Liabilities once it has a card or loan; Investments Holdings once it has an investment
-// account. Hidden accounts still count: Plaid never drops a product from a connection once added.
-var PLAID_RATES = { transactions: 0.30, liabilities: 0.20, investments: 0.18 };
-var PLAID_PRODUCT_NAMES = { transactions: 'Transactions', liabilities: 'Cards and loans', investments: 'Investments' };
-// Shown even with balances hidden: these are Plaid fees, not your money.
-function plaidFee(n) { return '$' + n.toFixed(2); }
-function plaidBillFor(accounts) {
-  var products = ['transactions'];
-  if (accounts.some(function(a) { return a.type === 'credit' || a.type === 'loan'; })) products.push('liabilities');
-  if (accounts.some(function(a) { return a.type === 'investment'; })) products.push('investments');
-  var total = products.reduce(function(t, k) { return t + PLAID_RATES[k]; }, 0);
-  return { products: products, total: Math.round(total * 100) / 100 };
-}
-function renderPlaidBilling(byItem) {
-  var section = $('#billing-section'), list = $('#billing-list');
-  if (!section || !list) return;
-  var ids = Object.keys(byItem || {}).filter(function(id) { return id !== 'unknown'; });
-  section.hidden = ids.length === 0;
-  if (!ids.length) { list.innerHTML = ''; return; }
-  var rows = ids.map(function(id) {
-    var g = byItem[id];
-    return { name: g.institution, bill: plaidBillFor(g.accounts) };
-  }).sort(function(a, b) { return b.bill.total - a.bill.total || a.name.localeCompare(b.name); });
-  var sum = rows.reduce(function(t, r) { return t + r.bill.total; }, 0);
-  list.innerHTML = rows.map(function(r) {
-    var what = r.bill.products.map(function(k) { return PLAID_PRODUCT_NAMES[k]; }).join(', ');
-    return '<div class="set-row bill-row"><span class="set-row-text"><span>' + esc(r.name) + '</span><span class="set-hint">' + esc(what) + '</span></span><span class="bill-amt">' + plaidFee(r.bill.total) + '</span></div>';
-  }).join('') +
-    '<div class="set-row bill-row bill-total"><span class="set-row-text"><span>About ' + plaidFee(sum) + ' a month</span><span class="set-hint">' + rows.length + ' bank' + (rows.length !== 1 ? 's' : '') + ' at your Plaid rates</span></span></div>';
-  document.querySelectorAll('[data-bill-rate]').forEach(function(el) {
-    el.textContent = plaidFee(PLAID_RATES[el.getAttribute('data-bill-rate')]);
-  });
-}
-
 async function renderAccountsSettings() {
   var list = $('#accounts-list');
   renderClosedAccounts();
   var open = (cachedAccounts || []).filter(function(a) { return !a.closed_at; });
   if (open.length === 0) {
     list.innerHTML = '<p style="color:var(--text-dim);font-size:var(--text-sm)">No institutions connected</p>';
-    renderPlaidBilling({});
     return;
   }
 
@@ -3417,7 +3379,6 @@ async function renderAccountsSettings() {
     if (!byItem[key]) byItem[key] = { institution: a.institution || 'Unknown', accounts: [] };
     byItem[key].accounts.push(a);
   });
-  renderPlaidBilling(byItem);
 
   var html = '';
   Object.keys(byItem).forEach(function(itemId) {
