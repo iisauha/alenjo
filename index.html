@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261123134603';</script>
+  <script>var _v = '20261123143820';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261123134603">
+  <link rel="stylesheet" href="style.css?v=20261123143820">
 </head>
 <body>
 
@@ -476,6 +476,26 @@
         <button id="btn-add-account" class="set-row set-row-action" type="button">+ Add an institution</button>
       </div>
 
+      <div id="billing-section" hidden>
+        <h2 class="set-heading">Plaid billing</h2>
+        <div class="set-group">
+          <div class="set-intro"><span>Plaid charges a flat fee per bank each month, not per account and not per sync. A bank connected for any part of a month is billed for the whole month.</span></div>
+          <div id="billing-list"></div>
+        </div>
+        <h2 class="set-heading">What costs money</h2>
+        <div class="set-group">
+          <ul class="set-bullets billing-rules">
+            <li><b>Free: Reconnect.</b> It’s the same connection, so nothing new is billed.</li>
+            <li><b>Free: Manage.</b> Adding or removing cards and accounts at a bank that’s already here doesn’t change the bill, with the two exceptions below.</li>
+            <li><b>Costs: the first card or loan at a bank that has none.</b> Adds <span data-bill-rate="liabilities"></span> a month for that bank.</li>
+            <li><b>Costs: the first investment account at a bank that has none.</b> Adds <span data-bill-rate="investments"></span> a month for that bank.</li>
+            <li><b>Costs: a new bank.</b> <span data-bill-rate="transactions"></span> a month, plus <span data-bill-rate="liabilities"></span> if it has cards or loans and <span data-bill-rate="investments"></span> if it has investments.</li>
+            <li><b>Costs: Disconnect, then add the same bank back.</b> That makes a brand new connection, and Plaid bills both for that month. Use Reconnect or Manage instead.</li>
+            <li><b>Disconnect</b> ends the fee from next month. A bank that needs reconnecting still bills until you reconnect or disconnect it.</li>
+          </ul>
+        </div>
+      </div>
+
       <div id="closed-section" hidden>
         <h2 class="set-heading">Closed accounts</h2>
         <div class="set-group">
@@ -769,7 +789,7 @@
       <div class="disc-options">
         <button type="button" class="disc-option" id="disconnect-keep">
           <b>Disconnect, keep history</b>
-          <span>Stops syncing and the Plaid fee. Transactions, notes and splits stay in Activity, and the accounts leave your Home totals. Add the bank back later and its history merges in, without duplicates.</span>
+          <span>Stops syncing and the Plaid fee from next month. Transactions, notes and splits stay in Activity, and the accounts leave your Home totals. Add the bank back later and its history merges in, without duplicates.</span>
         </button>
         <button type="button" class="disc-option danger" id="disconnect-delete">
           <b>Disconnect and delete everything</b>
