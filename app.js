@@ -4659,6 +4659,8 @@ var CATEGORY_COLORS = [
   '#B0679A', '#B8913A', '#6D6AC9', '#D46A5A', '#5E7FA3',
   '#7D4E8F', '#9C5B3C', '#C04F86', '#A8956B', '#8C6A4F'
 ];
+// The ring's "Other" slice: small categories share it
+var OTHER_SLICE = '__other', OTHER_COLOR = '#8A857B';
 // Income sources: greens and teals (green means money in)
 var INCOME_COLORS = ['#2A6E4D', '#4E9A73', '#3F7F86', '#7FB08F', '#5C8A5A', '#2F5F6E'];
 
@@ -4750,7 +4752,8 @@ function renderTransactionMonth() {
   }
 
   // Filter by active category if pie slice clicked
-  if (activeCategoryFilter) {
+  // ("Other" on the ring is several small categories; that one is filtered further down)
+  if (activeCategoryFilter && activeCategoryFilter !== OTHER_SLICE) {
     displayTx = displayTx.filter(function(tx) {
       var eff = getEffectiveTx(tx);
       return normalizeCategory(eff.category) === activeCategoryFilter;
@@ -4779,7 +4782,7 @@ function renderTransactionMonth() {
     if (isOut) { spent += amt; outByCat[cat] = (outByCat[cat] || 0) + amt; } else moneyIn += amt;
     if (isOut === !incomeMode) byCategory[cat] = (byCategory[cat] || 0) + amt;
   });
-  if (activeCategoryFilter && !byCategory[activeCategoryFilter]) activeCategoryFilter = null;
+  if (activeCategoryFilter && activeCategoryFilter !== OTHER_SLICE && !byCategory[activeCategoryFilter]) activeCategoryFilter = null;
   // The big number stays on the month's total; the ring's centre shows whatever you tap
   var shownSpent = incomeMode ? moneyIn : spent;
   $('#act-spent-label').textContent = incomeMode ? 'Income' : 'Spent';
@@ -4809,6 +4812,21 @@ function renderTransactionMonth() {
   var colors = {};
   entries.forEach(function(e, i) { colors[e[0]] = (incomeMode ? INCOME_COLORS : CATEGORY_COLORS)[i % (incomeMode ? INCOME_COLORS : CATEGORY_COLORS).length]; });
   var total = entries.reduce(function(t, e) { return t + e[1]; }, 0);
+  // Small slices look like crumbs on a ring, so anything under 4% (or past the 6th) shares one grey "Other" slice.
+  // They still get their own names in the legend.
+  var otherOf = {}, slices = entries;
+  var small = entries.filter(function(e, i) { return i >= 6 || e[1] / total < 0.04; });
+  if (small.length >= 2) {
+    small.forEach(function(e) { otherOf[e[0]] = true; colors[e[0]] = OTHER_COLOR; });
+    slices = entries.filter(function(e) { return !otherOf[e[0]]; }).concat([[OTHER_SLICE, small.reduce(function(t, e) { return t + e[1]; }, 0)]]);
+    colors[OTHER_SLICE] = OTHER_COLOR;
+  }
+  if (activeCategoryFilter === OTHER_SLICE) {
+    if (small.length < 2) activeCategoryFilter = null;
+    else displayTx = displayTx.filter(function(tx) { return otherOf[normalizeCategory(getEffectiveTx(tx).category)]; });
+  }
+  // The slice that holds what you tapped (a small category lights up "Other")
+  var litSlice = activeCategoryFilter && otherOf[activeCategoryFilter] ? OTHER_SLICE : activeCategoryFilter;
   var ring = $('#act-ring');
   $('#act-ring-row').classList.toggle('no-ring', !total);
   var pct = function(a, b) { var v = a / b * 100; return (v > 0 && v < 1 ? '<1' : Math.round(v)) + '%'; };
@@ -4816,31 +4834,34 @@ function renderTransactionMonth() {
     var CX = 100, RO = 96, RI = 64, W = 6, GAP = 3.5, RM = (RO + RI) / 2;
     var pt = function(r, a) { return (CX + r * Math.cos(a)).toFixed(2) + ' ' + (CX + r * Math.sin(a)).toFixed(2); };
     var at = -Math.PI / 2, paths = '';
-    entries.forEach(function(e) {
+    slices.forEach(function(e) {
       var sweep = e[1] / total * 2 * Math.PI;
       // Each slice is a filled band with a thick round-joined outline, so corners come out rounded
-      var trim = entries.length > 1 ? (GAP / 2 + W / 2) / RM : 0;
+      var trim = slices.length > 1 ? (GAP / 2 + W / 2) / RM : 0;
       var a0 = at + trim, a1 = at + sweep - trim;
       if (a1 < a0) { a0 = a1 = at + sweep / 2; }
       var ro = RO - W / 2, ri = RI + W / 2, large = a1 - a0 > Math.PI ? 1 : 0;
-      var d = entries.length === 1
+      var d = slices.length === 1
         ? 'M' + pt(ro, 0) + 'A' + ro + ' ' + ro + ' 0 1 1 ' + pt(ro, Math.PI) + 'A' + ro + ' ' + ro + ' 0 1 1 ' + pt(ro, 0) + 'Z' +
           'M' + pt(ri, 0) + 'A' + ri + ' ' + ri + ' 0 1 0 ' + pt(ri, Math.PI) + 'A' + ri + ' ' + ri + ' 0 1 0 ' + pt(ri, 0) + 'Z'
         : 'M' + pt(ro, a0) + 'A' + ro + ' ' + ro + ' 0 ' + large + ' 1 ' + pt(ro, a1) + 'L' + pt(ri, a1) + 'A' + ri + ' ' + ri + ' 0 ' + large + ' 0 ' + pt(ri, a0) + 'Z';
-      var dim = activeCategoryFilter && activeCategoryFilter !== e[0];
+      var dim = litSlice && litSlice !== e[0];
       paths += '<path class="act-ring-seg' + (dim ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" d="' + d + '" fill="' + colors[e[0]] + '" stroke="' + colors[e[0]] + '" stroke-width="' + W + '" stroke-linejoin="round" fill-rule="evenodd"><title>' + esc(e[0]) + '</title></path>';
       at += sweep;
     });
     // Centre: the total, or what you tapped. Income is woven in as the line underneath.
-    var picked = activeCategoryFilter && byCategory[activeCategoryFilter];
+    var picked = activeCategoryFilter && (activeCategoryFilter === OTHER_SLICE || byCategory[activeCategoryFilter]);
     var label, value, sub = '';
-    if (picked) {
+    if (activeCategoryFilter === OTHER_SLICE) {
+      label = 'Other'; value = slices[slices.length - 1][1];
+      sub = small.length + ' smaller categories';
+    } else if (picked) {
       label = activeCategoryFilter; value = byCategory[activeCategoryFilter];
       sub = pct(value, total) + ' of ' + (incomeMode ? 'income' : 'spending');
     }
     // Nothing tapped: the middle shows the one number the header doesn't, how much of your income is gone (or kept)
     var share = !picked && moneyIn && cardId === 'all';
-    ring.innerHTML = '<svg viewBox="0 0 200 200" role="img" aria-label="' + esc((incomeMode ? 'Income by source: ' : 'Spending by category: ') + entries.map(function(e) { return e[0] + ' ' + pct(e[1], total); }).join(', ')) + '">' + paths + '</svg>' +
+    ring.innerHTML = '<svg viewBox="0 0 200 200" role="img" aria-label="' + esc((incomeMode ? 'Income by source: ' : 'Spending by category: ') + slices.map(function(e) { return (e[0] === OTHER_SLICE ? 'Other' : e[0]) + ' ' + pct(e[1], total); }).join(', ')) + '">' + paths + '</svg>' +
       (share
         ? '<span class="act-ring-center act-ring-share" aria-live="polite"><b class="' + (spent > moneyIn ? 'bad' : 'good') + '">' + (incomeMode ? pct(Math.max(0, moneyIn - spent), moneyIn) : pct(spent, moneyIn)) + '</b><small>' + (incomeMode ? 'of income kept' : 'of income spent') + '</small></span>'
         : '<span class="act-ring-center" aria-live="polite"><small>' + esc(picked ? label : (incomeMode ? 'Income' : 'Spent')) + '</small><b>' + (incomeMode && !hideMoney ? '+' : '') + formatMoney(picked ? value : total) + '</b>' +
@@ -4851,8 +4872,10 @@ function renderTransactionMonth() {
   // The first item flips the ring between spending and income.
   var flip = incomeMode ? '<button type="button" class="act-leg act-leg-flip" data-flip="out"><i class="act-leg-spend"></i><span>Spending</span></button>'
     : moneyIn > 0 ? '<button type="button" class="act-leg act-leg-flip" data-flip="in"><i style="background:var(--success)"></i><span>Income</span></button>' : '';
-  var items = (flip ? [flip] : []).concat(entries.map(function(e) {
-    var on = activeCategoryFilter === e[0];
+  // Income with a single source: the ring already says it all, so just offer the way back
+  var legendEntries = incomeMode && entries.length < 2 ? [] : entries;
+  var items = (flip ? [flip] : []).concat(legendEntries.map(function(e) {
+    var on = activeCategoryFilter === e[0] || (activeCategoryFilter === OTHER_SLICE && !!otherOf[e[0]]);
     return '<button type="button" class="act-leg' + (on ? ' on' : '') + (activeCategoryFilter && !on ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '"><i style="background:' + colors[e[0]] + '"></i><span>' + esc(e[0]) + '</span></button>';
   }));
   var pages = [];

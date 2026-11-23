@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261123192227';</script>
+  <script>var _v = '20261123192852';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261123192227">
+  <link rel="stylesheet" href="style.css?v=20261123192852">
 </head>
 <body>
 
@@ -637,14 +637,11 @@
       <h3 id="manage-title">Manage account</h3>
       <p id="manage-subtitle" class="manage-subtitle"></p>
       <div class="manage-group">
-        <label class="set-row manage-row"><span class="set-row-text"><span>Hide account</span><span class="set-hint">Remove it from Home</span></span><input type="checkbox" id="edit-hide" class="set-switch" role="switch"></label>
-        <label class="set-row manage-row"><span class="set-row-text"><span>Exclude from balance</span><span class="set-hint">Leave it out of Available and Net worth</span></span><input type="checkbox" id="edit-exclude" class="set-switch" role="switch"></label>
-      </div>
-      <div class="manage-group manage-fields">
         <label class="set-row manage-row manage-field"><span>Nickname</span><input type="text" id="nickname-input" placeholder="Account nickname" maxlength="40"></label>
-        <label class="set-row manage-row manage-field" id="apy-field"><span>Interest rate</span><span class="manage-suffix"><input type="number" id="apy-input" inputmode="decimal" step="0.01" min="0" max="25" placeholder="4.20"><span>% APY</span></span></label>
+        <label class="set-row manage-row manage-field" id="apy-field"><span>Interest rate<small id="apy-hint">Copy it from your bank's app</small></span><span class="manage-suffix"><input type="number" id="apy-input" inputmode="decimal" step="0.01" min="0" max="25" placeholder="4.20"><span>% APY</span></span></label>
+        <label class="set-row manage-row manage-toggle"><span>Hide account</span><input type="checkbox" id="edit-hide" class="set-switch" role="switch"></label>
+        <label class="set-row manage-row manage-toggle"><span>Exclude from balance</span><input type="checkbox" id="edit-exclude" class="set-switch" role="switch"></label>
       </div>
-      <p class="set-hint manage-note" id="apy-hint">Banks don't share interest rates through Plaid, so copy it from your bank's app.</p>
       <div id="card-design-picker-section">
         <span class="sheet-sec">Card design</span>
         <div id="card-design-picker" class="card-design-picker"></div>
