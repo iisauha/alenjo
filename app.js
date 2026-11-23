@@ -1905,6 +1905,8 @@ document.addEventListener('click', function(e) {
 // ============================================
 // Long-press Available: hide or show every amount. A short tap still switches pending.
 var heroLongPressed = false;
+// Account numbers hide along with amounts
+function shownMask(m) { return hideMoney ? '####' : m; }
 function setHideMoney(v) {
   hideMoney = !!v;
   try { localStorage.setItem('alenjo_hide_money', hideMoney ? '1' : '0'); } catch (e) {}
@@ -2028,7 +2030,7 @@ function renderAccountOrderList() {
       var name = (a.nickname || a.name || 'Account').replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
       html += '<div class="acct-order-row' + (a.is_hidden ? ' is-hidden' : '') + '" data-id="' + esc(a.id) + '">' +
         '<button type="button" class="acct-eye" data-toggle-hide aria-pressed="' + !a.is_hidden + '" aria-label="' + (a.is_hidden ? 'Show ' : 'Hide ') + esc(name) + '">' + (a.is_hidden ? EYE_OFF : EYE_ON) + '</button>' +
-        '<span class="acct-order-name"><span>' + esc(name) + '</span><span class="set-hint">' + esc(a.institution || '') + (a.mask ? ' ••' + esc(a.mask) : '') + (a.is_hidden ? ' · hidden' : a.exclude_from_totals ? ' · not in totals' : '') + '</span></span>' +
+        '<span class="acct-order-name"><span>' + esc(name) + '</span><span class="set-hint">' + esc(a.institution || '') + (a.mask ? ' ••' + esc(shownMask(a.mask)) : '') + (a.is_hidden ? ' · hidden' : a.exclude_from_totals ? ' · not in totals' : '') + '</span></span>' +
         (items.length > 1 ? '<span class="acct-handle" role="button" tabindex="0" aria-label="Reorder ' + esc(name) + '. Use arrow keys to move."><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 12h16M4 16h16"/></svg></span>' : '') +
       '</div>';
     });
@@ -4119,7 +4121,7 @@ function accountCard(account, type) {
     : logoUrl ? '<div class="acct-badge acct-badge-logo" style="background-image:url(' + logoUrl + ')"></div>'
     : '<div class="acct-badge acct-badge-initial">' + esc((account.institution || displayName).charAt(0).toUpperCase()) + '</div>';
   var cleanName = account.nickname ? displayName : displayName.replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
-  var sub = [account.institution, account.mask ? '••' + account.mask : ''].filter(Boolean).join(' · ');
+  var sub = [account.institution, account.mask ? '••' + shownMask(account.mask) : ''].filter(Boolean).join(' · ');
 
   return '<div class="account-card" data-id="' + account.id + '">' +
     '<div class="account-top">' +
@@ -4210,7 +4212,7 @@ document.addEventListener('click', function(e) {
   $('#edit-exclude').checked = !!(acct && acct.exclude_from_totals);
   $('#edit-hide').checked = !!(acct && acct.is_hidden);
   $('#manage-title').textContent = 'Manage ' + ((acct && acct.institution) || '') + ' account';
-  $('#manage-subtitle').textContent = acct ? (acct.nickname || acct.name || 'Account') + (acct.mask ? ' ' + acct.mask : '') : '';
+  $('#manage-subtitle').textContent = acct ? (acct.nickname || acct.name || 'Account') + (acct.mask ? ' ' + shownMask(acct.mask) : '') : '';
   accountEditModal.classList.add('visible');
   var mc = accountEditModal.querySelector('.modal-card'); if (mc) mc.scrollTop = 0;
 });
