@@ -3964,3 +3964,5 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 /* Legend lines up with the left edge of the page content (same as "Spent", the bars and the list) */
 .act-leg-page { justify-content: flex-start; padding: 0; gap: 0 18px; }
 .act-leg { padding: 0; }
+/* Each legend row runs edge to edge: first name on the left line, last name on the right line */
+.act-leg-page { justify-content: space-between; gap: 0 14px; }
