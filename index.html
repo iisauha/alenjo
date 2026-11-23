@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261123145514';</script>
+  <script>var _v = '20261123184924';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261123145514">
+  <link rel="stylesheet" href="style.css?v=20261123184924">
 </head>
 <body>
 
@@ -336,14 +336,11 @@
               <span id="act-spent" class="act-spent-value"></span>
               <span class="act-sub"><span id="act-net" class="act-net" aria-live="polite"></span><span id="act-daily-note"></span></span>
             </div>
-            <div id="act-bars" class="act-bars" role="group" aria-label="Spending by day. Tap a day to see its transactions."></div>
-            <div class="home-ranges act-range" id="act-range" role="group" aria-label="Chart range">
-              <button type="button" data-range="7">1W</button>
-              <button type="button" data-range="14">2W</button>
-              <button type="button" data-range="31">1M</button>
+            <div id="act-flow" class="act-flow" role="group" aria-label="Money in and money out"></div>
+            <div class="act-ring-row" id="act-ring-row">
+              <div id="act-ring" class="act-ring"></div>
+              <div id="tx-category-legend" class="act-legend" role="group" aria-label="Filter by category"></div>
             </div>
-            <div class="act-cats-wrap" id="act-cats-wrap"><div id="tx-category-legend" class="act-cats" role="group" aria-label="Filter by category"></div></div>
-            <div class="act-cats-dots" id="act-cats-dots" aria-hidden="true"></div>
           </aside>
           <section class="act-list">
             <div id="tx-breakdown"></div>
@@ -643,15 +640,13 @@
         <label class="set-row manage-row"><span class="set-row-text"><span>Hide account</span><span class="set-hint">Remove it from Home</span></span><input type="checkbox" id="edit-hide" class="set-switch" role="switch"></label>
         <label class="set-row manage-row"><span class="set-row-text"><span>Exclude from balance</span><span class="set-hint">Leave it out of Available and Net worth</span></span><input type="checkbox" id="edit-exclude" class="set-switch" role="switch"></label>
       </div>
-      <label class="override-label" for="nickname-input">Nickname</label>
-      <input type="text" id="nickname-input" class="app-input" placeholder="Account nickname" maxlength="40">
-      <div id="apy-field">
-        <label class="override-label" for="apy-input">Interest rate (APY %)</label>
-        <input type="number" id="apy-input" class="app-input" inputmode="decimal" step="0.01" min="0" max="25" placeholder="e.g. 4.20">
-        <p class="set-hint">Banks don't share this through Plaid, so copy it from your bank's app.</p>
+      <div class="manage-group manage-fields">
+        <label class="set-row manage-row manage-field"><span>Nickname</span><input type="text" id="nickname-input" placeholder="Account nickname" maxlength="40"></label>
+        <label class="set-row manage-row manage-field" id="apy-field"><span>Interest rate</span><span class="manage-suffix"><input type="number" id="apy-input" inputmode="decimal" step="0.01" min="0" max="25" placeholder="4.20"><span>% APY</span></span></label>
       </div>
+      <p class="set-hint manage-note" id="apy-hint">Banks don't share interest rates through Plaid, so copy it from your bank's app.</p>
       <div id="card-design-picker-section">
-        <label class="override-label">Card design</label>
+        <span class="sheet-sec">Card design</span>
         <div id="card-design-picker" class="card-design-picker"></div>
       </div>
       <div class="modal-actions">

@@ -3009,8 +3009,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; colo
 .act-tag { font-size: 0.6875rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--bg-elevated); color: var(--text-muted); }
 .act-tag-accent { background: var(--accent-subtle); color: var(--accent); }
 .act-empty-note { color: var(--text-muted); font-size: 0.875rem; padding: 18px 2px; margin: 0; }
-@media (min-width: 900px) {
-}
 
 /* Transaction sheet: icon tiles instead of a wall of buttons */
 #tx-action-sheet .action-sheet-header { flex-direction: column; align-items: center; gap: 4px; text-align: center; padding-bottom: 8px; }
@@ -3124,15 +3122,6 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .act-sub { display: flex; gap: 14px; font-size: 0.8125rem; color: var(--text-muted); }
 .act-sub b { font-weight: 600; color: var(--text-muted); }
 .act-sub b.act-in { color: var(--success); }
-.act-daily { display: block; width: 100%; height: 72px; margin-top: 10px; }
-.act-daily-axis { display: flex; justify-content: space-between; font-size: 0.6875rem; color: var(--text-muted); }
-.act-cats { display: flex; gap: 8px; overflow-x: auto; margin: 6px -16px 0; padding: 4px 16px; scrollbar-width: none; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
-.act-cats::-webkit-scrollbar { display: none; }
-.act-cat { flex-shrink: 0; scroll-snap-align: start; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--border); background: transparent; color: var(--text); font: 500 0.8125rem 'Inter', sans-serif; white-space: nowrap; cursor: pointer; }
-.act-cat i { width: 8px; height: 8px; border-radius: 4px; }
-.act-cat b { font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.act-cat.on { background: var(--text); color: var(--bg); border-color: var(--text); }
-.act-cat.on b { color: var(--bg); opacity: 0.75; }
 .act-list-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 18px 2px 8px; font-size: 0.75rem; color: var(--text-muted); }
 .act-list-foot .tx-updated { flex-basis: 100%; }
 .act-list-foot .signin-link { min-height: 36px; font-size: 0.8125rem; }
@@ -3141,7 +3130,6 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
   .act-acct { max-width: 280px; }
   .act-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 40px; align-items: start; }
   .act-summary { position: sticky; top: 16px; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); }
-  .act-cats { flex-wrap: wrap; overflow: visible; margin: 6px 0 0; padding: 0; }
 }
 
 /* Collapsible card details (credit card terms, investment holdings) */
@@ -3229,54 +3217,10 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .act-add-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 14px 0 10px; margin-left: 4px; border: 1px solid var(--border); border-radius: 18px; background: transparent; color: var(--text); font: 600 0.8125rem 'Inter', sans-serif; cursor: pointer; }
 .act-head-actions { align-items: center; margin-right: 0; }
 
-/* Category chips: inside the page margins, fades + dots show there's more */
-.act-cats-wrap { position: relative; margin-top: 6px; }
-.act-cats { margin: 0; padding: 2px 0; }
-.act-cats-wrap::before, .act-cats-wrap::after { content: ''; position: absolute; top: 0; bottom: 0; width: 32px; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 1; }
-.act-cats-wrap::before { left: 0; background: linear-gradient(90deg, var(--bg), transparent); }
-.act-cats-wrap::after { right: 0; background: linear-gradient(270deg, var(--bg), transparent); }
-.act-cats-wrap.more-left::before, .act-cats-wrap.more-right::after { opacity: 1; }
-.act-cats-dots { display: flex; justify-content: center; gap: 5px; min-height: 6px; margin-top: 8px; }
-.act-cats-dots:empty { display: none; }
-.act-cats-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--track); }
-.act-cats-dots i.on { background: var(--text-muted); }
-@media (min-width: 900px) {
-  .act-cats-wrap::before, .act-cats-wrap::after { background: linear-gradient(90deg, var(--bg-card), transparent); }
-  .act-cats-wrap::after { background: linear-gradient(270deg, var(--bg-card), transparent); }
-}
 
-/* Activity: scrollable day bars (tap a day to filter) */
-.act-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
-.act-chart-head #act-daily-note { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
-.act-chart-head .signin-link { font-size: 0.75rem; min-height: 32px; }
-.act-range { display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--bg-elevated); }
-.act-range button { min-height: 30px; padding: 0 10px; border: none; border-radius: 8px; background: transparent; color: var(--text-muted); font: 600 0.75rem 'Inter', sans-serif; cursor: pointer; }
-.act-range button.on { background: var(--bg-card); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
-.act-bars { --vis: 7; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin-top: 10px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
-.act-bars::-webkit-scrollbar { display: none; }
-.act-bar { flex: 0 0 calc(100% / var(--vis)); scroll-snap-align: start; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 0; border: none; background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; -webkit-tap-highlight-color: transparent; }
-.act-bar:disabled { cursor: default; opacity: 0.35; }
-.act-bar-col { position: relative; height: 96px; display: flex; align-items: flex-end; justify-content: center; border-radius: 8px; }
-.act-bar-fill { display: flex; flex-direction: column-reverse; width: 62%; max-width: 28px; border-radius: 5px; overflow: hidden; transition: opacity 0.15s; }
-.act-bar-fill i { display: block; min-height: 1px; }
-.act-bar-zero { width: 62%; max-width: 28px; height: 2px; border-radius: 1px; background: var(--track); }
-.act-bar-label { display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 30px; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
-.act-bar-label small { font-size: 0.625rem; opacity: 0.7; }
-.act-bar.today .act-bar-label { color: var(--text); font-weight: 600; }
-.act-bar.on .act-bar-col { background: var(--bg-elevated); }
-.act-bar.on .act-bar-label { color: var(--accent); font-weight: 700; }
-.act-bar.dim .act-bar-fill { opacity: 0.35; }
-.act-bars.dense .act-bar-fill { width: 70%; border-radius: 2px; }
-.act-bars.dense .act-bar-label { min-height: 16px; font-size: 0.625rem; }
-.act-bars.dense .act-bar-col { border-radius: 4px; }
-@media (hover: hover) { .act-bar:not(:disabled):hover .act-bar-col { background: color-mix(in srgb, var(--text) 5%, transparent); } }
-/* chips centered when they fit, scroll when they don't */
-.act-cats > :first-child { margin-left: auto; }
-.act-cats > :last-child { margin-right: auto; }
 .set-row-text { min-width: 0; }
 .set-row > .picker-wrap { flex: 0 0 auto; }
 .account-apy { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.act-range button { min-height: 36px; }
 .act-list-foot { flex-direction: column; justify-content: center; text-align: center; gap: 2px; padding: 22px 0 12px; }
 .act-list-foot .tx-updated { flex-basis: auto; }
 .act-list-foot > div { display: flex; justify-content: center; gap: 20px; }
@@ -3322,13 +3266,9 @@ input, select, textarea, .app-input { font-size: max(16px, 1rem); }
 .acct-badge-art { background-color: transparent; background-size: contain; box-shadow: none; border-radius: 0; }
 .act-month .picker-wrap { flex-shrink: 0; }
 .act-month-select { width: auto; min-width: 0; padding: 6px 4px; }
-/* Activity: range under the bars (same look as Home), account filter sized and right-aligned */
-.act-range { justify-content: center; padding: 0; background: transparent; margin-top: 4px; }
-.act-range button { min-width: 44px; min-height: 36px; border-radius: 18px; box-shadow: none; }
-.act-range button.on { background: var(--bg-elevated); color: var(--accent); box-shadow: none; }
+/* Activity: account filter sized and right-aligned */
 .act-sub { justify-content: space-between; align-items: center; min-height: 24px; }
 .act-sub .signin-link { font-size: 0.8125rem; min-height: 32px; }
-.act-bar-col { height: 88px; }
 .act-filters { gap: 12px; }
 .act-acct { flex: 0 0 auto; width: 150px; max-width: 44%; margin-left: auto; }
 .act-acct .picker-wrap { width: 100%; }
@@ -3624,12 +3564,6 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .action-sheet:has(#logo-picker.framing) #action-sheet-cancel { display: none; }
 .logo-new { align-items: stretch; } .logo-new > .logo-new-field, .logo-new > .logo-new-actions, .logo-new > .logo-frame-controls { width: 100%; align-self: stretch; }
 
-/* Picked day: other days go grey, the picked one keeps its colours (no box behind it) */
-.act-bar.on .act-bar-col { background: transparent; }
-.act-bar.dim .act-bar-fill { opacity: 1; }
-.act-bar.dim .act-bar-fill i { background: color-mix(in srgb, var(--text) 16%, transparent) !important; }
-.act-bar-fill i { transition: background-color 0.2s; }
-@media (hover: hover) { .act-bar.on:hover .act-bar-col { background: transparent; } }
 
 /* Hidden amounts: eye next to the Available number brings them back */
 .hero-value-row { display: flex; align-items: center; gap: 12px; }
@@ -3666,18 +3600,10 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 
 
 /* Category pills with a budget: a quiet second line, no colour */
-.act-cat.two { flex-direction: column; align-items: flex-start; gap: 3px; min-height: 0; padding: 9px 14px 10px; border-radius: 16px; white-space: nowrap; }
-.act-cat.two .act-cat-top { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 0.875rem; }
-.act-cat.two small { padding-left: 15px; font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.act-cat.two.on { background: var(--text); color: var(--bg); border-color: var(--text); }
-.act-cat.two.on small { color: var(--bg); opacity: 0.75; }
 /* Budget sheet: a bills table, like a notes-app list */
 .budget-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .budget-help { margin: 4px 0 12px; font-size: 0.875rem; color: var(--text-muted); line-height: 1.45; }
 
-.act-cat.two.b-good small { color: var(--success); }
-.act-cat.two.b-bad small { color: var(--danger); }
-.act-cat.two.on.b-good small, .act-cat.two.on.b-bad small { color: var(--bg); }
 
 /* Spent vs made, in one sentence */
 .act-net { font-size: 0.875rem; color: var(--text-muted); }
@@ -3809,34 +3735,7 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
    whole sheet fits on a phone screen without scrolling */
 .budget-sheet { padding-top: 1.1rem; }
 .budget-sheet .delete-title { margin-bottom: 0; }
-.budget-table { margin: 10px 0 14px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-card); }
-.bt-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 46px; border-top: 1px solid var(--border); }
-.bt-row:first-child { border-top: 0; }
-.bt-name, .bt-amt { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 10px; }
-.bt-amt { border-left: 1px solid var(--border); }
-.bt-name { font-size: 0.9375rem; font-weight: 500; }
-.bt-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bt-name small { font-size: inherit; font-weight: 400; opacity: 0.8; }
-.bt-row.bt-left1 { border-top-width: 2px; }
-.bt-empty { padding: 10px 12px; border-top: 1px solid var(--border); font-size: 0.875rem; color: var(--text-muted); }
 /* Tinted chips, like highlighted text in a note */
-.bt-chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 30px; padding: 0 8px; border-radius: 7px; background: color-mix(in srgb, currentColor 13%, transparent); font-size: 1rem; font-variant-numeric: tabular-nums; }
-.bt-chip input { width: 8ch; max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: max(16px, 1rem); outline: none; }
-@supports (field-sizing: content) { .bt-chip input { width: auto; min-width: 2ch; field-sizing: content; } }
-.bt-chip input::placeholder { color: inherit; opacity: 0.45; }
-.bt-chip:focus-within { box-shadow: 0 0 0 1.5px currentColor; }
-.bt-pay { color: var(--success); }
-.bt-pay2 { color: var(--warning); }
-.bt-pay2 .bt-chip { font-weight: 600; }
-.bt-out { color: var(--danger); }
-.bt-out .bt-name { padding-right: 0; }
-.bt-del { flex: none; margin-left: auto; width: 36px; min-height: 34px; border: 0; background: none; color: var(--text-muted); font-size: 1.125rem; line-height: 1; cursor: pointer; }
-.bt-left { color: var(--success); }
-.bt-left2 { color: var(--warning); }
-.bt-left .bt-name { color: var(--text); font-weight: 600; }
-.bt-left .bt-chip { font-weight: 600; }
-.bt-left .bt-chip.bad { color: var(--danger); }
-.bt-left .bt-chip.none { background: none; padding: 0; color: var(--text-muted); font-weight: 400; font-size: 0.875rem; }
 .budget-add { display: flex; flex-direction: column; gap: 6px; }
 .budget-add-row { display: flex; gap: 6px; }
 /* The select sits inside the in-app picker's wrapper, so size the wrapper, not the select */
@@ -3858,3 +3757,180 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .billing-yours { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 14px; border-top: 1px solid var(--border); font-size: 0.8125rem; line-height: 1.45; color: var(--text-muted); }
 .billing-yours > b { font-size: 0.9375rem; font-weight: 600; color: var(--text); }
 .billing-yours span b { color: var(--text); font-weight: 600; }
+
+/* Activity charts: money in vs out, then a ring of categories with its legend */
+.act-flow { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.act-flow[hidden] { display: none; }
+.act-flow-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; padding: 4px 8px; margin: 0 -8px; border: none; border-radius: 12px; background: transparent; color: var(--text-muted); font: 500 0.8125rem 'Inter', sans-serif; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.act-flow-row.on { background: var(--bg-card); color: var(--text); }
+.act-flow-label { font-weight: 600; }
+.act-flow-track { position: relative; height: 10px; border-radius: 5px; background: var(--track); }
+.act-flow-fill { display: flex; height: 100%; border-radius: 5px; overflow: hidden; transition: width 0.3s ease; }
+.act-flow-fill i { display: block; min-width: 1px; }
+.act-flow-goal { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); opacity: 0.55; }
+.act-flow-amt { display: flex; flex-direction: column; align-items: flex-end; min-width: 84px; font-variant-numeric: tabular-nums; }
+.act-flow-amt b { font-weight: 600; color: var(--text); }
+.act-flow-amt b.good { color: var(--success); }
+.act-flow-amt small, .act-leg-amt small { font-size: 0.6875rem; color: var(--text-muted); }
+.act-flow-amt small.good, .act-leg-amt small.good { color: var(--success); }
+.act-flow-amt small.bad, .act-leg-amt small.bad { color: var(--danger); }
+
+.act-ring-row { display: grid; grid-template-columns: 132px minmax(0, 1fr); align-items: center; gap: 14px; margin-top: 10px; }
+.act-ring-row.no-ring { grid-template-columns: minmax(0, 1fr); }
+.act-ring-row.no-ring .act-ring { display: none; }
+.act-ring { position: relative; width: 132px; height: 132px; }
+.act-ring svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.act-ring-seg { fill: none; stroke-width: 22; cursor: pointer; transition: opacity 0.2s; }
+.act-ring-seg.dim { opacity: 0.22; }
+.act-ring text { fill: #fff; font: 700 8.5px 'Inter', sans-serif; text-anchor: middle; dominant-baseline: central; pointer-events: none; font-variant-numeric: tabular-nums; }
+.act-ring text.dim { opacity: 0.4; }
+.act-ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; text-align: center; padding: 0 30px; }
+.act-ring-center b { font-size: 0.9375rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.act-ring-center small { font-size: 0.625rem; color: var(--text-muted); line-height: 1.2; }
+
+.act-legend { display: flex; flex-direction: column; min-width: 0; }
+.act-leg { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 2px 6px; margin: 0 -6px; border: none; border-radius: 10px; background: transparent; color: var(--text); font: 500 0.8125rem 'Inter', sans-serif; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.2s; }
+.act-leg i { flex-shrink: 0; width: 8px; height: 8px; border-radius: 4px; }
+.act-leg-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-leg-amt { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.act-leg-amt b { font-weight: 600; }
+.act-leg.on { background: var(--bg-card); font-weight: 600; }
+.act-leg.dim { opacity: 0.45; }
+.act-leg-more { align-self: flex-start; min-height: 32px; padding: 0 6px 0 22px; margin-left: -6px; border: none; background: transparent; color: var(--accent); font: 600 0.75rem 'Inter', sans-serif; cursor: pointer; }
+@media (hover: hover) { .act-flow-row:hover, .act-leg:hover { background: color-mix(in srgb, var(--text) 5%, transparent); } }
+@media (min-width: 900px) {
+  .act-flow-row.on, .act-leg.on { background: var(--bg-elevated); }
+}
+
+/* Budgets sheet: what's left up top, then grouped lists (income, bills) like iOS Settings */
+.budget-table { margin: 12px 0 16px; }
+.bt-summary { display: flex; flex-direction: column; gap: 2px; padding: 16px; border-radius: 16px; background: var(--bg-card); }
+.bt-sum-label { font-size: 0.8125rem; color: var(--text-muted); }
+.bt-sum-value { font-family: var(--serif); font-size: 2.25rem; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; color: var(--success); font-variant-numeric: tabular-nums; }
+.bt-sum-sub { font-size: 0.8125rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.bt-sum-value.bad, .bt-sum-sub.bad { color: var(--danger); }
+.bt-alloc { display: flex; gap: 2px; height: 10px; margin-top: 14px; border-radius: 5px; overflow: hidden; background: var(--track); }
+.bt-alloc[hidden] { display: none; }
+.bt-alloc i { display: block; min-width: 2px; }
+.bt-alloc-key { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.bt-alloc-key:empty { display: none; }
+.bt-alloc-key span { display: inline-flex; align-items: center; gap: 6px; }
+.bt-alloc-key i { width: 6px; height: 6px; border-radius: 3px; }
+.bt-sec { display: flex; align-items: baseline; justify-content: space-between; margin: 20px 4px 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.bt-sec b { font-weight: 600; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.bt-group { border-radius: 14px; background: var(--bg-card); overflow: hidden; }
+.bt-row { position: relative; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 6px 0 16px; }
+.bt-row + .bt-row::before { content: ''; position: absolute; top: 0; left: 34px; right: 0; height: 1px; background: var(--border); }
+.bt-dot { flex: none; width: 8px; height: 8px; border-radius: 4px; }
+.bt-pay2 { padding-left: 34px; }
+.bt-name { flex: 1; display: flex; flex-direction: column; min-width: 0; font-size: 0.9375rem; font-weight: 500; color: var(--text); }
+.bt-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-name small { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); }
+.bt-chip { flex: none; display: inline-flex; align-items: center; gap: 1px; min-height: 36px; padding: 0 10px; border-radius: 10px; color: var(--text-muted); font-size: max(16px, 1rem); font-variant-numeric: tabular-nums; cursor: text; transition: background 0.15s; }
+.bt-chip input { width: 7ch; padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 600; text-align: right; outline: none; }
+@supports (field-sizing: content) { .bt-chip input { width: auto; min-width: 2ch; field-sizing: content; } }
+.bt-chip input::placeholder { color: var(--text-muted); opacity: 0.6; font-weight: 400; }
+.bt-chip:focus-within { background: var(--bg-elevated); }
+.bt-pay .bt-chip input { color: var(--success); }
+.bt-pay2 .bt-chip input { font-weight: 500; color: var(--text-muted); }
+.bt-out .bt-chip { padding-right: 2px; }
+.bt-del { flex: none; display: flex; align-items: center; justify-content: center; width: 36px; height: 44px; border: 0; background: none; color: var(--text-muted); opacity: 0.6; cursor: pointer; }
+.bt-del:hover { opacity: 1; }
+.bt-empty { padding: 14px 16px; font-size: 0.875rem; color: var(--text-muted); }
+
+/* ==========================================================================
+   Design refresh: sheets, popups and Settings share one look.
+   Sheet = a calm surface; content sits in lighter grouped lists (no outlines),
+   section labels are small caps, inputs are filled, buttons are flat.
+   ========================================================================== */
+:root { --sheet-bg: #E9E5DC; --group-bg: #F6F3EC; --hairline: color-mix(in srgb, var(--text) 10%, transparent); }
+:root[data-theme="dark"] { --sheet-bg: #201E1A; --group-bg: #2B2924; }
+
+/* Surfaces */
+.action-sheet, .modal-card { background: var(--sheet-bg); border: none; box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12); }
+.action-sheet { border-radius: 24px 24px 0 0; padding-left: 16px; padding-right: 16px; }
+.action-sheet::before { width: 40px; height: 5px; border-radius: 3px; margin-bottom: 14px; background: color-mix(in srgb, var(--text) 18%, transparent); }
+.action-sheet > .action-sheet-cancel { box-shadow: 0 -14px 14px var(--sheet-bg); }
+.delete-title, .manage-card h3 { font-size: 1.625rem; letter-spacing: -0.01em; }
+
+/* Grouped lists (Settings, sheets, account popup, transaction sheet, budgets) */
+.set-group, .manage-group, .txs-group, .bt-group, .bt-summary, .set-profile-card, .txs-removed { background: var(--group-bg); border: none; border-radius: 16px; }
+.set-row, .set-nav, .txs-row, .manage-row { border-top: none !important; position: relative; }
+.set-group > * + .set-row::before, .set-group > * + .set-nav::before, .set-group > * + .set-disclosure::before,
+.manage-group > * + .manage-row::before, .txs-group > * + .txs-row::before {
+  content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--hairline); pointer-events: none;
+}
+.set-nav-group > * + .set-nav::before { left: 58px; }
+.set-group > * + .set-disclosure { position: relative; border-top: none; }
+.set-intro { border-bottom: 1px solid var(--hairline); }
+.bt-row + .bt-row::before { background: var(--hairline); }
+.set-nav, .set-row { padding-left: 16px; padding-right: 16px; }
+.set-nav:active, .set-row:active, .txs-row:active { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.txs-row { min-height: 52px; padding-left: 16px; padding-right: 14px; }
+.txs-label { font-weight: 500; }
+.txs-hint { font-size: 0.75rem; margin-top: 1px; }
+
+/* Section labels above groups */
+.sheet-sec, .override-label, .budget-sec { display: block; margin: 18px 4px 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+
+/* Inputs: filled, no outline until focused */
+.action-sheet .app-input, .modal-card .app-input, .action-sheet .app-select, .modal-card .app-select, .budget-add-amt, .set-group .app-input {
+  min-height: 48px; border: 1.5px solid transparent; border-radius: 12px; background-color: var(--group-bg); font-size: max(16px, 1rem);
+}
+.action-sheet .app-input:focus, .modal-card .app-input:focus, .budget-add-amt:focus-within, .set-group .app-input:focus { border-color: var(--accent); }
+.set-group .app-input { background-color: var(--sheet-bg); }
+
+/* Buttons: flat, no outlines, same height */
+.btn-primary, .btn-primary-sm { border-radius: 14px; box-shadow: none; background-image: none; font-weight: 600; }
+.btn-primary-sm, .btn-secondary-sm { min-height: 48px; padding: 0 18px; font-size: 1rem; }
+.btn-secondary-sm, .action-sheet-cancel { border: none; border-radius: 14px; background: var(--group-bg); color: var(--text); font-weight: 600; }
+.action-sheet > .action-sheet-cancel { min-height: 52px; background: var(--group-bg); font-weight: 600; }
+.modal-actions { gap: 10px; }
+.modal-actions > button { flex: 1; }
+
+/* Toggle pair on the transaction sheet (Reimbursed / Ignore) */
+.txs-seg { gap: 10px; margin-top: 12px; }
+#tx-action-sheet .txs-seg .action-toggle { min-height: 50px; max-height: none; border: none; border-radius: 14px; background: var(--group-bg); color: var(--text); font-weight: 600; font-size: 0.9375rem; }
+#tx-action-sheet .txs-seg .action-toggle.active { background: var(--accent-subtle); color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+#tx-action-sheet .txs-seg .action-toggle svg { color: var(--text-muted); }
+#tx-action-sheet .txs-seg .action-toggle.active svg { color: var(--accent); }
+.txs-links { margin-top: 8px; }
+.tx-date-btn { min-height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); font-weight: 600; }
+.txs-note textarea { padding: 14px 0; }
+.txs-note textarea::placeholder { color: var(--text-muted); }
+.txs-amount { margin-bottom: 18px; }
+
+/* Account popup: title left, inline fields in a group, card designs as a strip */
+.manage-card h3 { text-align: left; margin: 0; }
+.manage-subtitle { text-align: left; margin: 2px 0 16px; }
+.manage-group { margin-bottom: 0; }
+.manage-group + .manage-group { margin-top: 12px; }
+.manage-field { cursor: text; }
+.manage-field > span:first-child { flex: none; font-weight: 500; }
+.manage-field input { flex: 1; min-width: 0; min-height: 44px; padding: 0; border: none; background: transparent; color: var(--text); font: 500 max(16px, 1rem) 'Inter', sans-serif; text-align: right; outline: none; }
+.manage-field input::placeholder { color: var(--text-muted); opacity: 0.7; }
+.manage-field[hidden] { display: none; }
+.manage-suffix { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; color: var(--text-muted); font-size: 0.9375rem; }
+.manage-suffix input { flex: 0 1 7ch; -moz-appearance: textfield; }
+.manage-suffix input::-webkit-inner-spin-button, .manage-suffix input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.manage-note { margin: 6px 4px 0; font-size: 0.75rem; line-height: 1.4; }
+.manage-note[hidden] { display: none; }
+.card-design-option { border-radius: 12px; border: none; box-shadow: 0 0 0 1px var(--hairline); }
+.card-design-option.none { background: var(--group-bg); }
+.card-design-option.selected { box-shadow: 0 0 0 2.5px var(--accent); }
+.manage-card .modal-actions { position: sticky; bottom: -1px; margin: 16px -1.5rem -1.5rem; padding: 12px 1.5rem calc(12px + env(safe-area-inset-bottom)); background: var(--sheet-bg); border-top: 1px solid var(--hairline); }
+
+/* Settings page */
+.set-profile-card { padding: 16px; }
+.set-nav { min-height: 54px; gap: 14px; }
+.set-nav-icon { width: 30px; height: 30px; border-radius: 8px; }
+.theme-grid button { border: none; background: var(--group-bg); box-shadow: none; }
+.theme-grid button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+.set-signout { border: none; background: var(--group-bg); }
+
+/* Budgets sheet bits that sit on the sheet surface */
+.budget-copy { border: none; background: var(--group-bg); }
+.budget-add-row { gap: 8px; }
+.budget-add .btn-primary { min-height: 48px; }
+.budget-sheet > .action-sheet-cancel { margin-top: 18px; }
+.act-flow-row.on, .act-leg.on { background: var(--group-bg); }
