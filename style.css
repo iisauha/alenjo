@@ -3961,8 +3961,3 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 /* "the total you made": tap to see income */
 .act-made-link { display: inline; min-height: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dashed var(--success); text-decoration-thickness: 1.5px; text-underline-offset: 4px; -webkit-tap-highlight-color: transparent; }
 .act-made-link:active { opacity: 0.6; }
-/* Legend lines up with the left edge of the page content (same as "Spent", the bars and the list) */
-.act-leg-page { justify-content: flex-start; padding: 0; gap: 0 18px; }
-.act-leg { padding: 0; }
-/* Each legend row runs edge to edge: first name on the left line, last name on the right line */
-.act-leg-page { justify-content: space-between; gap: 0 14px; }
