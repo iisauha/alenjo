@@ -4677,15 +4677,6 @@ function prevMonthKey(month) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 function wholeMoney(v) { return formatMoney(v); }   // keeps the cents
-// One category: the line under its name, how full its bar is, and its colour state.
-// A budget is just a monthly amount for a category; everything in that category counts toward it.
-function budgetStatus(b, got, side) {
-  var amt = b.amount, g = Math.round(got * 100) / 100, a = Math.round(amt * 100) / 100;   // exact to the cent
-  var base = wholeMoney(g) + ' / ' + wholeMoney(a);
-  // Spending: red only when over. Income: green once the expected amount is in.
-  if (side === 'in') return { sub: base, cls: g >= a ? 'good' : '' };
-  return { sub: g > a ? base + ' · ' + wholeMoney(g - a) + ' over' : base, cls: g > a ? 'bad' : '' };   // on track is the normal state: only over budget gets a colour
-}
 // Spending categories never use green: green means income
 var CATEGORY_COLORS = [
   '#4F6BD8', '#D98A2B', '#8A5CC2', '#C2524A', '#3E8CC7',
@@ -4724,7 +4715,7 @@ function renderTransactionMonth() {
   var month = $('#tx-month-filter').value;
   var cardId = $('#tx-card-filter').value;
   saveTxView(false);
-  if (month + '|' + cardId !== lastActKey) { legendAll = false; lastActKey = month + '|' + cardId; }
+  if (month + '|' + cardId !== lastActKey) lastActKey = month + '|' + cardId;
   var searchVal = ($('#tx-search').value || '').toLowerCase().trim();
   var breakdown = $('#tx-breakdown');
   var legend = $('#tx-category-legend');
@@ -4813,8 +4804,9 @@ function renderTransactionMonth() {
     if (isOut === !incomeMode) byCategory[cat] = (byCategory[cat] || 0) + amt;
   });
   if (activeCategoryFilter && !byCategory[activeCategoryFilter]) activeCategoryFilter = null;
-  var shownSpent = activeCategoryFilter ? byCategory[activeCategoryFilter] : (incomeMode ? moneyIn : spent);
-  $('#act-spent-label').textContent = activeCategoryFilter ? activeCategoryFilter : (incomeMode ? 'Income' : 'Spent');
+  // The big number stays on the month's total; the ring's centre shows whatever you tap
+  var shownSpent = incomeMode ? moneyIn : spent;
+  $('#act-spent-label').textContent = incomeMode ? 'Income' : 'Spent';
   $('#act-spent').textContent = (incomeMode && shownSpent > 0 && !hideMoney ? '+' : '') + formatMoney(shownSpent);
   $('#act-spent').classList.toggle('is-in', incomeMode);
   // One sentence: spent vs what came in this month (all accounts; transfers between your accounts left out)
@@ -4827,115 +4819,67 @@ function renderTransactionMonth() {
     if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
     else if (gap >= 0) net.innerHTML = 'You kept <b class="good">' + pctOf(gap) + '</b> of it';
     else net.innerHTML = 'You spent <b class="bad">' + pctOf(-gap) + ' more</b> than this';
-  } else if (activeCategoryFilter) {
-    net.innerHTML = moneyIn ? '<b>' + pctOf(outByCat[activeCategoryFilter] || 0) + '</b> of your income' : 'Nothing has come in yet';
   }
   else if (!moneyIn) net.innerHTML = 'Nothing has come in yet';
   else if (gap > 0) net.innerHTML = '<b class="good">' + wholeMoney(gap) + ' less</b> than you made';
   else if (gap < 0) net.innerHTML = '<b class="bad">' + wholeMoney(-gap) + ' more</b> than you made';
   else net.innerHTML = 'Spent exactly what you made';
 
-  // ---- Budgets: this month's own (whole month, all accounts)
-  var B = monthBudgets(month, 'out'), BI = monthBudgets(month, 'in');
-  var sumOf = function(o) { return Object.keys(o).reduce(function(t, c) { return t + o[c].amount; }, 0); };
-  var expectedIn = sumOf(BI);
-  var budgetOn = cardId === 'all' && (Object.keys(B).length > 0 || expectedIn > 0);
-  $('#act-daily-note').innerHTML = cardId === 'all' ? '<button type="button" class="signin-link" id="act-set-budget">' + (budgetOn ? 'Edit budgets' : 'Set budgets') + '</button>' : '';
+  $('#act-daily-note').innerHTML = cardId === 'all' ? '<button type="button" class="signin-link" id="act-set-budget">Budgets</button>' : '';
 
-  // Colours: spending by size (never green); income in greens
-  var outEntries = Object.keys(outByCat).map(function(k) { return [k, outByCat[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
-  var outColors = {};
-  outEntries.forEach(function(e, i) { outColors[e[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
-  var inEntries = incomeMode ? Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; }) : [];
-  var inColors = {};
-  inEntries.forEach(function(e, i) { inColors[e[0]] = INCOME_COLORS[i % INCOME_COLORS.length]; });
-
-  // ---- Money in vs money out: two bars on one scale. Tap one to switch the ring below.
-  var flow = $('#act-flow');
-  var showFlow = moneyIn > 0 || spent > 0 || budgetOn;
-  flow.hidden = !showFlow;
-  if (showFlow) {
-    // Income shows a tick at what you expect to make. Spending has no single total budget
-    // (budgets are per category), so its bar just shows where it went, by colour.
-    var inGoal = budgetOn ? expectedIn : 0;
-    var scale = Math.max(moneyIn, spent, inGoal) || 1;
-    var pct = function(v) { return (Math.min(1, v / scale) * 100).toFixed(2) + '%'; };
-    var outSegs = outEntries.map(function(e) {
-      var dim = activeCategoryFilter && !incomeMode && activeCategoryFilter !== e[0];
-      return '<i style="flex-grow:' + e[1].toFixed(2) + ';background:' + outColors[e[0]] + (dim ? ';opacity:.25' : '') + '"></i>';
-    }).join('');
-    var flowRow = function(side, label, amt, fill, goal, on) {
-      var sub = '';
-      if (goal) {
-        var over = side === 'out' ? amt - goal : 0;
-        sub = over > 0.005 ? '<small class="bad">' + wholeMoney(over) + ' over</small>'
-          : '<small' + (side === 'in' && amt >= goal ? ' class="good"' : '') + '>of ' + wholeMoney(goal) + '</small>';
-      }
-      return '<button type="button" class="act-flow-row' + (on ? ' on' : '') + '" data-flow="' + side + '" aria-pressed="' + on + '">' +
-        '<span class="act-flow-label">' + label + '</span>' +
-        '<span class="act-flow-track">' + (amt ? '<span class="act-flow-fill" style="width:' + pct(amt) + '">' + fill + '</span>' : '') +
-          (goal ? '<i class="act-flow-goal" style="left:' + pct(goal) + '"></i>' : '') + '</span>' +
-        '<span class="act-flow-amt"><b class="' + (side === 'in' ? 'good' : '') + '">' + (side === 'in' && amt && !hideMoney ? '+' : '') + wholeMoney(amt) + '</b>' + sub + '</span>' +
-      '</button>';
-    };
-    flow.innerHTML = flowRow('in', 'Income', moneyIn, '<i style="flex-grow:1;background:var(--success)"></i>', inGoal, incomeMode) +
-      flowRow('out', 'Spent', spent, outSegs, 0, !incomeMode);
-  }
-
-  // ---- Ring: where it went (or where it came from), with each slice's share on it
-  var ringEntries = incomeMode ? inEntries : outEntries;
-  var ringColors = incomeMode ? inColors : outColors;
-  var ringTotal = ringEntries.reduce(function(t, e) { return t + e[1]; }, 0);
+  // ---- One ring. Spending by category, or (tap Income) where money came from.
+  // Legend is names only; tap a name or a slice to see its amount in the middle.
+  var entries = Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
+  var colors = {};
+  entries.forEach(function(e, i) { colors[e[0]] = (incomeMode ? INCOME_COLORS : CATEGORY_COLORS)[i % (incomeMode ? INCOME_COLORS : CATEGORY_COLORS).length]; });
+  var total = entries.reduce(function(t, e) { return t + e[1]; }, 0);
   var ring = $('#act-ring');
-  $('#act-ring-row').classList.toggle('no-ring', !ringTotal);
-  if (ringTotal) {
-    var R = 48, C = 2 * Math.PI * R, gap = ringEntries.length > 1 ? 1.4 : 0, at = 0;
-    var arcs = '', labels = '';
-    ringEntries.forEach(function(e) {
-      var frac = e[1] / ringTotal, len = frac * C;
+  $('#act-ring-row').classList.toggle('no-ring', !total);
+  var pct = function(a, b) { var v = a / b * 100; return (v > 0 && v < 1 ? '<1' : Math.round(v)) + '%'; };
+  if (total) {
+    var CX = 100, RO = 96, RI = 64, W = 6, GAP = 3.5, RM = (RO + RI) / 2;
+    var pt = function(r, a) { return (CX + r * Math.cos(a)).toFixed(2) + ' ' + (CX + r * Math.sin(a)).toFixed(2); };
+    var at = -Math.PI / 2, paths = '';
+    entries.forEach(function(e) {
+      var sweep = e[1] / total * 2 * Math.PI;
+      // Each slice is a filled band with a thick round-joined outline, so corners come out rounded
+      var trim = entries.length > 1 ? (GAP / 2 + W / 2) / RM : 0;
+      var a0 = at + trim, a1 = at + sweep - trim;
+      if (a1 < a0) { a0 = a1 = at + sweep / 2; }
+      var ro = RO - W / 2, ri = RI + W / 2, large = a1 - a0 > Math.PI ? 1 : 0;
+      var d = entries.length === 1
+        ? 'M' + pt(ro, 0) + 'A' + ro + ' ' + ro + ' 0 1 1 ' + pt(ro, Math.PI) + 'A' + ro + ' ' + ro + ' 0 1 1 ' + pt(ro, 0) + 'Z' +
+          'M' + pt(ri, 0) + 'A' + ri + ' ' + ri + ' 0 1 0 ' + pt(ri, Math.PI) + 'A' + ri + ' ' + ri + ' 0 1 0 ' + pt(ri, 0) + 'Z'
+        : 'M' + pt(ro, a0) + 'A' + ro + ' ' + ro + ' 0 ' + large + ' 1 ' + pt(ro, a1) + 'L' + pt(ri, a1) + 'A' + ri + ' ' + ri + ' 0 ' + large + ' 0 ' + pt(ri, a0) + 'Z';
       var dim = activeCategoryFilter && activeCategoryFilter !== e[0];
-      arcs += '<circle class="act-ring-seg' + (dim ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" cx="60" cy="60" r="' + R + '" stroke="' + ringColors[e[0]] + '"' +
-        ' stroke-dasharray="' + Math.max(0.01, len - gap).toFixed(2) + ' ' + C.toFixed(2) + '" stroke-dashoffset="' + (-at).toFixed(2) + '"><title>' + esc(e[0]) + ': ' + wholeMoney(e[1]) + '</title></circle>';
-      if (frac >= 0.06 && ringEntries.length > 1) {
-        var ang = ((at + len / 2) / C) * 2 * Math.PI - Math.PI / 2;
-        labels += '<text x="' + (60 + R * Math.cos(ang)).toFixed(1) + '" y="' + (60 + R * Math.sin(ang)).toFixed(1) + '"' + (dim ? ' class="dim"' : '') + '>' + Math.round(frac * 100) + '%</text>';
-      }
-      at += len;
+      paths += '<path class="act-ring-seg' + (dim ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" d="' + d + '" fill="' + colors[e[0]] + '" stroke="' + colors[e[0]] + '" stroke-width="' + W + '" stroke-linejoin="round" fill-rule="evenodd"><title>' + esc(e[0]) + '</title></path>';
+      at += sweep;
     });
-    var centerAmt = activeCategoryFilter && byCategory[activeCategoryFilter] ? byCategory[activeCategoryFilter] : ringTotal;
-    var centerLabel = activeCategoryFilter ? Math.round(centerAmt / ringTotal * 100) + '% of ' + (incomeMode ? 'income' : 'spending') : (incomeMode ? 'Came in' : 'Spent');
-    ring.innerHTML = '<svg viewBox="0 0 120 120" role="img" aria-label="' + esc((incomeMode ? 'Income by source: ' : 'Spending by category: ') + ringEntries.map(function(e) { return e[0] + ' ' + Math.round(e[1] / ringTotal * 100) + '%'; }).join(', ')) + '">' +
-      '<g transform="rotate(-90 60 60)">' + arcs + '</g>' + labels + '</svg>' +
-      '<span class="act-ring-center"><b>' + (hideMoney ? '****' : '$' + Math.round(centerAmt).toLocaleString('en-US')) + '</b><small>' + esc(centerLabel) + '</small></span>';
+    // Centre: the total, or what you tapped. Income is woven in as the line underneath.
+    var picked = activeCategoryFilter && byCategory[activeCategoryFilter];
+    var label, value, sub = '', subCls = '';
+    if (picked) {
+      label = activeCategoryFilter; value = byCategory[activeCategoryFilter];
+      sub = pct(value, total) + ' of ' + (incomeMode ? 'income' : 'spending');
+    } else if (incomeMode) {
+      label = 'Income'; value = moneyIn;
+      if (moneyIn) { sub = moneyIn >= spent ? 'You kept ' + pct(moneyIn - spent, moneyIn) : 'Spent ' + pct(spent - moneyIn, moneyIn) + ' more'; subCls = moneyIn >= spent ? 'good' : 'bad'; }
+    } else {
+      label = 'Spent'; value = spent;
+      if (moneyIn && cardId === 'all') { sub = pct(spent, moneyIn) + ' of income'; subCls = spent > moneyIn ? 'bad' : 'good'; }
+    }
+    ring.innerHTML = '<svg viewBox="0 0 200 200" role="img" aria-label="' + esc((incomeMode ? 'Income by source: ' : 'Spending by category: ') + entries.map(function(e) { return e[0] + ' ' + pct(e[1], total); }).join(', ')) + '">' + paths + '</svg>' +
+      '<span class="act-ring-center" aria-live="polite"><small>' + esc(label) + '</small><b class="' + (incomeMode && !picked ? 'good' : '') + '">' + (incomeMode && value && !hideMoney ? '+' : '') + formatMoney(value) + '</b>' +
+      (sub ? '<em class="' + subCls + '">' + esc(sub) + '</em>' : '') + '</span>';
   } else ring.innerHTML = '';
 
-  // ---- Legend beside the ring: tap a row to filter the list, tap again to clear
-  var legendEntries = ringEntries.slice();
-  if (!incomeMode && budgetOn) {
-    // Budgeted categories with nothing yet this month still get a row (e.g. rent not paid yet)
-    Object.keys(B).filter(function(c) { return !outByCat[c]; }).forEach(function(c, j) {
-      outColors[c] = CATEGORY_COLORS[(outEntries.length + j) % CATEGORY_COLORS.length];
-      legendEntries.push([c, 0]);
-    });
-  }
-  var LEGEND_MAX = 5;
-  var shown = legendAll || legendEntries.length <= LEGEND_MAX + 1 ? legendEntries : legendEntries.slice(0, LEGEND_MAX);
-  if (activeCategoryFilter && shown.indexOf(legendEntries.filter(function(e) { return e[0] === activeCategoryFilter; })[0]) === -1) shown = legendEntries;
-  legend.innerHTML = shown.map(function(e) {
+  // Legend: names only. The first item flips the ring between spending and income.
+  var flip = incomeMode ? '<button type="button" class="act-leg act-leg-flip" data-flip="out"><i class="act-leg-spend"></i>Spending</button>'
+    : moneyIn > 0 ? '<button type="button" class="act-leg act-leg-flip" data-flip="in"><i style="background:var(--success)"></i>Income</button>' : '';
+  legend.innerHTML = entries.length ? flip + entries.map(function(e) {
     var on = activeCategoryFilter === e[0];
-    var bb = cardId === 'all' ? (incomeMode ? BI : B)[e[0]] : null, sub = '';
-    if (bb) {
-      var over = incomeMode ? 0 : e[1] - bb.amount;
-      sub = over > 0.005 ? '<small class="bad">' + wholeMoney(over) + ' over</small>'
-        : '<small' + (incomeMode && e[1] >= bb.amount ? ' class="good"' : '') + '>of ' + wholeMoney(bb.amount) + '</small>';
-    }
-    return '<button type="button" class="act-leg' + (on ? ' on' : '') + (activeCategoryFilter && !on ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '">' +
-      '<i style="background:' + (ringColors[e[0]] || outColors[e[0]]) + '"></i><span class="act-leg-name">' + esc(e[0]) + '</span>' +
-      '<span class="act-leg-amt"><b>' + wholeMoney(e[1]) + '</b>' + sub + '</span></button>';
-  }).join('') +
-    (legendEntries.length > shown.length ? '<button type="button" class="act-leg-more" data-more="1">' + (legendEntries.length - shown.length) + ' more</button>'
-      : legendAll && legendEntries.length > LEGEND_MAX + 1 ? '<button type="button" class="act-leg-more" data-more="0">Show less</button>' : '') ||
-    '<p class="act-empty-note">' + (incomeMode ? 'Nothing has come in yet.' : 'Nothing yet this month.') + '</p>';
+    return '<button type="button" class="act-leg' + (on ? ' on' : '') + (activeCategoryFilter && !on ? ' dim' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + on + '"><i style="background:' + colors[e[0]] + '"></i>' + esc(e[0]) + '</button>';
+  }).join('') : flip + '<p class="act-empty-note">' + (incomeMode ? 'Nothing has come in yet.' : 'Nothing yet this month.') + '</p>';
 
   // ---- Transactions grouped by day
   displayTx.sort(function(a, b) {
@@ -5059,28 +5003,23 @@ function closePicker() {
 })();
 
 var incomeMode = false;   // Activity: false = spending, true = money in
-var legendAll = false;    // Activity legend: show every category, not just the top ones
 (function wireActCharts() {
-  var flow = $('#act-flow'), ring = $('#act-ring'), legend = $('#tx-category-legend'), note = $('#act-daily-note');
-  if (!flow) return;
-  flow.addEventListener('click', function(e) {
-    var b = e.target.closest('.act-flow-row');
-    if (!b) return;
-    var wantIn = b.dataset.flow === 'in';
-    if (wantIn === incomeMode && !activeCategoryFilter) return;
-    incomeMode = wantIn; activeCategoryFilter = null; legendAll = false;
-    renderTransactionMonth();
-  });
+  var ring = $('#act-ring'), legend = $('#tx-category-legend'), note = $('#act-daily-note');
+  if (!ring) return;
   var pick = function(cat) { activeCategoryFilter = activeCategoryFilter === cat ? null : cat; renderTransactionMonth(); };
-  ring.addEventListener('click', function(e) { var c = e.target.closest('.act-ring-seg'); if (c) pick(c.dataset.cat); });
+  ring.addEventListener('click', function(e) {
+    var c = e.target.closest('.act-ring-seg');
+    if (c) pick(c.dataset.cat);
+    else if (activeCategoryFilter) { activeCategoryFilter = null; renderTransactionMonth(); }   // tap the middle to go back to the total
+  });
   legend.addEventListener('click', function(e) {
-    var more = e.target.closest('.act-leg-more');
-    if (more) { legendAll = more.dataset.more === '1'; renderTransactionMonth(); return; }
     var b = e.target.closest('.act-leg');
-    if (b) pick(b.dataset.cat);
+    if (!b) return;
+    if (b.dataset.flip) { incomeMode = b.dataset.flip === 'in'; activeCategoryFilter = null; renderTransactionMonth(); return; }
+    pick(b.dataset.cat);
   });
   note.addEventListener('click', function(e) {
-    if (e.target.id === 'act-set-budget') openBudgetSheet(incomeMode ? 'in' : 'out', incomeMode ? 'Income' : activeCategoryFilter);
+    if (e.target.id === 'act-set-budget') openBudgetSheet('out');
   });
 })();
 
