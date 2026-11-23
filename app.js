@@ -590,8 +590,6 @@ function refreshOnResume() {
     if (activeTab === 'transactions') {
       return loadTransactions();
     }
-    // Fresh balances: keep the pending items in step with them
-    if (!showAvailable) return refreshTxForBalances();
   }).catch(function(e) {
     console.error('Resume refresh error:', e);
   }).then(function() {
@@ -1952,7 +1950,7 @@ document.querySelectorAll('.hero-stat').forEach(function(btn) {
     var pref = $('#pref-after-pending');
     if (pref) pref.checked = !showAvailable;
     if (cachedAccounts) { renderAccounts(cachedAccounts); renderHomeInsights(); }
-    showToast(showAvailable ? 'Posted balances only' : 'Including pending');
+    showToast(showAvailable ? 'Posted balances only' : 'Including pending charges');
   });
 });
 
@@ -2629,18 +2627,6 @@ btnAddAccount.addEventListener('click', function() { openPlaidLink(['transaction
 // ============================================
 // LOAD ACCOUNTS
 // ============================================
-// Reload transactions after balances change, so sign-up bonus progress reflects new
-// transactions and pending items match the fresh balances (a pending item that just
-// posted must drop out, or "Include pending" would count it twice).
-async function refreshTxForBalances() {
-  var dataStartStr = ymdLocal(await txWindowStart());
-  var txResult = await fetchAllRows(function() { return sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false }).order('id'); });
-  if (!txResult.error && txResult.data) {
-    txData = txResult.data;
-    if (cachedAccounts) renderAccounts(cachedAccounts);
-  }
-}
-
 var loadingAccounts = false;
 async function loadAccounts() {
   if (loadingAccounts) return;
@@ -2874,7 +2860,16 @@ async function backgroundSync() {
       renderAccounts(cachedAccounts);
     }
 
-    await refreshTxForBalances();
+    // Refresh txData so sign-up bonus progress reflects newly-synced transactions
+    var hasBonus = cachedAccounts && cachedAccounts.some(function(a) { return a.type === 'credit' && a.bonus_target_amount; });
+    if (hasBonus) {
+      var dataStartStr = ymdLocal(await txWindowStart());
+      var txResult = await fetchAllRows(function() { return sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false }).order('id'); });
+      if (!txResult.error && txResult.data) {
+        txData = txResult.data;
+        renderAccounts(cachedAccounts);
+      }
+    }
 
     loadItemHealth();
   } catch (e) {
@@ -3022,43 +3017,6 @@ function getLogoUrl(account) {
 // ============================================
 // BALANCE HELPERS
 // ============================================
-// Pending items still waiting at the bank, per account: money in and money out.
-// Plaid's sign: a positive amount is money out, a negative one is money in.
-var pendingCache = { ref: null, len: -1, by: {} };
-function pendingFor(account) {
-  if (!account.plaid_account_id || !txData || !txData.length) return { in: 0, out: 0 };
-  if (pendingCache.ref !== txData || pendingCache.len !== txData.length) {
-    var by = {};
-    txData.forEach(function(tx) {
-      if (!tx.pending || tx.removed_at || !tx.plaid_account_id) return;
-      var amt = parseFloat(tx.amount || 0);
-      if (!amt) return;
-      var p = by[tx.plaid_account_id] || (by[tx.plaid_account_id] = { in: 0, out: 0 });
-      if (amt > 0) p.out += amt; else p.in += -amt;
-    });
-    pendingCache = { ref: txData, len: txData.length, by: by };
-  }
-  return pendingCache.by[account.plaid_account_id] || { in: 0, out: 0 };
-}
-
-// Balance with every pending item counted, as money you have (a card's debt is negative).
-// posted: the bank's posted balance. bankNow: the bank's own "available" view, or null.
-// Banks differ: most take pending charges off "available" but many (Robinhood) don't add
-// pending deposits until they post. So start from the posted balance plus every pending
-// item, and only trust the bank's lower figure for holds or charges we can't see.
-// A deposit the bank already counts in "available" is never added twice, and once an item
-// posts, the sync drops its pending copy while the posted balance takes it in.
-function withPending(posted, bankNow, pend) {
-  var fromItems = posted + pend.in - pend.out;
-  if (bankNow == null || isNaN(bankNow)) return Math.round(fromItems * 100) / 100;
-  // Part of the pending deposits the bank's figure already shows
-  var counted = Math.min(Math.max(bankNow - (posted - pend.out), 0), pend.in);
-  var fromBank = bankNow + pend.in - counted;
-  // Within a dollar is the bank rounding (Amex reports whole dollars): use the exact figure
-  var v = Math.abs(fromBank - fromItems) < 1 ? fromItems : Math.min(fromBank, fromItems);
-  return Math.round(v * 100) / 100;
-}
-
 function getDisplayBalance(account, type) {
   var current = parseFloat(account.balance_current || 0);
   var available = account.balance_available != null ? parseFloat(account.balance_available) : null;
@@ -3067,14 +3025,24 @@ function getDisplayBalance(account, type) {
   if (type === 'loan' || account.type === 'loan') return { amount: current, label: 'Owed' };
 
   if (type === 'credit') {
-    if (showAvailable) return { amount: current, label: 'Posted' };
-    // Owed, with pending charges added and pending payments and refunds taken off
-    var bankOwed = limit != null && available != null ? limit - available : null;
-    return { amount: -withPending(-current, bankOwed == null ? null : -bankOwed, pendingFor(account)), label: 'After Pending' };
+    if (showAvailable) {
+      return { amount: current, label: 'Posted' };
+    } else {
+      if (limit != null && available != null) {
+        return { amount: limit - available, label: 'After Pending' };
+      }
+      return { amount: current, label: 'Posted' };
+    }
+  } else {
+    if (showAvailable) {
+      return { amount: current, label: 'Current' };
+    } else {
+      if (available != null) {
+        return { amount: available, label: 'After Pending' };
+      }
+      return { amount: current, label: 'Current' };
+    }
   }
-  if (showAvailable) return { amount: current, label: 'Current' };
-  // Cash, with pending deposits added and pending charges taken off
-  return { amount: withPending(current, available, pendingFor(account)), label: 'After Pending' };
 }
 
 // ============================================
@@ -4373,8 +4341,7 @@ async function loadTransactions() {
   txContent.hidden = false;
 
   // Re-render snapshot: bonus trackers and interest estimates use tx data
-  // (and balances that include pending items)
-  if (cachedAccounts && (!showAvailable || cachedAccounts.some(function(a) { return (a.type === 'credit' && a.bonus_target_amount) || a.apy; }))) {
+  if (cachedAccounts && cachedAccounts.some(function(a) { return (a.type === 'credit' && a.bonus_target_amount) || a.apy; })) {
     renderAccounts(cachedAccounts);
   }
 
