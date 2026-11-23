@@ -4660,7 +4660,7 @@ var CATEGORY_COLORS = [
   '#7D4E8F', '#9C5B3C', '#C04F86', '#A8956B', '#8C6A4F'
 ];
 // Income sources: greens and teals (green means money in)
-var INCOME_COLORS = ['#2A6E4D', '#4E9A73', '#3F7F86', '#7FB08F', '#5C8A5A', '#2F5F6E'];
+var INCOME_COLORS = ['var(--success)', '#4E9A73', '#3F7F86', '#7FB08F', '#5C8A5A', '#2F5F6E'];
 
 // After renaming an account: Activity (rows, filter, add-transaction picker, open sheet) uses the new name right away
 function refreshAccountNames() {
@@ -4822,7 +4822,9 @@ function renderTransactionMonth() {
   // The category chips under it are the legend and the filter.
   var catEntries = Object.keys(byCategory).map(function(k) { return [k, byCategory[k]]; }).sort(function(a, b) { return b[1] - a[1]; });
   var categoryColorMap = {};
-  catEntries.forEach(function(e, i) { categoryColorMap[e[0]] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+  // Money in is always green (income sources in greens); spending never is
+  var barPalette = incomeMode ? INCOME_COLORS : CATEGORY_COLORS;
+  catEntries.forEach(function(e, i) { categoryColorMap[e[0]] = barPalette[i % barPalette.length]; });
   var parts = month.split('-'), y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
   var daysInMonth = new Date(y, m, 0).getDate();
   var now = new Date();
