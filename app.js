@@ -4910,8 +4910,7 @@ function renderTransactionMonth() {
   var legItems = legEntries.map(function(e) {
     return legItem(e[0], outColors[e[0]] || categoryColorMap[e[0]], !incomeMode && activeCategoryFilter === e[0], false);
   });
-  var legPages = [];
-  for (var lp = 0; lp < legItems.length; lp += 6) legPages.push('<div class="act-leg-page">' + legItems.slice(lp, lp + 6).join('') + '</div>');
+  var legPages = paginateLegend(legend, legItems);
   var legKey = month + '|' + cardId + '|' + (activeDay || '');
   var keepLeg = legend.dataset.key === legKey ? legend.scrollLeft : 0;
   legend.innerHTML = legPages.join('') || '<p class="act-empty-note">' + (activeDay ? 'Nothing this day.' : 'Nothing yet this month.') + '</p>';
@@ -5041,6 +5040,31 @@ function closePicker() {
   });
 })();
 
+// Legend pages: never more than two rows (and at most 6 names) per page.
+// Long names like "Rent & utilities" take more room, so a page may hold fewer.
+function paginateLegend(legend, items) {
+  var pages = [], i, avail = legend.clientWidth - 8, GAP = 4;
+  if (avail <= 0) {   // not on screen yet: fall back to 6 per page
+    for (i = 0; i < items.length; i += 6) pages.push(items.slice(i, i + 6));
+  } else {
+    legend.innerHTML = '<div class="act-leg-page">' + items.join('') + '</div>';
+    var widths = Array.prototype.map.call(legend.firstChild.children, function(el) { return Math.ceil(el.getBoundingClientRect().width); });
+    var page = [], rows = 1, rowW = 0;
+    items.forEach(function(it, k) {
+      var w = Math.min(widths[k], avail);
+      if (page.length === 6) { pages.push(page); page = []; rows = 1; rowW = 0; }
+      if (rowW && rowW + GAP + w > avail) {
+        if (rows === 2) { pages.push(page); page = []; rows = 1; }
+        else rows = 2;
+        rowW = 0;
+      }
+      rowW += (rowW ? GAP : 0) + w;
+      page.push(it);
+    });
+    if (page.length) pages.push(page);
+  }
+  return pages.map(function(p) { return '<div class="act-leg-page">' + p.join('') + '</div>'; });
+}
 // Which legend page you're on
 function updateLegendDots() {
   var leg = $('#tx-category-legend'), dots = $('#act-leg-dots');
