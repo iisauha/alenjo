@@ -3763,41 +3763,7 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 @media (min-width: 900px) {
 }
 
-/* Budgets sheet: what's left up top, then grouped lists (income, bills) like iOS Settings */
 .budget-table { margin: 12px 0 16px; }
-.bt-summary { display: flex; flex-direction: column; gap: 2px; padding: 16px; border-radius: 16px; background: var(--bg-card); }
-.bt-sum-label { font-size: 0.8125rem; color: var(--text-muted); }
-.bt-sum-value { font-family: var(--serif); font-size: 2.25rem; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; color: var(--success); font-variant-numeric: tabular-nums; }
-.bt-sum-sub { font-size: 0.8125rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.bt-sum-value.bad, .bt-sum-sub.bad { color: var(--danger); }
-.bt-alloc { display: flex; gap: 2px; height: 10px; margin-top: 14px; border-radius: 5px; overflow: hidden; background: var(--track); }
-.bt-alloc[hidden] { display: none; }
-.bt-alloc i { display: block; min-width: 2px; }
-.bt-alloc-key { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.bt-alloc-key:empty { display: none; }
-.bt-alloc-key span { display: inline-flex; align-items: center; gap: 6px; }
-.bt-alloc-key i { width: 6px; height: 6px; border-radius: 3px; }
-.bt-sec { display: flex; align-items: baseline; justify-content: space-between; margin: 20px 4px 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
-.bt-sec b { font-weight: 600; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
-.bt-group { border-radius: 14px; background: var(--bg-card); overflow: hidden; }
-.bt-row { position: relative; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 6px 0 16px; }
-.bt-row + .bt-row::before { content: ''; position: absolute; top: 0; left: 34px; right: 0; height: 1px; background: var(--border); }
-.bt-dot { flex: none; width: 8px; height: 8px; border-radius: 4px; }
-.bt-pay2 { padding-left: 34px; }
-.bt-name { flex: 1; display: flex; flex-direction: column; min-width: 0; font-size: 0.9375rem; font-weight: 500; color: var(--text); }
-.bt-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bt-name small { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); }
-.bt-chip { flex: none; display: inline-flex; align-items: center; gap: 1px; min-height: 36px; padding: 0 10px; border-radius: 10px; color: var(--text-muted); font-size: max(16px, 1rem); font-variant-numeric: tabular-nums; cursor: text; transition: background 0.15s; }
-.bt-chip input { width: 7ch; padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 600; text-align: right; outline: none; }
-@supports (field-sizing: content) { .bt-chip input { width: auto; min-width: 2ch; field-sizing: content; } }
-.bt-chip input::placeholder { color: var(--text-muted); opacity: 0.6; font-weight: 400; }
-.bt-chip:focus-within { background: var(--bg-elevated); }
-.bt-pay .bt-chip input { color: var(--success); }
-.bt-pay2 .bt-chip input { font-weight: 500; color: var(--text-muted); }
-.bt-out .bt-chip { padding-right: 2px; }
-.bt-del { flex: none; display: flex; align-items: center; justify-content: center; width: 36px; height: 44px; border: 0; background: none; color: var(--text-muted); opacity: 0.6; cursor: pointer; }
-.bt-del:hover { opacity: 1; }
-.bt-empty { padding: 14px 16px; font-size: 0.875rem; color: var(--text-muted); }
 
 /* ==========================================================================
    Design refresh: sheets, popups and Settings share one look.
@@ -3815,7 +3781,7 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .delete-title, .manage-card h3 { font-size: 1.625rem; letter-spacing: -0.01em; }
 
 /* Grouped lists (Settings, sheets, account popup, transaction sheet, budgets) */
-.set-group, .manage-group, .txs-group, .bt-group, .bt-summary, .set-profile-card, .txs-removed { background: var(--group-bg); border: none; border-radius: 16px; }
+.set-group, .manage-group, .txs-group, .bt-group, .set-profile-card, .txs-removed { background: var(--group-bg); border: none; border-radius: 16px; }
 .set-row, .set-nav, .txs-row, .manage-row { border-top: none !important; position: relative; }
 .set-group > * + .set-row::before, .set-group > * + .set-nav::before, .set-group > * + .set-disclosure::before,
 .manage-group > * + .manage-row::before, .txs-group > * + .txs-row::before {
@@ -3824,7 +3790,6 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .set-nav-group > * + .set-nav::before { left: 58px; }
 .set-group > * + .set-disclosure { position: relative; border-top: none; }
 .set-intro { border-bottom: 1px solid var(--hairline); }
-.bt-row + .bt-row::before { background: var(--hairline); }
 .set-nav, .set-row { padding-left: 16px; padding-right: 16px; }
 .set-nav:active, .set-row:active, .txs-row:active { background: color-mix(in srgb, var(--text) 5%, transparent); }
 .txs-row { min-height: 52px; padding-left: 16px; padding-right: 14px; }
@@ -3922,3 +3887,29 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .act-spent { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; }
 .act-spent .act-spent-top, .act-spent .act-sub { display: contents; }
 .act-ring-row { margin-top: 6px; }
+
+/* Budgets sheet (option B): one big "left each month", pay inside the line under it, then a plain list */
+.budget-sheet .budget-head { margin-bottom: 4px; }
+.bt-hero { display: flex; flex-direction: column; align-items: center; padding: 10px 0 20px; text-align: center; }
+.bt-hero small { font-size: 0.8125rem; color: var(--text-muted); }
+.bt-hero b { font-family: var(--serif); font-size: 2.75rem; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; color: var(--success); font-variant-numeric: tabular-nums; margin: 2px 0 6px; }
+.bt-hero b.bad { color: var(--danger); }
+.bt-pay-line { display: inline; font-size: 0.875rem; color: var(--text-muted); cursor: text; }
+.bt-pay-in { display: inline-flex; align-items: baseline; margin: 0 3px; color: var(--text); font-weight: 600; border-bottom: 1.5px dashed color-mix(in srgb, var(--text) 35%, transparent); }
+.bt-pay-in input { width: 8ch; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: max(16px, 0.875rem); text-align: left; outline: none; }
+@supports (field-sizing: content) { .bt-pay-in input { width: auto; min-width: 3ch; field-sizing: content; } }
+.bt-pay-in:focus-within { border-bottom-color: var(--accent); border-bottom-style: solid; }
+.bt-group { border-radius: 16px; background: var(--group-bg); overflow: hidden; }
+.bt-row { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 8px 0 16px; border: none; background: transparent; color: var(--text); font: 500 0.9375rem 'Inter', sans-serif; text-align: left; }
+.bt-row + .bt-row::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--hairline); }
+.bt-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-chip { flex: none; display: inline-flex; align-items: center; gap: 1px; min-height: 40px; padding: 0 8px; border-radius: 10px; color: var(--text-muted); font-size: max(16px, 1rem); font-variant-numeric: tabular-nums; cursor: text; }
+.bt-chip input { width: 7ch; padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 600; text-align: right; outline: none; }
+@supports (field-sizing: content) { .bt-chip input { width: auto; min-width: 2ch; field-sizing: content; } }
+.bt-chip:focus-within { background: var(--sheet-bg); }
+.bt-pay .bt-chip input { color: var(--success); }
+.bt-add-open { color: var(--accent); font-weight: 600; cursor: pointer; }
+.bt-foot { margin: 8px 4px 0; font-size: 0.75rem; color: var(--text-muted); }
+.budget-sheet:not(.adding) .budget-add { display: none; }
+.budget-sheet .budget-add { margin-top: 4px; }
+.budget-sheet .budget-table { margin-bottom: 12px; }

@@ -3562,7 +3562,7 @@ var budgetSheet = { month: '', order: [] };
 function curMonthKey() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
 function budgetMonthName(m) { var p = m.split('-'); return MONTH_LONG[+p[1] - 1]; }
 // 1475 -> "1475", 4.15 -> "4.15", 1556.3 -> "1556.30"
-function budgetAmtText(v) { var s = (Math.round(v * 100) / 100).toFixed(2); return s.replace(/\.00$/, ''); }
+function budgetAmtText(v) { var n = Math.round(v * 100) / 100; return n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }); }
 // What you typed, as an amount; null for empty, NaN for nonsense
 function budgetParse(raw) {
   raw = String(raw || '').replace(/[$,\s−-]/g, '');
@@ -3576,8 +3576,10 @@ function openBudgetSheet(side, focusCat) {
   // Biggest first, like a bills list; stays put while the sheet is open, new rows go at the end
   budgetSheet = { month: month, order: Object.keys(BO).sort(function(a, b) { return BO[b].amount - BO[a].amount || a.localeCompare(b); }) };
   $('#budget-add-amt').value = ''; $('#budget-add-name').value = '';
-  renderBudgetSheet(side === 'out' && focusCat && !BO[focusCat] ? focusCat : null);
+  var pre = side === 'out' && focusCat && !BO[focusCat] ? focusCat : null;
+  renderBudgetSheet(pre);
   var sheet = $('#budget-sheet');
+  sheet.querySelector('.budget-sheet').classList.toggle('adding', !!pre);
   sheet.querySelector('.action-sheet').scrollTop = 0;
   sheet.classList.add('visible'); sheet.setAttribute('aria-hidden', 'false');
   if (!focusCat) return;
@@ -3588,16 +3590,14 @@ function openBudgetSheet(side, focusCat) {
     if (el) { el.focus(); if (el.select) el.select(); }
   }, 250);
 }
-function budgetRow(cls, dot, label, sub, input, del) {
-  return '<div class="bt-row ' + cls + '">' + (dot ? '<i class="bt-dot" style="background:' + dot + '"></i>' : '') +
-    '<span class="bt-name"><span>' + label + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + input + (del || '') + '</div>';
+function budgetRow(cls, label, input) {
+  return '<div class="bt-row ' + cls + '"><span class="bt-name"><span>' + label + '</span></span>' + input + '</div>';
 }
 function budgetInput(side, cat, v, aria, extra) {
   return '<label class="bt-chip"><span aria-hidden="true">$</span>' +
     '<input inputmode="decimal" autocomplete="off" enterkeyhint="done" data-side="' + side + '" data-cat="' + esc(cat) + '"' + (extra || '') +
     ' value="' + (v ? budgetAmtText(v) : '') + '" placeholder="0" aria-label="' + esc(aria) + '"></label>';
 }
-function budgetColor(i) { return CATEGORY_COLORS[i % CATEGORY_COLORS.length]; }
 function renderBudgetSheet(preselect) {
   var bs = budgetSheet, mName = budgetMonthName(bs.month);
   var BO = monthBudgets(bs.month, 'out'), BIn = monthBudgets(bs.month, 'in');
@@ -3607,30 +3607,18 @@ function renderBudgetSheet(preselect) {
   Object.keys(BO).forEach(function(c) { if (bs.order.indexOf(c) < 0) bs.order.push(c); });
   bs.order = bs.order.filter(function(c) { return BO[c]; });
   var pay = BIn.Income ? BIn.Income.amount : 0;
-  // Top: what's left once every bill and budget is paid, and how your pay splits up
-  var html = '<div class="bt-summary">' +
-    '<span class="bt-sum-label">Left each month</span>' +
-    '<span class="bt-sum-value" id="bt-left-m"></span>' +
-    '<span class="bt-sum-sub" id="bt-left-b"></span>' +
-    '<div class="bt-alloc" id="bt-alloc" aria-hidden="true"></div>' +
-    '<div class="bt-alloc-key" id="bt-alloc-key"></div></div>';
+  // One big number: what's left each month. Your pay sits in the line under it, tap to edit.
+  var html = '<div class="bt-hero"><small>Left each month</small><b id="bt-left-m"></b>' +
+    '<label class="bt-pay-line">from <span class="bt-pay-in"><span aria-hidden="true">$</span><input inputmode="decimal" autocomplete="off" enterkeyhint="done" data-side="in" data-cat="Income" id="bt-pay-m" value="' + (pay ? budgetAmtText(pay) : '') + '" placeholder="0" aria-label="Take-home pay each month"></span> take-home pay</label></div>';
 
-  html += '<div class="bt-sec"><span>Income</span></div><div class="bt-group">' +
-    budgetRow('bt-pay', 'var(--success)', 'Net pay', 'Monthly', budgetInput('in', 'Income', pay, 'Net pay, monthly', ' id="bt-pay-m"')) +
-    budgetRow('bt-pay2', '', 'Per paycheck', 'Every 2 weeks', budgetInput('in', 'Income', pay / 2, 'Net pay, biweekly', ' id="bt-pay-b" data-biweekly="1"'));
+  html += '<div class="bt-group">';
   // Any other money you expect in, besides pay
   Object.keys(BIn).filter(function(c) { return c !== 'Income'; }).sort().forEach(function(c) {
-    html += budgetRow('bt-pay bt-other', 'var(--success)', esc(c), 'Monthly', budgetInput('in', c, BIn[c].amount, c + ', monthly'));
+    html += budgetRow('bt-pay', esc(c), budgetInput('in', c, BIn[c].amount, c + ', monthly'));
   });
-  html += '</div>';
-
-  html += '<div class="bt-sec"><span>Bills &amp; budgets</span><b id="bt-out-total"></b></div><div class="bt-group">';
-  if (!bs.order.length) html += '<div class="bt-empty">No bills or spending budgets yet. Add one below.</div>';
-  bs.order.forEach(function(c, i) {
-    html += budgetRow('bt-out', budgetColor(i), esc(c), '', budgetInput('out', c, BO[c].amount, c + ', monthly'),
-      '<button type="button" class="bt-del" data-del="' + esc(c) + '" aria-label="Remove ' + esc(c) + ' budget"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>');
-  });
-  html += '</div>';
+  bs.order.forEach(function(c) { html += budgetRow('bt-out', esc(c), budgetInput('out', c, BO[c].amount, c + ', monthly')); });
+  html += '<button type="button" class="bt-row bt-add-open" id="bt-add-open">+ Add budget</button></div>';
+  if (bs.order.length) html += '<p class="bt-foot">Clear an amount to remove it.</p>';
   $('#budget-table').innerHTML = html;
   refreshBudgetTotals();
 
@@ -3652,40 +3640,23 @@ function renderBudgetCopy() {
   var copy = $('#budget-copy');
   var same = function(A, B) { var k = Object.keys(A); return k.length === Object.keys(B).length && k.every(function(c) { return B[c] && Math.abs(B[c].amount - A[c].amount) < 0.005; }); };
   var matches = nPrev && same(PO, BO) && same(PI, BIn);
-  copy.hidden = !nPrev;
+  // Only offered while this month is still empty, so it never sits there competing with your list
+  copy.hidden = !nPrev || Object.keys(BO).length + Object.keys(BIn).length > 0;
   copy.disabled = !!matches;
   copy.classList.toggle('confirm', !matches && copy.dataset.confirm === bs.month);
   if (!nPrev || matches) copy.dataset.confirm = '';
   copy.textContent = matches ? 'Same as ' + pName : copy.dataset.confirm === bs.month ? 'Replace? Tap again' : 'Use ' + pName + '\u2019s';
   copy.setAttribute('aria-label', matches ? mName + '\u2019s budgets match ' + pName + '\u2019s' : 'Use ' + pName + '\u2019s budgets for ' + mName);
 }
-// Remaining = pay coming in minus every budget going out
+// Left = pay coming in minus every budget going out
 function refreshBudgetTotals() {
   var bs = budgetSheet, BO = monthBudgets(bs.month, 'out'), BIn = monthBudgets(bs.month, 'in');
   var inTot = Object.keys(BIn).reduce(function(t, c) { return t + BIn[c].amount; }, 0);
   var outTot = Object.keys(BO).reduce(function(t, c) { return t + BO[c].amount; }, 0);
   var left = Math.round((inTot - outTot) * 100) / 100;
-  var signed = function(v) { return (v < 0 ? '−' : '') + wholeMoney(v); };
-  var mEl = $('#bt-left-m'), bEl = $('#bt-left-b');
-  if (!mEl) return;
-  mEl.textContent = inTot ? signed(left) : '—';
-  mEl.classList.toggle('bad', !!inTot && left < 0);
-  bEl.textContent = !inTot ? 'Add your net pay to see what’s left' : left < 0 ? 'Your budgets are more than you make' : signed(left / 2) + ' per paycheck';
-  bEl.classList.toggle('bad', !!inTot && left < 0);
-  var tot = $('#bt-out-total'); if (tot) tot.textContent = outTot ? wholeMoney(outTot) : '';
-  // Allocation bar: each bill's slice of your pay, then what's left (in green)
-  var base = Math.max(inTot, outTot) || 1;
-  var seg = function(v, color, title) { return v > 0 ? '<i style="flex-grow:' + v.toFixed(2) + ';background:' + color + '" title="' + esc(title) + '"></i>' : ''; };
-  var bar = bs.order.filter(function(c) { return BO[c]; }).map(function(c, i) { return seg(BO[c].amount, budgetColor(i), c); }).join('');
-  if (left > 0) bar += seg(left, 'var(--success)', 'Left');
-  if (inTot < outTot) bar += seg(0, '', '');
-  var alloc = $('#bt-alloc');
-  alloc.innerHTML = bar;
-  alloc.style.setProperty('--fill', (Math.min(1, (inTot ? Math.max(inTot, outTot) : outTot) / base) * 100) + '%');
-  alloc.hidden = !inTot && !outTot;
-  var key = $('#bt-alloc-key');
-  key.innerHTML = inTot || outTot ? '<span><i style="background:var(--text-muted)"></i>Budgeted ' + wholeMoney(outTot) + (inTot ? ' · ' + Math.round(outTot / inTot * 100) + '%' : '') + '</span>' +
-    (inTot ? '<span><i style="background:' + (left < 0 ? 'var(--danger)' : 'var(--success)') + '"></i>' + (left < 0 ? 'Short ' + wholeMoney(-left) : 'Left ' + Math.round(left / inTot * 100) + '%') + '</span>' : '') : '';
+  var el = $('#bt-left-m'); if (!el) return;
+  el.textContent = inTot ? (left < 0 ? '−' : '') + wholeMoney(left) : '—';
+  el.classList.toggle('bad', !!inTot && left < 0);
   renderBudgetCopy();
 }
 function budgetAddPicked() {
@@ -3726,7 +3697,6 @@ function saveMonthBudget(month, side, cat, amount) {
     saveMonthBudget(bs.month, side, cat, v).then(saved);
     if (side === 'in' && cat === 'Income') {
       $('#bt-pay-m').value = v ? budgetAmtText(v) : '';
-      $('#bt-pay-b').value = v ? budgetAmtText(v / 2) : '';
     } else if (v === null) {
       renderBudgetSheet();   // a cleared row leaves the table
       return;
@@ -3735,6 +3705,11 @@ function saveMonthBudget(month, side, cat, amount) {
   });
   table.addEventListener('keydown', function(e) { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); e.target.blur(); } });
   table.addEventListener('click', function(e) {
+    if (e.target.closest('#bt-add-open')) {
+      sheet.querySelector('.budget-sheet').classList.add('adding');
+      setTimeout(function() { $('#budget-add-amt').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); var h = sheet.querySelector('.budget-add .picker-hit'); if (h) h.click(); }, 60);
+      return;
+    }
     var del = e.target.closest('[data-del]'); if (!del) return;
     saveMonthBudget(budgetSheet.month, 'out', del.dataset.del, null).then(saved);
     renderBudgetSheet();
@@ -3759,6 +3734,7 @@ function saveMonthBudget(month, side, cat, amount) {
     saveMonthBudget(bs.month, 'out', cat, v).then(saved);
     if (bs.order.indexOf(cat) < 0) bs.order.push(cat);
     $('#budget-add-amt').value = ''; $('#budget-add-name').value = ''; sel.value = '';
+    sheet.querySelector('.budget-sheet').classList.remove('adding');
     renderBudgetSheet();
   }
   $('#budget-add-btn').addEventListener('click', addIt);
