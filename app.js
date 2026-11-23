@@ -3029,7 +3029,7 @@ function getDisplayBalance(account, type) {
       return { amount: current, label: 'Posted' };
     } else {
       if (limit != null && available != null) {
-        return { amount: limit - available, label: 'After Pending' };
+        return { amount: creditAfterPending(account, current, limit, available), label: 'After Pending' };
       }
       return { amount: current, label: 'Posted' };
     }
@@ -3043,6 +3043,26 @@ function getDisplayBalance(account, type) {
       return { amount: current, label: 'Current' };
     }
   }
+}
+
+// A card's balance after pending is its limit minus available credit. Some issuers
+// (Amex, Robinhood) report available credit in whole dollars, which makes that come
+// out as $1,403 when the card really owes $1,402.66. In that case rebuild the exact
+// figure from the posted balance plus pending charges, but only when it agrees with
+// the bank's whole-dollar number. If the pending list disagrees (Plaid's transaction
+// feed can lag the balance), keep the bank's number rather than show a wrong one.
+function creditAfterPending(account, current, limit, available) {
+  var bank = limit - available;
+  var isWhole = function(v) { return Math.abs(v - Math.round(v)) < 0.0001; };
+  if (!isWhole(available) || !isWhole(limit) || !account.plaid_account_id || !txData || !txData.length) return bank;
+  var pendingCents = 0;
+  txData.forEach(function(t) {
+    if (t.pending && !t.removed_at && t.plaid_account_id === account.plaid_account_id) pendingCents += Math.round(parseFloat(t.amount || 0) * 100);
+  });
+  var exact = (Math.round(current * 100) + pendingCents) / 100;
+  // The cents were dropped from available credit (cut off or rounded), so the true
+  // amount owed is within a dollar below, or 50 cents above, the bank's figure.
+  return exact > bank - 1 && exact <= bank + 0.5 ? exact : bank;
 }
 
 // ============================================
@@ -4340,8 +4360,8 @@ async function loadTransactions() {
   txEmpty.hidden = true;
   txContent.hidden = false;
 
-  // Re-render snapshot: bonus trackers and interest estimates use tx data
-  if (cachedAccounts && cachedAccounts.some(function(a) { return (a.type === 'credit' && a.bonus_target_amount) || a.apy; })) {
+  // Re-render snapshot: card balances after pending, bonus trackers and interest estimates use tx data
+  if (cachedAccounts && cachedAccounts.some(function(a) { return a.type === 'credit' || a.apy; })) {
     renderAccounts(cachedAccounts);
   }
 
