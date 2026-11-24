@@ -2946,6 +2946,23 @@ async function refreshMfaStatus() {
   st.textContent = mfaFactor ? 'On · Alenjo asks for a code after your password' : 'Off · a code from an authenticator app after your password';
   btn.textContent = mfaFactor ? 'Turn off' : 'Turn on';
 }
+// Tap the key to copy it (paste it into any authenticator app)
+(function() {
+  var btn = $('#mfa-key-copy');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    var key = btn.dataset.key || '';
+    if (!key) return;
+    var done = function() {
+      var lbl = btn.querySelector('.mfa-key-copy span');
+      btn.classList.add('copied'); if (lbl) lbl.textContent = 'Copied';
+      clearTimeout(btn._t); btn._t = setTimeout(function() { btn.classList.remove('copied'); if (lbl) lbl.textContent = 'Copy'; }, 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(key).then(done, function() { selectKey(); });
+    else selectKey();
+    function selectKey() { var r = document.createRange(); r.selectNodeContents($('#mfa-secret')); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); showToast('Key selected · tap Copy'); }
+  });
+})();
 function closeMfaEnroll() { $('#mfa-enroll').hidden = true; $('#mfa-enroll-code').value = ''; $('#mfa-enroll-error').hidden = true; }
 $('#btn-mfa-toggle').addEventListener('click', async function() {
   var btn = this;
@@ -2971,7 +2988,10 @@ $('#btn-mfa-toggle').addEventListener('click', async function() {
     if (r.error) throw r.error;
     mfaPending = r.data;
     $('#mfa-qr').src = r.data.totp.qr_code;
-    $('#mfa-secret').textContent = r.data.totp.secret;
+    // Shown in groups of four so it's easy to read; Copy gives the plain key
+    var secret = String(r.data.totp.secret || '');
+    $('#mfa-secret').textContent = secret.replace(/(.{4})/g, '$1 ').trim();
+    $('#mfa-key-copy').dataset.key = secret;
     $('#mfa-otpauth').href = r.data.totp.uri;
     $('#mfa-enroll').hidden = false;
   } catch (e) {

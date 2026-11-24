@@ -4135,3 +4135,26 @@ html.boot-locked #screen-login { visibility: hidden; }
 .txs-confirm-btn.is-discard { color: var(--danger, #ef4444); }
 .txs-confirm-btn.is-danger { background: var(--danger); color: #fff; font-weight: 600; }
 #tx-action-sheet .txs-name-edit .txs-input { max-width: calc(100% - 26px); text-overflow: ellipsis; }
+
+/* ---- Two-step sign-in: code entry and setup ---- */
+.signin-mfa-title { margin: 0; font-family: var(--serif); font-size: 1.5rem; font-weight: 500; line-height: 1.2; color: var(--text); text-align: center; }
+.signin-mfa-sub { margin: 0 0 6px; font-size: 0.875rem; color: var(--text-muted); text-align: center; }
+/* Digits get a little room; the placeholder stays normal text (no "6 - d i g i t") */
+.mfa-code-input, #mfa-code { text-align: center; font: 600 1.5rem 'Inter', sans-serif !important; letter-spacing: 0.32em !important; font-variant-numeric: tabular-nums; padding-left: 0.32em !important; }
+.mfa-code-input::placeholder, #mfa-code::placeholder { font-size: 1rem; font-weight: 400; letter-spacing: normal; color: var(--text-muted); }
+.mfa-trust { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; font-size: 0.9375rem; color: var(--text); cursor: pointer; }
+.mfa-trust .set-switch { flex: none; width: 46px !important; height: 28px !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 14px !important; background: var(--track) !important; box-shadow: none !important; }
+.mfa-trust .set-switch:checked { background: var(--accent) !important; }
+.mfa-enroll { padding: 6px 16px 16px; display: flex; flex-direction: column; align-items: stretch; gap: 12px; border-top: 1px solid var(--hairline); }
+.mfa-step { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; font-size: 0.9375rem; font-weight: 500; line-height: 1.35; color: var(--text); }
+.mfa-num { flex: none; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-size: 0.8125rem; font-weight: 600; }
+.mfa-add { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; text-decoration: none; }
+.mfa-or { margin: 2px 0 0; font-size: 0.8125rem; color: var(--text-muted); text-align: center; }
+.mfa-qr { align-self: center; width: 156px; height: 156px; background: #fff; border-radius: 14px; padding: 10px; box-sizing: border-box; }
+.mfa-key { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 52px; padding: 10px 14px; border: none; border-radius: 14px; background: var(--bg-input); color: var(--text); cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; }
+.mfa-key code { flex: 1; min-width: 0; font: 500 0.9375rem ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.02em; word-break: break-all; user-select: all; -webkit-user-select: all; }
+.mfa-key-copy { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-size: 0.875rem; font-weight: 600; }
+.mfa-key.copied .mfa-key-copy { color: var(--success, var(--accent)); }
+.mfa-enroll .mfa-code-input { min-height: 52px; }
+.mfa-enroll .btn-primary { margin-top: 2px; }
+.mfa-cancel { align-self: center; min-height: 44px; }
