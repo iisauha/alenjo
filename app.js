@@ -5229,34 +5229,10 @@ function allHistoryFrom(added) {
   var cap = historyStartDay(), plaid = nyDay(two);
   return plaid > cap ? plaid : cap;
 }
-function countChoiceOf(acct) {
-  if (!acct.count_from) return 'all';
-  return acct.count_from === accountAddedDay(acct).slice(0, 8) + '01' && acct.count_from !== accountAddedDay(acct) ? 'month' : 'day';
-}
 function countFromFor(acct, choice) {
   var added = accountAddedDay(acct);
   return choice === 'all' ? null : choice === 'month' ? added.slice(0, 8) + '01' : added;
 }
-function fillCountFrom(acct) {
-  var added = accountAddedDay(acct), sel = $('#edit-count-from');
-  sel.innerHTML = '<option value="day">' + esc(longDay(added)) + '</option>' +
-    (added.slice(8) !== '01' ? '<option value="month">' + esc(longDay(added.slice(0, 8) + '01')) + '</option>' : '') +
-    '<option value="all">All history</option>';
-  sel.value = countChoiceOf(acct);
-  if (!sel.value) sel.value = 'day';
-  setCountHint(acct);
-}
-function setCountHint(acct) {
-  var v = $('#edit-count-from').value, added = accountAddedDay(acct);
-  $('#count-history-hint').textContent = v === 'all'
-    ? 'Includes purchases back to ' + monthYear(allHistoryFrom(added))
-    : 'Added ' + longDay(added) + ' · earlier purchases hidden';
-}
-$('#edit-count-from').addEventListener('change', function() {
-  var acct = cachedAccounts && cachedAccounts.find(function(a) { return a.id === editingAccountId; });
-  if (acct) setCountHint(acct);
-});
-
 // Purchases before an account's count-from day are hidden: moved out of txData (kept here)
 var txHidden = {};
 function applyCountFrom() {
@@ -5414,10 +5390,6 @@ document.addEventListener('click', function(e) {
   $('#apy-input').value = acct && acct.apy != null ? acct.apy : '';
   $('#edit-exclude').checked = !!(acct && acct.exclude_from_totals);
   $('#edit-hide').checked = !!(acct && acct.is_hidden);
-  // Counts from: only for accounts added after your first connection
-  var canCount = !!(acct && acct.added_later && !acct.is_manual);
-  $('#count-history-row').hidden = !canCount;
-  if (canCount) fillCountFrom(acct);
   $('#manage-title').textContent = 'Manage ' + ((acct && acct.institution) || '') + ' account';
   $('#manage-subtitle').textContent = acct ? [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ') : '';
   $('#manage-name').textContent = nicknameInput.value || (acct && acct.name) || 'Account';
@@ -5488,13 +5460,6 @@ $('#account-edit-save').addEventListener('click', function() {
       exclude_from_totals: $('#edit-exclude').checked,
       is_hidden: $('#edit-hide').checked
     };
-    if (!$('#count-history-row').hidden) {
-      var cfNew = countFromFor(acctNow, $('#edit-count-from').value);
-      if ((acctNow.count_from || null) !== cfNew || acctNow.count_choice_pending) {
-        saveCountFrom(acctNow, cfNew);
-        if (applyCountFrom()) setTimeout(refreshAfterCount, 0);
-      }
-    }
     Object.assign(acctNow, changes);
     var settingsId = acctNow.id;
     rememberAcctEdit(settingsId, changes);
