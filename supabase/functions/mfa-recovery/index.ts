@@ -59,10 +59,12 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === 'use-code' || body.action === 'use-email') {
       if (!factors.length) return json({ ok: true, off: true });   // nothing to turn off
+      // Record the attempt first (as a miss), then count: tries sent all at once still count
+      const { data: row } = await admin.from('mfa_recovery_log').insert({ user_id: user.id, kind: body.action, ok: false }).select('id').single();
       const since = new Date(Date.now() - 3600_000).toISOString();
       const { count } = await admin.from('mfa_recovery_log').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('ok', false).gte('at', since);
-      if ((count || 0) >= 5) return json({ error: 'Too many tries. Wait an hour and try again.' }, 429);
-      const log = (ok: boolean) => admin.from('mfa_recovery_log').insert({ user_id: user.id, kind: body.action, ok });
+      if ((count || 0) > 5) return json({ error: 'Too many tries. Wait an hour and try again.' }, 429);
+      const log = async (ok: boolean) => { if (ok && row) await admin.from('mfa_recovery_log').update({ ok: true }).eq('id', row.id); };
 
       if (body.action === 'use-code') {
         const code = typeof body.code === 'string' ? body.code.slice(0, 20) : '';

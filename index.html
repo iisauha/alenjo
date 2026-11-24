@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-wMNatXAqQDUiL3NMvPhP1UcguGR84LdVCzWkxww4sbo=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net https://esm.sh 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com https://esm.sh https://staticimgly.com https://cdn.jsdelivr.net data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -87,14 +88,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124043606';</script>
+  <script>var _v = '20261124044451';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124043606">
+  <link rel="stylesheet" href="style.css?v=20261124044451">
 </head>
 <body>
 
@@ -211,6 +212,10 @@
           <p id="reset-error" class="auth-error" hidden></p>
           <div class="signin-field"><input type="password" id="reset-password" placeholder="New password" aria-label="New password" autocomplete="new-password" required minlength="10"></div>
           <div class="signin-field"><input type="password" id="reset-password2" placeholder="Repeat new password" aria-label="Repeat new password" autocomplete="new-password" required minlength="10"></div>
+          <div class="reset-code" id="reset-code-row" hidden>
+            <p class="signin-mfa-sub">Two-step sign-in is on. Enter the 6-digit code from your authenticator app, or one of your backup codes.</p>
+            <div class="signin-field"><input type="text" id="reset-code" class="mfa-code-input" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="Code" aria-label="Two-step code or backup code"></div>
+          </div>
           <button type="submit" id="reset-submit" class="btn-primary">Save password</button>
         </form>
       </div>
