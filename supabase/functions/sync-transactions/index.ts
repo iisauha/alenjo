@@ -97,9 +97,17 @@ const OWN_MONEY_IN = new Set([
   'TRANSFER_IN_INVESTMENT_AND_RETIREMENT_FUNDS',
   'TRANSFER_IN_CASH_ADVANCES_AND_LOANS',
 ]);
+// Money moving between your own accounts: no notification. Money to someone else (Venmo, Zelle,
+// cash withdrawals, anything else) is spending you'd want to hear about.
+const OWN_MONEY_OUT = new Set([
+  'TRANSFER_OUT_SAVINGS',
+  'TRANSFER_OUT_ACCOUNT_TRANSFER',
+  'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS',
+]);
 function notifiable(tx: any, accountType: string | undefined) {
   const cat = tx.personal_finance_category || {};
-  if (cat.primary === 'TRANSFER_OUT' || cat.primary === 'LOAN_PAYMENTS') return false;
+  if (cat.primary === 'LOAN_PAYMENTS') return false;
+  if (cat.primary === 'TRANSFER_OUT') return typeof cat.detailed === 'string' && !OWN_MONEY_OUT.has(cat.detailed);
   if (cat.primary !== 'TRANSFER_IN') return true;
   // On a card or loan, money in under "transfer" is a payment toward it
   if (accountType === 'credit' || accountType === 'loan') return false;
