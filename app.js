@@ -545,7 +545,10 @@ function finishSignIn(session) {
   loadSignedCache(currentUser.id);
   paintCachedProfile();
   setTimeout(refreshStalePush, 1500);
-  Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]).then(function() {
+  loadPicsLocal(currentUser.id).then(function() {
+    paintCachedProfile();
+    return Promise.all([loadProfile(), loadAccounts(), loadCardDesigns()]);
+  }).then(function() {
     if (cachedAccounts && cachedAccounts.length > 0) throttledSync();
     return loadTransactions();
   }).catch(function(e) {
@@ -982,6 +985,118 @@ function shrinkImage(src, maxDim, type, quality) {
     img.src = url;
   });
 }
+// ============================================
+// PICTURES KEPT WITH THE APP'S DATA (so logos, card art and your photo never pop in)
+// ============================================
+// Each picture is saved once as a small data URL: in your database (image_cache) and on this
+// phone (IndexedDB). The app draws from that copy, so nothing has to download when it opens.
+// pic(url) gives the saved copy, or the normal link the first time (and saves it for next time).
+// A logo that doesn't exist is saved as 'none': pic() then gives null and the letter shows.
+var picStore = {}, picPending = {}, picTimer = null, picBusy = false, picUid = null, picLoaded = false;
+function picKey(url) {
+  if (!url || typeof url !== 'string' || url.indexOf('data:') === 0) return null;
+  var m = url.match(/^https:\/\/[^\/]+\.supabase\.co\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^?#]+)/);
+  if (m) return 's:' + decodeURIComponent(m[1]);
+  m = url.match(/^https:\/\/img\.logo\.dev\/([^?#]+)/);
+  if (m) return 'ld:' + decodeURIComponent(m[1]).toLowerCase().trim();
+  m = url.match(/^https:\/\/plaid-merchant-logos\.plaid\.com\/([^?#]+)/);
+  if (m) return 'pl:' + m[1];
+  return null;
+}
+function pic(url) {
+  var k = picKey(url);
+  if (!k) return url;
+  var v = picStore[k];
+  if (v === 'none') return null;
+  if (v) return v;
+  if (picUid) { picPending[k] = url; clearTimeout(picTimer); picTimer = setTimeout(flushPics, 800); }
+  return url;
+}
+// This phone's copy: IndexedDB (room for card art; plain local storage is too small)
+function picDb() {
+  return new Promise(function(res, rej) {
+    if (!window.indexedDB) return rej(new Error('no idb'));
+    var r = indexedDB.open('alenjo-pics', 1);
+    r.onupgradeneeded = function() { r.result.createObjectStore('pics'); };
+    r.onsuccess = function() { res(r.result); };
+    r.onerror = function() { rej(r.error); };
+  });
+}
+function loadPicsLocal(uid) {
+  picUid = uid; picStore = {};
+  return picDb().then(function(db) {
+    return new Promise(function(res) {
+      var t = db.transaction('pics', 'readonly').objectStore('pics').get(uid);
+      t.onsuccess = function() { if (t.result && picUid === uid) picStore = t.result; picLoaded = true; res(); };
+      t.onerror = function() { res(); };
+    });
+  }).catch(function() {}).then(function() {
+    picLoaded = true;
+    // A new phone (or iOS cleared it): get everything from your database once
+    if (Object.keys(picStore).length || !sb) return;
+    return Promise.race([
+      sb.from('image_cache').select('key, data').then(function(r) { (r.data || []).forEach(function(x) { picStore[x.key] = x.data; }); if (r.data && r.data.length) savePicsLocal(); }),
+      new Promise(function(r) { setTimeout(r, 2500); })
+    ]).catch(function() {});
+  });
+}
+var picSaveTimer = null;
+function savePicsLocal() {
+  clearTimeout(picSaveTimer);
+  picSaveTimer = setTimeout(function() {
+    var uid = picUid, data = picStore;
+    if (!uid) return;
+    picDb().then(function(db) { db.transaction('pics', 'readwrite').objectStore('pics').put(data, uid); }).catch(function() {});
+  }, 400);
+}
+function blobToDataUrl(b) {
+  return new Promise(function(res, rej) { var fr = new FileReader(); fr.onload = function() { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(b); });
+}
+var PIC_SIZES = { 'avatars': { max: 192, type: 'image/jpeg', q: 0.85 }, 'card-designs': { max: 300, type: 'image/webp', q: 0.85 }, 'logos': { max: 128, type: 'image/webp', q: 0.9 } };
+async function flushPics() {
+  if (picBusy) { clearTimeout(picTimer); picTimer = setTimeout(flushPics, 1500); return; }
+  var batch = picPending; picPending = {};
+  var keys = Object.keys(batch).filter(function(k) { return !picStore[k]; });
+  if (!keys.length || !currentUser) return;
+  picBusy = true;
+  var got = false;
+  try {
+    // 1. Already saved in your database (made on another device)?
+    var r = await sb.from('image_cache').select('key, data').in('key', keys.slice(0, 100));
+    (r.data || []).forEach(function(x) { picStore[x.key] = x.data; got = true; });
+    var missing = keys.filter(function(k) { return !picStore[k]; });
+    // 2. Your own uploads (card art, photo, your logos): make a small copy here
+    var own = missing.filter(function(k) { return k.indexOf('s:') === 0; });
+    for (var i = 0; i < own.length; i++) {
+      var k = own[i], bucket = k.slice(2).split('/')[0], lim = PIC_SIZES[bucket];
+      if (!lim) continue;
+      try {
+        var out = await shrinkImage(batch[k], lim.max, lim.type, lim.q);
+        var d = await blobToDataUrl(out.blob);
+        if (d.length > 400000) continue;
+        picStore[k] = d; got = true;
+        sb.from('image_cache').upsert({ key: k, data: d, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }).then(function() {});
+      } catch (e) {}
+    }
+    // 3. Bank and store logos: fetched once by the server
+    var ext = missing.filter(function(k) { return k.indexOf('s:') !== 0; }).slice(0, 40);
+    if (ext.length) {
+      var res = await sb.functions.invoke('cache-logos', { body: { items: ext.map(function(k) { return { key: k, url: batch[k] }; }) } });
+      var imgs = res.data && res.data.images;
+      if (imgs) Object.keys(imgs).forEach(function(k) { picStore[k] = imgs[k]; got = true; });
+    }
+  } catch (e) { console.error('pictures', e); }
+  picBusy = false;
+  if (got) savePicsLocal();
+}
+// A picture replaced under the same file name (your photo): forget the old copy everywhere
+function forgetPic(url) {
+  var k = picKey(url);
+  if (!k) return;
+  delete picStore[k]; savePicsLocal();
+  if (sb) sb.from('image_cache').delete().eq('key', k).then(function() {});
+}
+
 var IMG_CACHE = '604800';   // images can be reused by the browser for a week
 // One time per image: photos and card art uploaded before images were resized get resized
 // in the background (they were often 1-3 MB for a 40px picture).
@@ -1028,21 +1143,26 @@ async function loadProfile() {
 }
 
 // Right after sign-in, before the server answers: last known name and photo on this device
+// Only touch a background picture when it actually changes (re-setting it can make it blink)
+function setBg(el, url) {
+  if (!el || !url || el._bg === url) return;
+  el._bg = url;
+  el.style.backgroundImage = 'url("' + url + '")';
+}
 function paintCachedProfile() {
   try {
     var name = localStorage.getItem('alenjo_last_name');
     if (name && headerName && !headerName.textContent) headerName.textContent = name;
     var av = JSON.parse(localStorage.getItem('alenjo_last_avatar') || 'null');
     var hit = av && currentUser && av.uid === currentUser.id && signedUrlCache['avatars/' + av.path];
-    if (hit && hit.exp > Date.now() && headerAvatar) headerAvatar.style.backgroundImage = 'url(' + hit.url + ')';
+    var av0 = picLoaded && hit && hit.exp > Date.now() ? pic(hit.url) : null;
+    if (av0 && headerAvatar) setBg(headerAvatar, av0);
   } catch (e) {}
 }
 function updateHeaderProfile() {
   if (!userProfile) return;
   headerName.textContent = userProfile.display_name || '';
-  if (userProfile.avatar_url) {
-    headerAvatar.style.backgroundImage = 'url(' + userProfile.avatar_url + ')';
-  }
+  if (userProfile.avatar_url) setBg(headerAvatar, pic(userProfile.avatar_url) || userProfile.avatar_url);
 }
 
 function updateSettingsProfile() {
@@ -1056,9 +1176,7 @@ function updateSettingsProfile() {
   if (who) who.textContent = userProfile.display_name || 'Your profile';
   var since = $('#set-profile-since');
   if (since && currentUser && currentUser.created_at) since.textContent = 'Using Alenjo since ' + new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  if (avatar && userProfile.avatar_url) {
-    avatar.style.backgroundImage = 'url(' + userProfile.avatar_url + ')';
-  }
+  if (avatar && userProfile.avatar_url) setBg(avatar, pic(userProfile.avatar_url) || userProfile.avatar_url);
 }
 
 // Save name
@@ -1106,6 +1224,7 @@ $('#avatar-upload').addEventListener('change', async function(e) {
   var urlResult = sb.storage.from('avatars').getPublicUrl(path);
   await sb.from('profiles').update({ avatar_url: urlResult.data.publicUrl }).eq('id', currentUser.id);
   delete signedUrlCache['avatars/' + path];
+  forgetPic(SUPABASE_URL + '/storage/v1/object/sign/avatars/' + path);
   if (oldPath && oldPath !== path) sb.storage.from('avatars').remove([oldPath]);   // the old photo under another name
   try { localStorage.setItem('alenjo_opt_avatars/' + path, '1'); localStorage.setItem('alenjo_last_avatar', JSON.stringify({ uid: currentUser.id, path: path })); } catch (e) {}
   userProfile.avatar_url = (await signedUrl('avatars', path)) + '&v=' + Date.now();
@@ -1160,7 +1279,7 @@ function renderCardDesignsSettings() {
   if (!cachedCardDesigns.length) { list.innerHTML = ''; return; }
   list.innerHTML = cachedCardDesigns.map(function(d) {
     return '<div class="card-design-tile">' +
-      '<div class="card-design-tile-img" style="background-image:url(' + esc(d.url) + ')"></div>' +
+      '<div class="card-design-tile-img" style="background-image:url(' + esc(pic(d.url) || '') + ')"></div>' +
       '<button class="card-design-delete" data-delete-design="' + d.id + '" aria-label="Delete">&times;</button>' +
     '</div>';
   }).join('');
@@ -4213,8 +4332,10 @@ function accountCard(account, type) {
 
   var cardDesign = account.card_design_id ? getCardDesignById(account.card_design_id) : null;
   // One badge per card: your card design if you added one, else the bank logo, else an initial
-  var badge = cardDesign ? '<div class="acct-badge acct-badge-art" style="background-image:url(' + esc(cardDesign.url) + ')"></div>'
-    : logoUrl ? '<div class="acct-badge acct-badge-logo" style="background-image:url(' + logoUrl + ')"></div>'
+  var artSrc = cardDesign && cardDesign.url ? pic(cardDesign.url) : null;
+  logoUrl = logoUrl ? pic(logoUrl) : null;
+  var badge = artSrc ? '<div class="acct-badge acct-badge-art" style="background-image:url(' + esc(artSrc) + ')"></div>'
+    : logoUrl ? '<div class="acct-badge acct-badge-logo" style="background-image:url(' + esc(logoUrl) + ')"></div>'
     : '<div class="acct-badge acct-badge-initial">' + esc((account.institution || displayName).charAt(0).toUpperCase()) + '</div>';
   var cleanName = account.nickname ? displayName : displayName.replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
   var sub = [account.institution, account.mask ? shownMask(account.mask) : ''].filter(Boolean).join(' · ');
@@ -5118,7 +5239,7 @@ function renderTransactionMonth() {
       else if (!eff.excluded && eff.isSplit) tags += '<span class="act-tag act-tag-split">' + (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split') + '</span>';
       if (eff.nickname) tags += '<span class="act-tag">Renamed</span>';
       // Store logo (see txLogoUrl); the first letter shows underneath as a fallback
-      var logoSrc = txLogoUrl(tx, eff);
+      var logoSrc = pic(txLogoUrl(tx, eff));
       var avatar = '<span class="act-avatar" data-i="' + esc(name.charAt(0).toUpperCase()) + '">' +
         (logoSrc ? '<img src="' + esc(logoSrc) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
       var amountMain = (income ? '+' : '−') + formatMoney((eff.isSplit || eff.isAdjusted) && !eff.excluded ? eff.amount : tx.amount);
@@ -5751,7 +5872,7 @@ function renderTxSheetInner(tx) {
   $('#txs-name-adj').hidden = !eff.nickname;
   $('#txs-name-adj').textContent = 'Renamed';
   $('#txs-name-btn').hidden = false; $('#txs-name-edit').hidden = true;
-  var logo = txLogoUrl(tx, eff);
+  var logo = pic(txLogoUrl(tx, eff));
   $('#txs-avatar').setAttribute('data-i', name.charAt(0).toUpperCase());
   $('#txs-avatar').innerHTML = logo ? '<img src="' + esc(logo) + '" alt="" onerror="this.remove()">' : '';
 
@@ -6173,7 +6294,8 @@ function renderTxFacts(tx) {
     var logo = !design && typeof getLogoUrl === 'function' ? getLogoUrl(acct) : null;
     var art = $('#txs-card-art');
     art.className = 'txs-card-art' + (design ? ' is-art' : logo ? ' is-logo' : '');
-    art.style.backgroundImage = design ? 'url("' + design.url + '")' : logo ? 'url("' + logo + '")' : '';
+    var artUrl = design ? pic(design.url) : logo ? pic(logo) : null;
+    art.style.backgroundImage = artUrl ? 'url("' + artUrl + '")' : '';
     art.textContent = design || logo ? '' : (acct.institution || acct.name || '?').charAt(0).toUpperCase();
     $('#txs-card-name').textContent = acct.nickname || acct.name || 'Account';
     $('#txs-card-mask').textContent = [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ');
