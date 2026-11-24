@@ -216,6 +216,9 @@ function buildDemo() {
       security_name: h[0], ticker_symbol: h[1], security_type: h[2], close_price: price };
   });
   brokerage.balance_current = String(cents(holdings.reduce(function(s, h) { return s + h.institution_value; }, 0)));
+  // Assets minus liabilities comes out to exactly the Available number (checking minus cards):
+  // the loan balances out savings plus investments
+  loan.balance_current = String(cents(+savings.balance_current + +brokerage.balance_current));
 
   // Cards and loan details (due dates a week or two out)
   var due = function(days) { return ymd(new Date(now.getTime() + days * 86400000)); };
@@ -229,7 +232,7 @@ function buildDemo() {
   }
   var liabilities = [
     { id: id('l'), user_id: null, account_id: loan.id, liability_type: 'student', interest_rate: 4.99, loan_name: 'Direct Unsubsidized',
-      loan_status: 'repayment', origination_date: '2019-08-15', origination_principal: 32000, outstanding_interest: cents(R(20, 90)),
+      loan_status: 'repayment', origination_date: '2019-08-15', origination_principal: Math.round(+loan.balance_current * 1.2 / 1000) * 1000, outstanding_interest: cents(R(20, 90)),
       expected_payoff_date: '2031-06-01', ytd_interest_paid: cents(R(500, 900)), ytd_principal_paid: cents(R(1800, 2600)),
       repayment_plan: 'Standard', last_payment_amount: 285, last_payment_date: due(-14), minimum_payment_amount: 285,
       next_payment_due_date: due(16), is_overdue: false, account_name: loan.name, balance_current: loan.balance_current,
