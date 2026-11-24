@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-wMNatXAqQDUiL3NMvPhP1UcguGR84LdVCzWkxww4sbo=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net https://esm.sh 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com https://esm.sh https://staticimgly.com https://cdn.jsdelivr.net data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-KE5XR5L2wi8KPZ37iULYGW4iqDvy03WCAyH5k2HcIl0=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -88,14 +88,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124044451';</script>
+  <script>var _v = '20261124045037';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124044451">
+  <link rel="stylesheet" href="style.css?v=20261124045037">
 </head>
 <body>
 
@@ -742,13 +742,13 @@
   <div id="card-crop-modal" class="modal-overlay card-crop-modal">
     <div class="modal-card card-crop-card">
       <h3>Crop to the card</h3>
-      <p class="card-designs-help card-crop-help">Drag to crop tight around the card. We'll remove the background next.</p>
+      <p class="card-designs-help card-crop-help">Line the box up with the card's edges. The rounded corners are cut out for you.</p>
       <div class="card-crop-image-wrap">
         <img id="card-crop-image" alt="">
       </div>
       <div class="modal-actions">
         <button id="card-crop-cancel" class="btn-secondary-sm">Cancel</button>
-        <button id="card-crop-apply" class="btn-primary-sm">Extract Card</button>
+        <button id="card-crop-apply" class="btn-primary-sm">Cut out card</button>
       </div>
     </div>
   </div>
@@ -758,7 +758,6 @@
     <div class="modal-card card-refine-card">
       <h3>Clean up the edges</h3>
       <p class="card-designs-help card-refine-help">Paint <strong>Keep</strong> or <strong>Erase</strong> to touch up edges, or tap <strong>Shapes</strong> to mask with a card outline.</p>
-      <p class="card-designs-help card-refine-hint">Dark cards that blend into their background can get over-cut by the model. If it ate most of the card, tap <strong>Fill</strong> and just erase the background edges.</p>
       <div class="card-refine-canvas-wrap">
         <canvas id="card-refine-canvas"></canvas>
       </div>

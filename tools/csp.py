@@ -17,11 +17,10 @@ hashes = ["'sha256-%s'" % base64.b64encode(hashlib.sha256(s.encode('utf-8')).dig
 
 policy = '; '.join([
     "default-src 'self'",
-    # App code, Plaid Link, the image cropper (pinned + integrity checked) and the card background
-    # remover (downloaded only when you use it). 'wasm-unsafe-eval' lets the remover run its model.
-    "script-src 'self' " + ' '.join(hashes) + " https://cdn.plaid.com https://cdn.jsdelivr.net https://esm.sh 'wasm-unsafe-eval'",
-    "worker-src 'self' blob:",
-    "connect-src 'self' " + SUPABASE + " wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com https://esm.sh https://staticimgly.com https://cdn.jsdelivr.net data: blob:",
+    # App code, Plaid Link, and the image cropper (pinned version, integrity checked)
+    "script-src 'self' " + ' '.join(hashes) + " https://cdn.plaid.com https://cdn.jsdelivr.net",
+    "worker-src 'self'",
+    "connect-src 'self' " + SUPABASE + " wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:",
     "img-src 'self' data: blob: https:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
     "font-src 'self' data: https://fonts.gstatic.com",
