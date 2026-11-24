@@ -4190,3 +4190,10 @@ html.boot-locked #screen-login { visibility: hidden; }
 .mfa-warn p { margin: 0; }
 .mfa-warn p + p { margin-top: 6px; }
 .mfa-warn .mfa-warn-title { font-weight: 600; font-size: 0.9375rem; }
+
+/* Backup codes: a tap-to-open row */
+.mfa-backup-head { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; margin: -6px 0; padding: 0; border: none; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.mfa-backup-chev { color: var(--text-muted); transition: transform 0.2s ease; }
+.mfa-backup-head[aria-expanded="true"] .mfa-backup-chev { transform: rotate(180deg); }
+.mfa-backup-body { display: flex; flex-direction: column; gap: 10px; }
+.mfa-backup-body[hidden] { display: none !important; }
