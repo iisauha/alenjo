@@ -1038,8 +1038,8 @@ bootReady.then(function() {
 var lastHiddenAt = 0;
 var resumeRefreshInFlight = false;
 
-// Pull down on Home to refresh: the Alenjo leaf drops in and turns as you pull, unfurls at the
-// refresh point, and spins while your banks sync (the free sync, so pulling costs nothing).
+// Pull down on Home to refresh: the Alenjo leaf fades in and grows as you pull, and gently
+// pulses while your banks sync (the free sync, so pulling costs nothing).
 (function pullToRefresh() {
   var tab = $('#tab-snapshot');
   if (!tab) return;
@@ -1058,7 +1058,7 @@ var resumeRefreshInFlight = false;
     pull = p;
     tab.style.transform = p ? 'translateY(' + p + 'px)' : '';
     var k = Math.min(1, p / LINE);
-    place(p, k * 300, 0.5 + 0.5 * k, k ? Math.min(1, k * 1.4) : 0);
+    place(p, 0, 0.6 + 0.4 * k, k ? Math.min(1, k * 1.4) : 0);   // stays upright, grows in as you pull
     leaf.classList.toggle('is-armed', p >= LINE);
   }
   function settle() {
@@ -1087,7 +1087,7 @@ var resumeRefreshInFlight = false;
     if (!start || !start.on) { start = null; return; }
     start = null;
     if (pull < LINE) { settle(); return; }
-    // Hold the leaf in place and spin it while syncing
+    // Hold the leaf in place and pulse it while syncing
     busy = true;
     tab.style.transition = leaf.style.transition = 'transform 0.25s ease';
     setPull(LINE * 0.8);
