@@ -3145,7 +3145,19 @@ function renderBackupCodes() {
   copy.addEventListener('click', function() {
     var unused = backupCodes.filter(function(c) { return !c.used; }).map(function(c) { return c.code; });
     if (!unused.length) return;
-    var text = 'Alenjo backup codes (each works once)\n' + unused.join('\n');
+    var saved = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    var text = [
+      'Alenjo backup codes (saved ' + saved + ')',
+      '',
+      'How to use:',
+      '1. Can’t get a code from your authenticator app? On the Alenjo code screen, tap “Use a backup code” and enter any one code below.',
+      '2. That turns two-step sign-in off so you can get back in.',
+      '3. Go to Settings → Sign-in and lock and set two-step up again. Delete the old Alenjo entry in your authenticator app and add the new one.',
+      '4. You’ll get 10 new backup codes. Delete these and save the new ones.',
+      '',
+      'Keep these private. Anyone with one of these and your password can turn off two-step.',
+      ''
+    ].concat(unused.map(function(c, i) { return 'Code ' + (i + 1) + ': ' + c; })).join('\n');
     var done = function() { copy.textContent = 'Copied'; setTimeout(function() { copy.textContent = 'Copy all'; }, 1800); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function() { showToast('Couldn’t copy. Press and hold a code to copy it.'); });
   });
