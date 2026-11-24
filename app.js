@@ -402,7 +402,17 @@ checkForUpdate();
 // ============================================
 // Signed out on purpose (Sign out button): only then does reopening show the email sign-in.
 // Any other reopen (iOS closed the app, auto-lock) shows the Face ID lock screen instead.
-function markSignedOut() { try { localStorage.setItem('alenjo_signed_out', '1'); localStorage.removeItem('alenjo_set_sums'); } catch (e) {} }
+function markSignedOut() {
+  try { localStorage.setItem('alenjo_signed_out', '1'); localStorage.removeItem('alenjo_set_sums'); } catch (e) {}
+  wipeDeviceCopies();
+}
+// Signing out leaves nothing private on this phone: the 7-day private links to your card art and
+// photo, the small picture copies, and the last photo pointer are erased.
+function wipeDeviceCopies() {
+  try { ['alenjo_signed_urls', 'alenjo_last_avatar', 'alenjo_faceid_text'].forEach(function(k) { localStorage.removeItem(k); }); } catch (e) {}
+  try { if (typeof signedUrlCache === 'object') Object.keys(signedUrlCache).forEach(function(k) { delete signedUrlCache[k]; }); } catch (e) {}
+  try { picStore = {}; picUid = null; if (window.indexedDB) indexedDB.deleteDatabase('alenjo-pics'); } catch (e) {}
+}
 function signedOutOnPurpose() { try { return localStorage.getItem('alenjo_signed_out') === '1'; } catch (e) { return true; } }
 var coldLocked = false;
 function showColdLock() {
@@ -584,7 +594,10 @@ bootReady.then(function() {
       showPasswordReset();
       return;
     }
-    if (event === 'SIGNED_IN' && session && session.user && (awaitingUnlock || (appLocked && keptSessionTrusted() && !unlocking))) {
+    // While locked, a sign-in event never unlocks the app. supabase-js re-announces SIGNED_IN
+    // whenever the app comes back on screen with a still-valid session (and on token restores),
+    // which used to remove the lock with no Face ID. Only tryUnlock unlocks, after a check you made.
+    if (event === 'SIGNED_IN' && session && session.user && (awaitingUnlock || appLocked)) {
       return;   // a kept session refreshing itself: Face ID or your password still opens it
     }
     if (event === 'SIGNED_IN' && session && session.user) {
@@ -717,7 +730,12 @@ async function tryUnlock() {
     if (!cancelled) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
     return;
   }
-  // The SIGNED_IN handler sees `unlocking` and just removes the lock
+  // Face ID passed: unlock only if it's the same person. Someone else's passkey starts over.
+  var who = res.data && res.data.session && res.data.session.user;
+  if (who && currentUser && who.id === currentUser.id) { currentUser = who; unlockApp(); return; }
+  unlocking = false;
+  markSignedOut(); clearTrusted();
+  location.reload();
 }
 var unlockBtn = $('#btn-unlock');
 if (unlockBtn) unlockBtn.addEventListener('click', tryUnlock);
