@@ -87,14 +87,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124012754';</script>
+  <script>var _v = '20261124013201';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124012754">
+  <link rel="stylesheet" href="style.css?v=20261124013201">
 </head>
 <body>
 
@@ -907,7 +907,7 @@
       <button type="button" class="txs-edit-toggle" id="txs-edit-btn" aria-label="Edit"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg><span>Cancel</span></button>
       <div class="txs-amount">
         <button type="button" class="txs-edit" id="txs-amt-btn" aria-label="Change the amount that counts"><span id="tx-action-amount" class="txs-amt"></span><svg class="txs-pen" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>
-        <span class="txs-amt-edit" id="txs-amt-edit" hidden><span>$</span><input type="number" id="txs-amt-input" class="txs-input" inputmode="decimal" step="0.01" min="0" aria-label="Amount that counts"></span>
+        <span class="txs-amt-edit" id="txs-amt-edit" hidden><span>$</span><input type="number" id="txs-amt-input" class="txs-input" inputmode="decimal" step="0.01" min="0" aria-label="Amount that counts"><svg class="txs-pen" data-focus="txs-amt-input" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></span>
         <span class="txs-adj" id="txs-amt-adj" hidden>Adjusted</span>
         <span id="txs-amt-sub" class="txs-sub"></span>
       </div>
@@ -915,7 +915,7 @@
         <button type="button" class="txs-avatar-btn" id="txs-avatar-btn" aria-label="Change logo"><span class="act-avatar txs-avatar" id="txs-avatar"></span><span class="txs-avatar-badge" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></span></button>
         <div class="txs-title">
           <button type="button" class="txs-edit" id="txs-name-btn" aria-label="Rename"><span id="tx-action-merchant" class="txs-name"></span><svg class="txs-pen" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>
-          <input type="text" id="txs-name-input" class="txs-input" maxlength="80" hidden aria-label="Name">
+          <span class="txs-name-edit" id="txs-name-edit" hidden><input type="text" id="txs-name-input" class="txs-input" maxlength="80" aria-label="Name"><svg class="txs-pen" data-focus="txs-name-input" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></span>
           <span class="txs-adj" id="txs-name-adj" hidden>Renamed</span>
         </div>
       </div>

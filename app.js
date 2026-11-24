@@ -868,7 +868,7 @@ function refreshSettingsSummary() {
     put('set-sum-banks', banks ? banks + ' connected' : 'None connected yet');
   }
   var fid = $('#faceid-status'), mins = $('#pref-lock-minutes');
-  if (fid && fid.textContent.trim()) put('set-sum-lock', fid.textContent + (mins ? ' · locks after ' + mins.value + ' min' : ''));
+  if (fid && faceIdStatusKnown) put('set-sum-lock', fid.textContent + (mins ? ' · locks after ' + mins.value + ' min' : ''));
   if (changed) try { localStorage.setItem(SET_SUMS_KEY, JSON.stringify(saved)); } catch (e) {}
 }
 (function wireSettingsPages() {
@@ -2027,9 +2027,18 @@ async function updateFaceIdSetting() {
   }
   if (count) { try { localStorage.setItem('alenjo_has_passkey', 'true'); } catch (e) {} }
   var on = count ? true : hasPasskeyHere();
-  status.textContent = count ? count + ' passkey' + (count !== 1 ? 's' : '') + ' saved' : (on ? 'On for this device' : 'Not set up yet');
+  var text = count ? count + ' passkey' + (count !== 1 ? 's' : '') + ' saved' : (on ? 'On for this device' : 'Not set up yet');
+  try { localStorage.setItem('alenjo_faceid_text', text); } catch (e) {}
+  faceIdStatusKnown = true;
+  if (status.textContent !== text) status.textContent = text;
   btn.textContent = on ? 'Add device' : 'Set up';
+  refreshSettingsSummary();
 }
+// Show the last known Face ID line right away instead of the page's placeholder
+var faceIdStatusKnown = false;
+(function() {
+  try { var t = localStorage.getItem('alenjo_faceid_text'); if (t && $('#faceid-status')) $('#faceid-status').textContent = t; } catch (e) {}
+})();
 var setupFaceIdBtn = $('#btn-setup-faceid');
 if (setupFaceIdBtn) setupFaceIdBtn.addEventListener('click', async function() {
   if (!window.PublicKeyCredential) { showToast('This browser does not support Face ID sign-in'); return; }
@@ -5741,7 +5750,7 @@ function renderTxSheetInner(tx) {
   $('#tx-action-merchant').textContent = name;
   $('#txs-name-adj').hidden = !eff.nickname;
   $('#txs-name-adj').textContent = 'Renamed';
-  $('#txs-name-btn').hidden = false; $('#txs-name-input').hidden = true;
+  $('#txs-name-btn').hidden = false; $('#txs-name-edit').hidden = true;
   var logo = txLogoUrl(tx, eff);
   $('#txs-avatar').setAttribute('data-i', name.charAt(0).toUpperCase());
   $('#txs-avatar').innerHTML = logo ? '<img src="' + esc(logo) + '" alt="" onerror="this.remove()">' : '';
@@ -5904,18 +5913,36 @@ function applyTxEditUi() {
   if (!txEditing || !actionTx) return;
   var tx = actionTx;
   var name = $('#txs-name-input');
-  $('#txs-name-btn').hidden = true; name.hidden = false;
+  $('#txs-name-btn').hidden = true; $('#txs-name-edit').hidden = false;
   if (document.activeElement !== name) name.value = txDraft.hasOwnProperty('_name') ? txDraft._name : (withTxPreview(function() { return getEffectiveTx(tx).nickname; }) || txBankName(tx));
   var amt = $('#txs-amt-input');
   $('#txs-amt-btn').hidden = true; $('#txs-amt-edit').hidden = false;
   if (document.activeElement !== amt) amt.value = txDraft.hasOwnProperty('_amt') ? txDraft._amt : withTxPreview(function() { return txCountedAmount(tx); }).toFixed(2);
+  fitInput(name); fitInput(amt);
+}
+// Size a text box to what's typed in it, so the pencil sits right after the text
+var fitCanvas;
+function fitInput(el) {
+  if (!el || !el.offsetParent) return;
+  fitCanvas = fitCanvas || document.createElement('canvas');
+  var ctx = fitCanvas.getContext('2d'), cs = getComputedStyle(el);
+  ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+  var ls = parseFloat(cs.letterSpacing) || 0, txt = el.value || el.placeholder || ' ';
+  el.style.width = Math.ceil(ctx.measureText(txt).width + ls * txt.length + 6) + 'px';
 }
 (function wireTxEditing() {
   var tog = $('#txs-edit-btn');
   if (!tog) return;
   tog.addEventListener('click', function() { if (actionTx) setTxEditing(!txEditing); });   // Cancel throws the edits away
-  $('#txs-name-input').addEventListener('input', function() { if (txEditing) txDraft._name = this.value; });
-  $('#txs-amt-input').addEventListener('input', function() { if (txEditing) txDraft._amt = this.value; });
+  $('#txs-name-input').addEventListener('input', function() { if (txEditing) txDraft._name = this.value; fitInput(this); });
+  $('#txs-amt-input').addEventListener('input', function() { if (txEditing) txDraft._amt = this.value; fitInput(this); });
+  // The pencil next to the amount or name puts you in that box
+  actionSheet.addEventListener('click', function(e) {
+    var pen = e.target.closest('[data-focus]');
+    if (!pen || !txEditing) return;
+    var el = $('#' + pen.getAttribute('data-focus'));
+    if (el) { el.focus(); try { var n = el.value.length; el.setSelectionRange(n, n); } catch (err) {} }
+  });
   ['#txs-name-input', '#txs-amt-input'].forEach(function(sel) {
     $(sel).addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
   });
