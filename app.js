@@ -207,6 +207,8 @@ async function getSessionSafe() {
 function trustedFor() { try { var t = JSON.parse(localStorage.getItem('alenjo_trusted') || 'null'); return t && t.until > Date.now() ? t : null; } catch (e) { return null; } }
 function setTrusted(uid) { try { localStorage.setItem('alenjo_trusted', JSON.stringify({ uid: uid, until: Date.now() + TRUST_DAYS * 86400000 })); } catch (e) {} }
 function clearTrusted() { try { localStorage.removeItem('alenjo_trusted'); } catch (e) {} }
+// The 30 days are up (the record is still here but past its date)
+function trustExpired() { try { var t = JSON.parse(localStorage.getItem('alenjo_trusted') || 'null'); return !!(t && t.until <= Date.now()); } catch (e) { return false; } }
 var resumeSession = null;   // a kept session waiting for Face ID or your password
 var awaitingUnlock = false;
 async function keepOrSignOut() {
@@ -327,6 +329,15 @@ function showPasswordReset() {
   $('#login-greeting').textContent = 'Choose a new password';
   $('#login-subtitle').textContent = 'At least 10 characters';
   try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  // With two-step on, Supabase only saves a new password after the code step: ask for it here
+  resetNeedsCode().then(function(need) { $('#reset-code-row').hidden = !need; });
+}
+async function resetNeedsCode() {
+  var s = await getSessionSafe();
+  if (!s) return false;
+  if (sessionAal(s) === 'aal2') return false;
+  try { var f = await sb.auth.mfa.listFactors(); return !!(f.data && f.data.totp && f.data.totp.some(function(x) { return x.status === 'verified'; })); }
+  catch (e) { return sessionNeedsCode(s); }
 }
 var resetForm = $('#reset-form');
 if (resetForm) resetForm.addEventListener('submit', async function(e) {
@@ -335,7 +346,25 @@ if (resetForm) resetForm.addEventListener('submit', async function(e) {
   err.hidden = true;
   if (pw.length < 10) { err.textContent = 'Use at least 10 characters.'; err.hidden = false; return; }
   if (pw !== pw2) { err.textContent = 'The passwords don\u2019t match.'; err.hidden = false; return; }
-  var btn = $('#reset-submit'); btn.disabled = true; btn.textContent = 'Saving…';
+  var btn = $('#reset-submit');
+  var codeRow = $('#reset-code-row');
+  if (codeRow && !codeRow.hidden) {
+    var raw = $('#reset-code').value.replace(/[^A-Za-z0-9]/g, '');
+    if (!/^\d{6}$/.test(raw) && raw.length !== 8) { err.textContent = 'Enter your 6-digit code or a backup code.'; err.hidden = false; return; }
+    btn.disabled = true; btn.textContent = 'Checking…';
+    try {
+      if (/^\d{6}$/.test(raw)) {
+        var fl = await sb.auth.mfa.listFactors();
+        var factor = fl.data && fl.data.totp && fl.data.totp.find(function(x) { return x.status === 'verified'; });
+        var v = factor ? await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code: raw }) : { error: new Error('none') };
+        if (v.error) throw new Error('That code didn’t work. Try the newest one.');
+      } else {
+        await callMfaRecovery({ action: 'use-code', code: raw });   // turns two-step off; set it up again in Settings
+        clearTrusted();
+      }
+    } catch (x) { err.textContent = x.message || 'That code didn’t work.'; err.hidden = false; btn.disabled = false; btn.textContent = 'Save password'; return; }
+  }
+  btn.disabled = true; btn.textContent = 'Saving…';
   var res = await sb.auth.updateUser({ password: pw });
   if (res.error) { err.textContent = res.error.message; err.hidden = false; btn.disabled = false; btn.textContent = 'Save password'; return; }
   // Done: end this temporary session and sign in normally
@@ -857,6 +886,14 @@ async function tryUnlock() {
     return;
   }
   if (unlocking) return;
+  // Trusted for 30 days and they're up (the app was never fully closed): same as opening fresh,
+  // your password and code again
+  if (trustExpired()) {
+    clearTrusted();
+    try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
+    location.reload();
+    return;
+  }
   unlocking = true;
   // Face ID is checked on a side client, so your current session (which already passed your
   // two-step code) stays in place. Signing in again on the main client replaced it with a
@@ -4325,6 +4362,13 @@ async function loadLiabilities() {
 // Update a list in place instead of rebuilding it: cards that didn't change keep the same
 // elements, so their card art and logos don't blink when balances refresh (on open, after a
 // sync, on returning to the app). Only the parts whose text or attributes changed are touched.
+// Logos that fail to load are removed (so the letter shows). One listener for the whole page
+// instead of inline onerror="" attributes, which the Content-Security-Policy blocks.
+document.addEventListener('error', function(e) {
+  var t = e.target;
+  if (t && t.tagName === 'IMG' && t.hasAttribute('data-hide-broken')) t.remove();
+}, true);
+
 function morphInto(parent, html) {
   var t = document.createElement('template');
   t.innerHTML = html;
@@ -5468,7 +5512,7 @@ function renderTransactionMonth() {
       // Store logo (see txLogoUrl); the first letter shows underneath as a fallback
       var logoSrc = pic(txLogoUrl(tx, eff));
       var avatar = '<span class="act-avatar" data-i="' + esc(name.charAt(0).toUpperCase()) + '">' +
-        (logoSrc ? '<img src="' + esc(logoSrc) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
+        (logoSrc ? '<img src="' + esc(logoSrc) + '" alt="" loading="lazy" data-hide-broken>' : '') + '</span>';
       var amountMain = (income ? '+' : '−') + formatMoney((eff.isSplit || eff.isAdjusted) && !eff.excluded ? eff.amount : tx.amount);
       html += '<div class="tx-row act-row' + (eff.excluded || movedEarlier[tx.id] ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
         avatar +
@@ -6101,7 +6145,7 @@ function renderTxSheetInner(tx) {
   $('#txs-name-btn').hidden = false; $('#txs-name-edit').hidden = true;
   var logo = pic(txLogoUrl(tx, eff));
   $('#txs-avatar').setAttribute('data-i', name.charAt(0).toUpperCase());
-  $('#txs-avatar').innerHTML = logo ? '<img src="' + esc(logo) + '" alt="" onerror="this.remove()">' : '';
+  $('#txs-avatar').innerHTML = logo ? '<img src="' + esc(logo) + '" alt="" data-hide-broken>' : '';
 
   var parts = [];
   var acctNm = tx.plaid_account_id ? buildAccountMap()[tx.plaid_account_id] : 'Cash';
@@ -6322,7 +6366,7 @@ function fitInput(el) {
     var mine = customLogos.filter(function(l) { return !term || l.name.toLowerCase().indexOf(term) !== -1 || term.indexOf(l.name.toLowerCase()) !== -1; });
     var mineHtml = mine.map(function(l) {
       return '<div class="logo-tile-wrap"><button type="button" class="logo-tile' + (current === 'custom:' + l.id ? ' on' : '') + '" data-domain="custom:' + esc(l.id) + '">' +
-        '<span class="logo-img mine" data-i="' + esc(l.name.charAt(0).toUpperCase()) + '">' + (l.url ? '<img src="' + esc(l.url) + '" alt="" onerror="this.remove()">' : '') + '</span>' +
+        '<span class="logo-img mine" data-i="' + esc(l.name.charAt(0).toUpperCase()) + '">' + (l.url ? '<img src="' + esc(l.url) + '" alt="" data-hide-broken>' : '') + '</span>' +
         '<span class="logo-name">' + esc(l.name) + '</span><span class="logo-domain">Your logo</span></button>' +
         '<button type="button" class="logo-del" data-del-logo="' + esc(l.id) + '" aria-label="Delete ' + esc(l.name) + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
     }).join('');
@@ -6333,7 +6377,7 @@ function fitInput(el) {
     var found = results;
     out.innerHTML = none + mineHtml + upload + (found.length ? found.map(function(r) {
       return '<button type="button" class="logo-tile' + (r.domain === current ? ' on' : '') + '" data-domain="' + esc(r.domain) + '">' +
-        '<span class="logo-img" data-i="' + esc((r.name || r.domain).charAt(0).toUpperCase()) + '"><img src="' + esc(logoByDomain(r.domain, 96)) + '" alt="" loading="lazy" onerror="this.remove()"></span>' +
+        '<span class="logo-img" data-i="' + esc((r.name || r.domain).charAt(0).toUpperCase()) + '"><img src="' + esc(logoByDomain(r.domain, 96)) + '" alt="" loading="lazy" data-hide-broken></span>' +
         '<span class="logo-name">' + esc(r.name) + '</span><span class="logo-domain">' + esc(r.domain) + '</span></button>';
     }).join('') : (mine.length ? '' : '<p class="logo-empty">' + (q.value.trim().length < 2 ? 'Type a store name to see logos.' : 'No logos found. Upload your own, or try a shorter name or the website, like “claude.ai”.') + '</p>'));
   }
