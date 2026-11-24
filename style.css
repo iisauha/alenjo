@@ -4225,7 +4225,6 @@ html.boot-locked #screen-login { visibility: hidden; }
 /* Cards in the bank's own colors (no card art yet) */
 .acct-badge.acct-badge-bank { position: relative; width: 68px; height: 43px; border-radius: 6px; margin-top: 3px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
 .acct-bank-logo { position: absolute; top: 6px; left: 6px; width: 16px; height: 16px; border-radius: 4px; background: #FFFFFF center / 82% no-repeat; }
-.acct-badge-bank::after { content: ''; position: absolute; left: 6px; bottom: 7px; width: 14px; height: 10px; border-radius: 2px; background: rgba(255,255,255,0.35); }
 .txs-card-art.is-bank { position: relative; background-size: auto; }
 .txs-card-art.is-bank .acct-bank-logo { top: 5px; left: 5px; width: 14px; height: 14px; }
 
@@ -4238,7 +4237,7 @@ html.boot-locked #screen-login { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .ptr-leaf.is-spinning img { animation: ptrFade 1.2s ease-in-out infinite; } @keyframes ptrFade { 50% { opacity: 0.4; } } }
 
 /* Bank-color cards: last four on the small card; the big card in the account popup */
-.acct-bank-mask { position: absolute; right: 6px; bottom: 5px; font-size: 8px; line-height: 1; font-weight: 600; letter-spacing: 0.04em; color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums; }
+.acct-bank-mask { position: absolute; left: 7px; bottom: 6px; font-size: 8px; line-height: 1; font-weight: 600; letter-spacing: 0.04em; color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums; }
 .manage-cardface.is-bank { background-image: none; color: #FFFFFF; }
 .manage-cardface.is-bank .mcf-bank { display: flex; align-items: center; gap: 10px; }
 .manage-cardface.is-bank .mcf-mask { color: rgba(255,255,255,0.85); }
