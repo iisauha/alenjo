@@ -360,7 +360,7 @@ if (resetForm) resetForm.addEventListener('submit', async function(e) {
         if (v.error) throw new Error('That code didn’t work. Try the newest one.');
       } else {
         await callMfaRecovery({ action: 'use-code', code: raw });   // turns two-step off; set it up again in Settings
-        clearTrusted();
+        clearTrusted(); markMfaReset();
       }
     } catch (x) { err.textContent = x.message || 'That code didn’t work.'; err.hidden = false; btn.disabled = false; btn.textContent = 'Save password'; return; }
   }
@@ -593,12 +593,13 @@ async function callMfaRecovery(body) {
 // Two-step is off now: you're in. Set it up again in Settings.
 async function finishRecovered() {
   clearTrusted();
+  markMfaReset();
   if (isEmailLink) { try { history.replaceState(null, '', location.pathname); } catch (e) {} isEmailLink = false; }
   var s = null;
   try { s = (await sb.auth.refreshSession()).data.session; } catch (e) {}
   if (!s) s = await getSessionSafe();
   if (s && s.user) s.user.factors = [];   // just removed on the server
-  showToast('Two-step sign-in is off. Turn it on again in Settings.');
+  showToast('Two-step sign-in is off. Set it up again in Settings → Sign-in and lock.');
   if (s) finishSignIn(s);
 }
 function showMfaErr(id, msg) { var el = $(id); if (el) { el.textContent = msg; el.hidden = false; } }
@@ -3107,11 +3108,18 @@ async function refreshMfaStatus() {
   st.textContent = mfaFactor ? 'On · Alenjo asks for a code after your password' : 'Off · a code from an authenticator app after your password';
   btn.textContent = mfaFactor ? 'Turn off' : 'Turn on';
   $('#mfa-backup').hidden = !mfaFactor;
+  if (mfaFactor) clearMfaReset();
+  $('#mfa-reset-warn').hidden = !!mfaFactor || !mfaResetPending();
   if (mfaFactor) { loadBackupCodes(backupMakeNew); backupMakeNew = false; }
 }
 // Backup codes in Settings: always shown while two-step is on (kept encrypted on the server).
 // The first time (or after using one to get in), a set of 10 is made for you.
 var backupCodes = [], backupMakeNew = false;
+// After a backup code or the email link turned two-step off: a red reminder in Settings until
+// it's set up again (old authenticator entry and old backup codes no longer work)
+function markMfaReset() { try { localStorage.setItem('alenjo_mfa_reset', '1'); } catch (e) {} }
+function clearMfaReset() { try { localStorage.removeItem('alenjo_mfa_reset'); } catch (e) {} }
+function mfaResetPending() { try { return localStorage.getItem('alenjo_mfa_reset') === '1'; } catch (e) { return false; } }
 async function loadBackupCodes(makeNew) {
   var grid = $('#mfa-backup-grid'), err = $('#mfa-codes-error');
   if (!grid) return;
