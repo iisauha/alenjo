@@ -4242,6 +4242,5 @@ html.boot-locked #screen-login { visibility: hidden; }
 .manage-cardface.is-bank .mcf-bank { display: flex; align-items: center; gap: 10px; }
 .manage-cardface.is-bank .mcf-mask { color: rgba(255,255,255,0.85); }
 .mcf-logo { width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; background: #FFFFFF center / 80% no-repeat; }
-.mcf-chip { position: absolute; left: 20px; top: 42%; width: 40px; height: 30px; border-radius: 6px; background: rgba(255,255,255,0.32); }
 .manage-back-thumb { position: relative; }
 .manage-back-thumb .acct-bank-logo { top: 50%; left: 50%; transform: translate(-50%, -50%); }

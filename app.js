@@ -5194,7 +5194,6 @@ function renderManageCardFace(acct) {
   }
   face.innerHTML = design ? '<img src="' + esc(design.url) + '" alt="' + esc(name) + ' card">' :
     '<span class="mcf-bank">' + (bankCol ? '<span class="mcf-logo" style="background-image:url(' + esc(pic(logo)) + ')"></span>' : '') + esc(acct.institution || '') + '</span>' +
-    (bankCol ? '<span class="mcf-chip"></span>' : '') +
     '<span class="mcf-name">' + esc(name) + '</span>' +
     '<span class="mcf-mask">' + (acct.mask ? '•••• ' + esc(shownMask(acct.mask)) : '') + '</span>';
 }
