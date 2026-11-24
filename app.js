@@ -5936,10 +5936,10 @@ function exportRows(month) {
   txData.forEach(function(tx) {
     if (cardId !== 'all' && tx.plaid_account_id !== cardId) return;
     var eff = getEffectiveTx(tx);
-    if (eff.actionType === 'ignored' || eff.removedByBank) return;
+    // Only what counts, same as Activity's totals: nothing ignored, reimbursed or removed by your bank
+    if (eff.excluded) return;
     if (month && eff.date.slice(0, 7) !== month) return;
     var status = tx.pending ? 'Pending'
-      : eff.actionType === 'reimbursed' ? 'Reimbursed'
       : eff.isAdjusted ? 'Adjusted'
       : eff.isSplit ? (eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split')
       : !tx.plaid_account_id ? 'Manual' : '';
