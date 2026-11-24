@@ -402,7 +402,7 @@ checkForUpdate();
 // ============================================
 // Signed out on purpose (Sign out button): only then does reopening show the email sign-in.
 // Any other reopen (iOS closed the app, auto-lock) shows the Face ID lock screen instead.
-function markSignedOut() { try { localStorage.setItem('alenjo_signed_out', '1'); } catch (e) {} }
+function markSignedOut() { try { localStorage.setItem('alenjo_signed_out', '1'); localStorage.removeItem('alenjo_set_sums'); } catch (e) {} }
 function signedOutOnPurpose() { try { return localStorage.getItem('alenjo_signed_out') === '1'; } catch (e) { return true; } }
 var coldLocked = false;
 function showColdLock() {
@@ -832,20 +832,44 @@ function closeSetPage(toTop) {
   $('#tab-settings').scrollTop = toTop ? 0 : setMainScroll;
   syncSettingsHeader();
 }
+// The Settings rows' little summaries. Each is only written once its data has loaded (so a row
+// never shows "Off" or "None connected yet" for a moment before the real answer), and the last
+// values are kept on this device so they're already right when the app opens.
+var SET_SUMS_KEY = 'alenjo_set_sums';
+function paintCachedSettingsSummary() {
+  try {
+    var m = JSON.parse(localStorage.getItem(SET_SUMS_KEY) || '{}');
+    Object.keys(m).forEach(function(id) { var el = $('#' + id); if (el && typeof m[id] === 'string') el.textContent = m[id]; });
+  } catch (e) {}
+}
+paintCachedSettingsSummary();
+var notifSettingsLoaded = false;
 function refreshSettingsSummary() {
-  var put = function(id, text) { var el = $('#' + id); if (el && el.textContent !== text) el.textContent = text; };
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(SET_SUMS_KEY) || '{}'); } catch (e) {}
+  var changed = false;
+  var put = function(id, text) {
+    var el = $('#' + id);
+    if (el && el.textContent !== text) el.textContent = text;
+    if (saved[id] !== text) { saved[id] = text; changed = true; }
+  };
   var opts = $('#notif-options'), on = opts && !opts.hidden;
-  if (on && notifSettings) {
+  if (!notifSettingsLoaded && !notifSettings) {
+    // not loaded yet: keep what's showing
+  } else if (on && notifSettings) {
     var kinds = [notifSettings.purchases ? 'purchases' : '', notifSettings.deposits ? 'deposits' : '', notifSettings.bills !== false ? 'payments due' : ''].filter(Boolean);
     var said = kinds.length > 1 ? kinds.slice(0, -1).join(', ') + ' and ' + kinds[kinds.length - 1] : kinds[0];
     put('set-sum-notif', kinds.length ? 'On · ' + said : 'On · everything paused');
   } else {
     put('set-sum-notif', typeof Notification !== 'undefined' && Notification.permission === 'denied' ? 'Blocked in iPhone Settings' : 'Off');
   }
-  var banks = document.querySelectorAll('#accounts-list .settings-institution').length;
-  put('set-sum-banks', banks ? banks + ' connected' : 'None connected yet');
+  if (cachedAccounts !== null) {
+    var banks = document.querySelectorAll('#accounts-list .settings-institution').length;
+    put('set-sum-banks', banks ? banks + ' connected' : 'None connected yet');
+  }
   var fid = $('#faceid-status'), mins = $('#pref-lock-minutes');
-  put('set-sum-lock', (fid ? fid.textContent : '') + (mins ? ' · locks after ' + mins.value + ' min' : ''));
+  if (fid && fid.textContent.trim()) put('set-sum-lock', fid.textContent + (mins ? ' · locks after ' + mins.value + ' min' : ''));
+  if (changed) try { localStorage.setItem(SET_SUMS_KEY, JSON.stringify(saved)); } catch (e) {}
 }
 (function wireSettingsPages() {
   var tab = $('#tab-settings');
@@ -2418,6 +2442,7 @@ async function renderNotifications() {
       '<span class="notif-device-actions">' + (mine ? '<button type="button" class="notif-test" data-test-device="1">Test</button>' : '') +
       '<button type="button" class="notif-remove" data-remove-device="' + esc(d.id) + '"' + (mine ? ' data-mine="1"' : '') + '>Remove</button></span></div>';
   }).join('');
+  notifSettingsLoaded = true;
   notifSettings = st.data || { purchases: true, deposits: true, bills: true, min_amount: 0, quiet: true };
   try {
     localStorage.setItem(NOTIF_CACHE, JSON.stringify(notifSettings));
@@ -3942,6 +3967,35 @@ async function loadLiabilities() {
 }
 
 
+// Update a list in place instead of rebuilding it: cards that didn't change keep the same
+// elements, so their card art and logos don't blink when balances refresh (on open, after a
+// sync, on returning to the app). Only the parts whose text or attributes changed are touched.
+function morphInto(parent, html) {
+  var t = document.createElement('template');
+  t.innerHTML = html;
+  morphChildren(parent, t.content);
+}
+function morphChildren(oldP, newP) {
+  var oldKids = Array.prototype.slice.call(oldP.childNodes), newKids = Array.prototype.slice.call(newP.childNodes);
+  newKids.forEach(function(n, i) {
+    var o = oldKids[i];
+    if (!o) { oldP.appendChild(n); return; }
+    var sameKind = o.nodeType === n.nodeType && o.nodeName === n.nodeName &&
+      (o.nodeType !== 1 || o.getAttribute('data-id') === n.getAttribute('data-id'));
+    if (!sameKind) { oldP.replaceChild(n, o); return; }
+    if (o.nodeType !== 1) { if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue; return; }
+    morphEl(o, n);
+  });
+  for (var j = oldKids.length - 1; j >= newKids.length; j--) oldP.removeChild(oldKids[j]);
+}
+function morphEl(o, n) {
+  if (o.isEqualNode(n)) return;
+  Array.prototype.forEach.call(n.attributes, function(a) { if (o.getAttribute(a.name) !== a.value) o.setAttribute(a.name, a.value); });
+  Array.prototype.slice.call(o.attributes).forEach(function(a) { if (!n.hasAttribute(a.name)) o.removeAttribute(a.name); });
+  if (o.tagName === 'INPUT') { o.checked = n.checked; if (document.activeElement !== o) o.value = n.value; }
+  morphChildren(o, n);
+}
+
 function renderSection(listEl, items, type) {
   // Your own order first (Settings → Accounts), then largest balance first
   var sorted = items.slice().sort(function(a, b) {
@@ -3950,36 +4004,34 @@ function renderSection(listEl, items, type) {
     return Math.abs(getDisplayBalance(b, type).amount) - Math.abs(getDisplayBalance(a, type).amount);
   });
 
-  listEl.innerHTML = sorted.map(function(a) { return accountCard(a, type); }).join('');
+  morphInto(listEl, sorted.map(function(a) { return accountCard(a, type); }).join(''));
 
+  // Page dots: kept in place (and on the card you were looking at) across refreshes
   var dotsEl = listEl.parentElement.querySelector('.scroll-dots');
-  if (dotsEl) dotsEl.remove();
-
+  var syncDots = function() {
+    var d = listEl.parentElement.querySelector('.scroll-dots');
+    if (!d) return;
+    var cardWidth = listEl.firstElementChild ? listEl.firstElementChild.offsetWidth : 1;
+    var idx = Math.round(listEl.scrollLeft / (cardWidth || 1));
+    d.querySelectorAll('.scroll-dot').forEach(function(dot, j) { dot.classList.toggle('active', j === idx); });
+  };
   if (sorted.length > 1) {
-    var dots = document.createElement('div');
-    dots.className = 'scroll-dots';
-    for (var i = 0; i < sorted.length; i++) {
-      var dot = document.createElement('div');
-      dot.className = 'scroll-dot' + (i === 0 ? ' active' : '');
-      dots.appendChild(dot);
+    if (!dotsEl) { dotsEl = document.createElement('div'); dotsEl.className = 'scroll-dots'; listEl.parentElement.appendChild(dotsEl); }
+    if (dotsEl.children.length !== sorted.length) {
+      dotsEl.innerHTML = '';
+      for (var i = 0; i < sorted.length; i++) { var dot = document.createElement('div'); dot.className = 'scroll-dot'; dotsEl.appendChild(dot); }
     }
-    listEl.parentElement.appendChild(dots);
-
-    var scrollTicking = false;
-    listEl.addEventListener('scroll', function() {
-      if (!scrollTicking) {
-        requestAnimationFrame(function() {
-          var cardWidth = listEl.firstElementChild ? listEl.firstElementChild.offsetWidth : 1;
-          var idx = Math.round(listEl.scrollLeft / cardWidth);
-          dots.querySelectorAll('.scroll-dot').forEach(function(d, j) {
-            d.classList.toggle('active', j === idx);
-          });
-          scrollTicking = false;
-        });
+    syncDots();
+    if (!listEl._dotsWired) {
+      listEl._dotsWired = true;
+      var scrollTicking = false;
+      listEl.addEventListener('scroll', function() {
+        if (scrollTicking) return;
         scrollTicking = true;
-      }
-    }, { passive: true });
-  }
+        requestAnimationFrame(function() { syncDots(); scrollTicking = false; });
+      }, { passive: true });
+    }
+  } else if (dotsEl) dotsEl.remove();
 }
 
 function accountCard(account, type) {
@@ -6189,7 +6241,7 @@ function closeActionSheet(force) {
     setTxEditing(false);
   }
   txEditing = false; txDraft = {}; txDraftLogo = undefined;
-  $('#txs-confirm').hidden = true;
+  $('#txs-confirm').hidden = true; $('#txs-reset-confirm').hidden = true;
   saveTxNote();
   actionSheet.classList.remove('visible');
   actionTxId = null;
@@ -6280,9 +6332,21 @@ document.querySelectorAll('.action-toggle').forEach(function(btn) {
 });
 
 // Clear all
+// Only in edit mode, and only after "Are you sure?"
 document.querySelector('.action-option-clear').addEventListener('click', function() {
+  if (!actionTxId || !txEditing) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  $('#txs-reset-confirm').hidden = false;
+});
+$('#txs-reset-no').addEventListener('click', function() { $('#txs-reset-confirm').hidden = true; });
+$('#txs-reset-confirm').addEventListener('click', function(e) { if (e.target === this) this.hidden = true; });
+$('#txs-reset-yes').addEventListener('click', function() {
+  $('#txs-reset-confirm').hidden = true;
   if (!actionTxId) return;
-  clearTxAction(actionTxId);
+  var id = actionTxId;
+  setTxEditing(false);   // drop any unsaved edits too
+  clearTxAction(id);
+  showToast('Back to your bank’s details');
 });
 
 // Delete manual transaction
