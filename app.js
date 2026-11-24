@@ -7998,62 +7998,11 @@ function flashSaved(btn) {
       if (cancel) cancel.click();
     }
   }, true);
-  // Same as tapping outside: used by swipe-down below
+  // Same as tapping outside
   window.closePopupOverlay = function(t) {
     downOn = t;
     t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   };
-})();
-
-// Swipe a bottom popup down to close it (as well as tapping outside or Cancel).
-// Only starts when the popup is scrolled to the top and the drag is mostly downward,
-// and never from a slider, a sideways strip (card designs) or a crop/drawing area.
-(function wireSwipeToClose() {
-  var card = null, overlay = null, y0 = 0, x0 = 0, t0 = 0, dy = 0, dragging = false;
-  function sheetOf(el) {
-    var c = el.closest('.action-sheet, .modal-card');
-    if (!c) return null;
-    var ov = c.closest('.action-sheet-overlay, .modal-overlay');
-    if (!ov || !ov.classList.contains('visible')) return null;
-    if (getComputedStyle(ov).alignItems !== 'flex-end') return null;   // centred dialogs stay put
-    return c;
-  }
-  document.addEventListener('touchstart', function(e) {
-    if (e.touches.length !== 1) return;
-    var t = e.target;
-    if (t.closest('input[type="range"], .card-design-picker, canvas, .card-crop-card, .card-refine-card, .act-legend, textarea')) return;
-    card = sheetOf(t);
-    if (!card) return;
-    overlay = card.closest('.action-sheet-overlay, .modal-overlay');
-    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; t0 = Date.now(); dy = 0; dragging = false;
-  }, { passive: true });
-  document.addEventListener('touchmove', function(e) {
-    if (!card) return;
-    var my = e.touches[0].clientY - y0, mx = e.touches[0].clientX - x0;
-    if (!dragging) {
-      if (my < 8 || Math.abs(mx) > my || card.scrollTop > 0) { if (Math.abs(my) > 8 || Math.abs(mx) > 8) card = null; return; }
-      dragging = true;
-      card.style.transition = 'none';
-      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    }
-    dy = Math.max(0, my);
-    card.style.transform = 'translateY(' + dy + 'px)';
-    e.preventDefault();
-  }, { passive: false });
-  function end() {
-    if (!card) return;
-    var c = card, ov = overlay, v = dy / Math.max(1, Date.now() - t0);
-    card = null;
-    if (!dragging) return;
-    dragging = false;
-    c.style.transition = '';
-    var shut = dy > Math.min(140, c.offsetHeight * 0.3) || (v > 0.6 && dy > 40);
-    // Let the popup's own closing animation carry on from where the finger left it
-    requestAnimationFrame(function() { c.style.transform = ''; });
-    if (shut) window.closePopupOverlay(ov);
-  }
-  document.addEventListener('touchend', end);
-  document.addEventListener('touchcancel', end);
 })();
 
 // Settings > Your logos: rename in place, delete with a second tap
