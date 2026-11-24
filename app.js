@@ -3976,8 +3976,9 @@ function brandColorOf(img) {
   if (lum > 170) { var f = 170 / lum; R = Math.round(R * f); G = Math.round(G * f); B = Math.round(B * f); }
   return '#' + [R, G, B].map(function(v) { return v.toString(16).padStart(2, '0'); }).join('');
 }
-function bankCardHtml(color, logo) {
-  return '<div class="acct-badge acct-badge-bank" style="background-color:' + color + '"><span class="acct-bank-logo" style="background-image:url(' + esc(logo) + ')"></span></div>';
+function bankCardHtml(color, logo, mask) {
+  return '<div class="acct-badge acct-badge-bank" style="background-color:' + color + '"><span class="acct-bank-logo" style="background-image:url(' + esc(logo) + ')"></span>' +
+    (mask ? '<span class="acct-bank-mask">•• ' + esc(mask) + '</span>' : '') + '</div>';
 }
 
 // ============================================
@@ -5088,7 +5089,7 @@ function accountCard(account, type) {
   logoUrl = logoUrl ? pic(logoUrl) : null;
   var bankCol = !artSrc && logoUrl ? bankColor(account) : null;
   var badge = artSrc ? '<div class="acct-badge acct-badge-art" style="background-image:url(' + esc(artSrc) + ')"></div>'
-    : logoUrl && bankCol ? bankCardHtml(bankCol, logoUrl)
+    : logoUrl && bankCol ? bankCardHtml(bankCol, logoUrl, account.mask ? shownMask(account.mask) : '')
     : logoUrl ? '<div class="acct-badge acct-badge-logo" style="background-image:url(' + esc(logoUrl) + ')"></div>'
     : '<div class="acct-badge acct-badge-initial">' + esc((account.institution || displayName).charAt(0).toUpperCase()) + '</div>';
   var cleanName = account.nickname ? displayName : displayName.replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
@@ -5172,13 +5173,21 @@ function renderManageCardFace(acct) {
   var sel = $('#card-design-picker') && $('#card-design-picker').querySelector('.card-design-option.selected');
   var designId = sel ? (sel.dataset.designId || null) : acct.card_design_id;
   var design = designId ? getCardDesignById(designId) : null;
-  face.className = 'manage-cardface' + (design ? ' has-art' : '');
+  // No card art: the bank's own color with its logo, like the small card on Home
+  var bankCol = !design ? bankColor(acct) : null, logo = bankCol ? getLogoUrl(acct) : null;
+  face.className = 'manage-cardface' + (design ? ' has-art' : bankCol ? ' is-bank' : '');
   face.style.backgroundImage = '';
+  face.style.backgroundColor = bankCol || '';
   var name = nicknameInput.value.trim() || acct.name || 'Account';
   var thumb = $('#manage-back-thumb');
-  if (thumb) { thumb.className = 'manage-back-thumb' + (design ? ' has-art' : ''); thumb.innerHTML = design ? '<img src="' + esc(design.url) + '" alt="">' : esc((acct.institution || name).charAt(0).toUpperCase()); }
+  if (thumb) {
+    thumb.className = 'manage-back-thumb' + (design ? ' has-art' : '');
+    thumb.style.backgroundColor = bankCol || '';
+    thumb.innerHTML = design ? '<img src="' + esc(design.url) + '" alt="">' : bankCol ? '<span class="acct-bank-logo" style="background-image:url(' + esc(pic(logo)) + ')"></span>' : esc((acct.institution || name).charAt(0).toUpperCase());
+  }
   face.innerHTML = design ? '<img src="' + esc(design.url) + '" alt="' + esc(name) + ' card">' :
-    '<span class="mcf-bank">' + esc(acct.institution || '') + '</span>' +
+    '<span class="mcf-bank">' + (bankCol ? '<span class="mcf-logo" style="background-image:url(' + esc(pic(logo)) + ')"></span>' : '') + esc(acct.institution || '') + '</span>' +
+    (bankCol ? '<span class="mcf-chip"></span>' : '') +
     '<span class="mcf-name">' + esc(name) + '</span>' +
     '<span class="mcf-mask">' + (acct.mask ? '•••• ' + esc(shownMask(acct.mask)) : '') + '</span>';
 }
