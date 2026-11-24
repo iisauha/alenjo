@@ -3449,7 +3449,8 @@ async function resolveLogos() {
 // Store logo for a transaction: Plaid's logo first, then logo.dev by the store's
 // website, then logo.dev by the store's name (your rename or Plaid's merchant name).
 // Transfers and deposits with no store behind them keep the letter.
-var merchantLogos = {};   // store (bank name, lowercase) -> logo domain you picked
+// A logo you picked lives on that one transaction (transaction_actions.logo_override), like its name
+function txLogoPick(tx) { var a = tx && txActions[tx.id]; return (a && a.logo_override) || null; }
 
 // ---- Your own logos: uploaded images with a name, found by the logo search ----
 var customLogos = [];   // { id, name, storage_path, url }
@@ -3498,9 +3499,9 @@ async function uploadCustomLogo(file, name) {
 async function deleteCustomLogo(id) {
   var logo = customLogoById(id); if (!logo) return;
   customLogos = customLogos.filter(function(l) { return l.id !== id; });
-  // Stores that used it go back to the automatic logo
-  Object.keys(merchantLogos).forEach(function(k) { if (merchantLogos[k] === 'custom:' + id) delete merchantLogos[k]; });
-  await sb.from('merchant_logos').delete().eq('domain', 'custom:' + id);
+  // Transactions that used it go back to the automatic logo
+  Object.keys(txActions).forEach(function(k) { if (txActions[k] && txActions[k].logo_override === 'custom:' + id) txActions[k].logo_override = null; });
+  await sb.from('transaction_actions').update({ logo_override: null }).eq('user_id', currentUser.id).eq('logo_override', 'custom:' + id);
   await sb.from('custom_logos').delete().eq('id', id);
   sb.storage.from('logos').remove([logo.storage_path]);
   renderCustomLogosSettings();
@@ -3518,12 +3519,11 @@ function renderCustomLogosSettings() {
       '<button type="button" class="mylogo-del" aria-label="Delete ' + esc(l.name) + '">Delete</button></div>';
   }).join('');
 }
-function merchantKey(tx) { return String(tx.merchant_name || tx.name || '').trim().toLowerCase().slice(0, 120); }
 function logoByDomain(domain, size) { return 'https://img.logo.dev/' + encodeURIComponent(domain) + '?token=' + LOGO_KEY + '&size=' + (size || 64) + '&retina=true&format=png&fallback=404'; }
 function txLogoUrl(tx, eff) {
   var q = '?token=' + LOGO_KEY + '&size=64&retina=true&format=png&fallback=404';
-  // 1. A logo you picked for this store
-  var picked = merchantLogos[merchantKey(tx)];
+  // 1. A logo you picked for this transaction
+  var picked = txLogoPick(tx);
   if (picked === 'none') return null;   // you chose no logo: show the letter instead
   if (picked && picked.indexOf('custom:') === 0) { var mine = customLogoById(picked.slice(7)); return mine ? mine.url : null; }
   if (picked) return logoByDomain(picked);
@@ -5065,14 +5065,11 @@ async function loadTransactions() {
   }
 
   // Load user actions and ignore rules
-  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, amount_override, category_override, nickname, note, date_override').order('transaction_id'); });
+  var actionsResult = await fetchAllRows(function() { return sb.from('transaction_actions').select('transaction_id, action_type, split_ways, split_portion, amount_override, category_override, nickname, note, date_override, logo_override').order('transaction_id'); });
   txActions = {};
   if (actionsResult.data) {
     actionsResult.data.forEach(function(a) { txActions[a.transaction_id] = a; });
   }
-  var logoResult = await sb.from('merchant_logos').select('merchant_key, domain');
-  merchantLogos = {};
-  if (logoResult.data) logoResult.data.forEach(function(r) { merchantLogos[r.merchant_key] = r.domain; });
   await loadCustomLogos();
   var mapResult = await sb.from('user_category_map').select('source, display');
   catMap = {};
@@ -6266,18 +6263,16 @@ function txBankName(tx) { return tx.enriched_merchant_name || tx.merchant_name |
 function txDraftAction() {
   var a = Object.assign({}, txActions[actionTxId] || {});
   Object.keys(txDraft).forEach(function(k) { if (k.charAt(0) !== '_') a[k] = txDraft[k]; });
+  if (txDraftLogo !== undefined) a.logo_override = txDraftLogo === 'auto' ? null : txDraftLogo;
   return a;
 }
-// Run fn as if the edits were saved (only touches this transaction and its store logo, then puts them back)
+// Run fn as if the edits were saved (only touches this transaction, then puts it back)
 function withTxPreview(fn) {
   if (!txEditing || !actionTx) return fn();
   var id = actionTx.id, hadA = txActions.hasOwnProperty(id), oldA = txActions[id];
-  var key = merchantKey(actionTx), logoOn = key && txDraftLogo !== undefined, hadL = logoOn && merchantLogos.hasOwnProperty(key), oldL = logoOn ? merchantLogos[key] : null;
   txActions[id] = txDraftAction();
-  if (logoOn) { if (txDraftLogo === 'auto') delete merchantLogos[key]; else merchantLogos[key] = txDraftLogo; }
   try { return fn(); } finally {
     if (hadA) txActions[id] = oldA; else delete txActions[id];
-    if (logoOn) { if (hadL) merchantLogos[key] = oldL; else delete merchantLogos[key]; }
   }
 }
 // From a picker: in edit mode, hold the change until Save; otherwise save now
@@ -6319,12 +6314,11 @@ function txPendingEdits(validate) {
       upd.split_portion = null; upd.split_ways = null;
     }
   }
+  if (txDraftLogo !== undefined) upd.logo_override = txDraftLogo === 'auto' ? null : txDraftLogo;
   var saved = txActions[tx.id] || {};
   Object.keys(upd).forEach(function(k) { if (!sameVal(upd[k], saved[k])) out.updates[k] = upd[k]; });
   // Splitting or adjusting something you'd ignored counts it again (same as before)
   if ((out.updates.split_ways || out.updates.split_portion || out.updates.category_override) && (saved.action_type === 'ignored' || saved.action_type === 'reimbursed')) out.updates.action_type = null;
-  var key = merchantKey(tx);
-  if (key && txDraftLogo !== undefined && txDraftLogo !== (merchantLogos[key] || 'auto')) out.logo = txDraftLogo;
   return out;
 }
 function txHasEdits() { var r = txPendingEdits(false); return Object.keys(r.updates).length > 0 || r.logo !== undefined; }
@@ -6340,16 +6334,6 @@ function saveTxEdits() {
   if (r.error) { showToast(r.error); return false; }
   var tx = actionTx, any = Object.keys(r.updates).length > 0 || r.logo !== undefined;
   txEditing = false; txDraft = {}; txDraftLogo = undefined;
-  if (r.logo !== undefined) {
-    var key = merchantKey(tx);
-    if (r.logo === 'auto') { delete merchantLogos[key]; sb.from('merchant_logos').delete().eq('merchant_key', key).then(function() {}); }
-    else {
-      merchantLogos[key] = r.logo;
-      sb.from('merchant_logos').upsert({ merchant_key: key, domain: r.logo, updated_at: new Date().toISOString() }, { onConflict: 'user_id,merchant_key' })
-        .then(function(res) { if (res.error) showToast('Couldn’t save the logo'); });
-    }
-    renderTransactionMonth();
-  }
   if (Object.keys(r.updates).length) saveMultiAction(tx.id, r.updates, { quiet: true });
   showMainOptions();
   renderTxSheet(tx);
@@ -6416,13 +6400,13 @@ function fitInput(el) {
   $('#txs-confirm').addEventListener('click', function(e) { if (e.target === this) this.hidden = true; });
 })();
 
-// Logo picker: tap the logo in the sheet, type, pick. Applies to every transaction from that store.
+// Logo picker: tap the logo in the sheet, type, pick. Applies to this transaction only.
 (function wireLogoPicker() {
   var btn = $('#txs-avatar-btn'), q = $('#logo-q'), out = $('#logo-results');
   if (!btn) return;
   var timer = null, seq = 0, lastResults = [];
   function tiles(results) {
-    var current = withTxPreview(function() { return merchantLogos[merchantKey(actionTx)]; });
+    var current = withTxPreview(function() { return txLogoPick(actionTx); });
     var eff = getEffectiveTx(actionTx);
     var letter = ((eff.nickname || actionTx.merchant_name || actionTx.name || '?').replace(/^(to|from)\s+/i, '').trim().charAt(0) || '?').toUpperCase();
     var none = '<button type="button" class="logo-tile' + (current === 'none' ? ' on' : '') + '" data-domain="none">' +
@@ -6469,7 +6453,7 @@ function fitInput(el) {
     closeForm();
     var eff = withTxPreview(function() { return getEffectiveTx(actionTx); });
     q.value = (txDraft._name || '').trim() || eff.nickname || actionTx.merchant_name || (actionTx.name || '').replace(/^(to|from)\s+/i, '');
-    $('#logo-reset').hidden = !withTxPreview(function() { return merchantLogos[merchantKey(actionTx)]; });
+    $('#logo-reset').hidden = !withTxPreview(function() { return txLogoPick(actionTx); });
     search(q.value);
     setTimeout(function() { q.focus(); q.select(); }, 50);
   });
@@ -6558,7 +6542,7 @@ function fitInput(el) {
     var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
     try {
       var logo = await uploadCustomLogo(await exportFramed(), name);
-      if (merchantKey(actionTx)) txDraftLogo = 'custom:' + logo.id;   // applied when you tap Save
+      txDraftLogo = 'custom:' + logo.id;   // applied to this transaction when you tap Save
       closeForm(); after();
     } catch (err) {
       console.error('logo upload', err); showToast('Couldn’t upload that image');
@@ -6578,8 +6562,7 @@ function fitInput(el) {
     }
     var t = e.target.closest('.logo-tile');
     if (!t || !actionTx) return;
-    if (!merchantKey(actionTx)) return;
-    txDraftLogo = t.dataset.domain;   // applied when you tap Save
+    txDraftLogo = t.dataset.domain;   // applied to this transaction when you tap Save
     after();
   });
   $('#logo-reset').addEventListener('click', function() {
@@ -7102,10 +7085,11 @@ async function saveMultiAction(txId, updates, opts) {
     category_override: updates.hasOwnProperty('category_override') ? updates.category_override : (existing.category_override != null ? existing.category_override : null),
     nickname: updates.hasOwnProperty('nickname') ? updates.nickname : (existing.nickname != null ? existing.nickname : null),
     note: updates.hasOwnProperty('note') ? updates.note : (existing.note != null ? existing.note : null),
-    date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override != null ? existing.date_override : null)
+    date_override: updates.hasOwnProperty('date_override') ? updates.date_override : (existing.date_override != null ? existing.date_override : null),
+    logo_override: updates.hasOwnProperty('logo_override') ? updates.logo_override : (existing.logo_override != null ? existing.logo_override : null)
   };
   // Nothing left to remember: remove the record instead of saving an empty one
-  var hasAny = ['action_type','split_ways','split_portion','amount_override','category_override','nickname','note','date_override'].some(function(k) { return row[k] != null && row[k] !== ''; });
+  var hasAny = ['action_type','split_ways','split_portion','amount_override','category_override','nickname','note','date_override','logo_override'].some(function(k) { return row[k] != null && row[k] !== ''; });
   if (!hasAny) {
     if (!opts.quiet) showToast(opts.silent ? 'Note saved' : 'Saved');
     clearTxAction(txId);
