@@ -4158,3 +4158,28 @@ html.boot-locked #screen-login { visibility: hidden; }
 .mfa-enroll .mfa-code-input { min-height: 52px; }
 .mfa-enroll .btn-primary { margin-top: 2px; }
 .mfa-cancel { align-self: center; min-height: 44px; }
+
+/* ---- Two-step: can't get your code? (sign-in) and backup codes (Settings) ---- */
+.mfa-mode { display: flex; flex-direction: column; gap: 12px; }
+.mfa-mode[hidden] { display: none !important; }
+.mfa-help { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+.mfa-help-title { margin: 0 0 2px; font-size: 0.8125rem; color: var(--text-muted); text-align: center; }
+.mfa-alt { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 48px; border: none; border-radius: 14px; background: var(--group-bg); color: var(--text); font: 500 0.9375rem 'Inter', sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.mfa-alt svg { color: var(--accent); flex: none; }
+.mfa-back { align-self: center; min-height: 44px; }
+.btn-secondary-full { width: 100%; min-height: 48px; border: none; border-radius: 14px; background: var(--group-bg); color: var(--text); font: 600 1rem 'Inter', sans-serif; cursor: pointer; }
+.mfa-backup-input { text-align: center; font: 600 1.375rem ui-monospace, 'SF Mono', Menlo, monospace !important; letter-spacing: 0.08em !important; text-transform: uppercase; }
+.mfa-backup-input::placeholder { font: 400 1rem 'Inter', sans-serif; letter-spacing: normal; text-transform: none; color: var(--text-muted); }
+/* Settings */
+.mfa-backup { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; border-top: 1px solid var(--hairline); }
+.mfa-backup-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.mfa-backup-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+.mfa-backup-count { font-size: 0.8125rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.mfa-backup-note { margin: 0; font-size: 0.8125rem; line-height: 1.45; color: var(--text-muted); }
+.mfa-backup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mfa-bcode { display: flex; align-items: center; justify-content: center; min-height: 40px; border-radius: 10px; background: var(--bg-input); color: var(--text); font: 500 0.9375rem ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.04em; user-select: all; -webkit-user-select: all; }
+.mfa-bcode.used { color: var(--text-muted); opacity: 0.45; text-decoration: line-through; user-select: none; -webkit-user-select: none; }
+.mfa-backup-loading { grid-column: 1 / -1; margin: 6px 0; font-size: 0.8125rem; color: var(--text-muted); text-align: center; }
+.mfa-backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mfa-backup-btn { min-height: 44px; border: none; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font: 600 0.875rem 'Inter', sans-serif; cursor: pointer; }
+#mfa-codes-new { background: var(--bg-input); color: var(--text); }

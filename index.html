@@ -65,7 +65,7 @@
     // the very first frame, so the email sign-in page never flashes. Same rule as app.js.
     (function() {
       try {
-        var recovery = /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
+        var recovery = /type=(recovery|magiclink)/.test(location.hash) || /type=(recovery|magiclink)/.test(location.search);
         if (!recovery && window.PublicKeyCredential && localStorage.getItem('alenjo_has_passkey') === 'true' && localStorage.getItem('alenjo_signed_out') !== '1') {
           document.documentElement.classList.add('boot-locked');
           // If the app code never loads, don't leave you on a lock screen with a dead button
@@ -87,14 +87,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124021246';</script>
+  <script>var _v = '20261124022241';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124021246">
+  <link rel="stylesheet" href="style.css?v=20261124022241">
 </head>
 <body>
 
@@ -166,12 +166,45 @@
           <button type="button" id="btn-goto-beta" class="btn-link" hidden>Sign up</button>
         </form>
         <form id="mfa-form" class="signin-card" hidden>
-          <p class="signin-mfa-title">Enter your code</p>
-          <p class="signin-mfa-sub">The 6-digit code from your authenticator app</p>
-          <p id="mfa-error" class="auth-error" hidden></p>
-          <div class="signin-field"><input type="text" id="mfa-code" class="mfa-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" aria-label="6-digit code"></div>
-          <label class="mfa-trust"><span>Trust this device for 30 days</span><input type="checkbox" id="mfa-trust" class="set-switch" role="switch" checked></label>
-          <button type="submit" id="mfa-submit" class="btn-primary">Verify</button>
+          <!-- Authenticator code -->
+          <div class="mfa-mode" id="mfa-mode-code">
+            <p class="signin-mfa-title">Enter your code</p>
+            <p class="signin-mfa-sub">The 6-digit code from your authenticator app</p>
+            <p id="mfa-error" class="auth-error" hidden></p>
+            <div class="signin-field"><input type="text" id="mfa-code" class="mfa-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" aria-label="6-digit code"></div>
+            <label class="mfa-trust"><span>Trust this device for 30 days</span><input type="checkbox" id="mfa-trust" class="set-switch" role="switch" checked></label>
+            <button type="submit" id="mfa-submit" class="btn-primary">Verify</button>
+            <div class="mfa-help">
+              <p class="mfa-help-title">Can’t get your code?</p>
+              <button type="button" class="mfa-alt" id="mfa-go-backup"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 10h2M11 10h2M15 10h2M7 14h10"/></svg><span>Use a backup code</span></button>
+              <button type="button" class="mfa-alt" id="mfa-go-email"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg><span>Email me a sign-in link</span></button>
+            </div>
+          </div>
+          <!-- Backup code -->
+          <div class="mfa-mode" id="mfa-mode-backup" hidden>
+            <p class="signin-mfa-title">Use a backup code</p>
+            <p class="signin-mfa-sub">One of the 10 codes you saved when you turned on two-step. Each works once. It turns two-step off so you can set it up again in Settings.</p>
+            <p id="mfa-backup-error" class="auth-error" hidden></p>
+            <div class="signin-field"><input type="text" id="mfa-backup-code" class="mfa-backup-input" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="12" placeholder="XXXX-XXXX" aria-label="Backup code"></div>
+            <button type="button" id="mfa-backup-submit" class="btn-primary">Use backup code</button>
+            <button type="button" class="signin-link mfa-back" data-mfa-back>Use my authenticator code instead</button>
+          </div>
+          <!-- Email link sent -->
+          <div class="mfa-mode" id="mfa-mode-email" hidden>
+            <p class="signin-mfa-title">Check your email</p>
+            <p class="signin-mfa-sub" id="mfa-email-sub">We sent a sign-in link to your email. Open it, then enter your password to turn off two-step. You can set it up again in Settings.</p>
+            <p id="mfa-email-error" class="auth-error" hidden></p>
+            <button type="button" id="mfa-email-again" class="btn-secondary-full">Send it again</button>
+            <button type="button" class="signin-link mfa-back" data-mfa-back>Use my authenticator code instead</button>
+          </div>
+          <!-- Opened the email link: confirm with your password -->
+          <div class="mfa-mode" id="mfa-mode-confirm" hidden>
+            <p class="signin-mfa-title">Turn off two-step</p>
+            <p class="signin-mfa-sub">You opened the link from your email. Enter your password to turn off two-step sign-in. You can set it up again in Settings.</p>
+            <p id="mfa-confirm-error" class="auth-error" hidden></p>
+            <div class="signin-field"><input type="password" id="mfa-confirm-password" autocomplete="current-password" placeholder="Password" aria-label="Password"></div>
+            <button type="button" id="mfa-confirm-submit" class="btn-primary">Turn off and sign in</button>
+          </div>
           <button type="button" id="mfa-cancel" class="signin-link signin-forgot">Cancel</button>
         </form>
         <form id="reset-form" class="signin-card" hidden>
@@ -582,6 +615,20 @@
         <div class="set-row">
           <span class="set-row-text"><span>Two-step sign-in</span><span class="set-hint" id="mfa-status">Off · a code from an authenticator app after your password</span></span>
           <button type="button" id="btn-mfa-toggle" class="btn-secondary-sm">Turn on</button>
+        </div>
+        <div class="mfa-backup" id="mfa-backup" hidden>
+          <div class="mfa-backup-head">
+            <span class="mfa-backup-title">Backup codes</span>
+            <span class="mfa-backup-count" id="mfa-backup-count"></span>
+          </div>
+          <p class="mfa-backup-note">Lost your authenticator app? Enter one of these instead of the 6-digit code. Each works once. Keep a copy somewhere safe, like Notes or Passwords.</p>
+          <div class="mfa-backup-grid" id="mfa-backup-grid"></div>
+          <p class="auth-error" id="mfa-codes-error" hidden></p>
+          <div class="mfa-backup-actions">
+            <button type="button" class="mfa-backup-btn" id="mfa-codes-copy">Copy all</button>
+            <button type="button" class="mfa-backup-btn" id="mfa-codes-new">Get new codes</button>
+          </div>
+          <p class="mfa-backup-note">No codes left? On the code screen, tap “Email me a sign-in link”.</p>
         </div>
         <div class="mfa-enroll" id="mfa-enroll" hidden>
           <div class="mfa-step"><span class="mfa-num">1</span><span>Add Alenjo to your authenticator app</span></div>
