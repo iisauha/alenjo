@@ -173,6 +173,37 @@ function setSigningIn(on) {
 // 30 days. Opening or unlocking still needs Face ID or your password, checked on a side
 // client so the kept session (which passed the code step) is never replaced.
 var TRUST_DAYS = 30;
+// Read the session's own sign-in level (the token says whether the code step was done) without
+// asking supabase-js, whose checks can fail on iPhone when two things touch the session at once.
+function sessionAal(session) {
+  try {
+    var p = session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(p + '='.repeat((4 - p.length % 4) % 4))).aal || 'aal1';
+  } catch (e) { return 'aal1'; }
+}
+// Does this session still owe the two-step code? Known from the session when possible; otherwise
+// asked (with retries). If it can't be confirmed, the answer is "yes": ask for the code rather than
+// open the app with a session the database won't show data to.
+async function sessionNeedsCode(session) {
+  if (!session || !session.user) return false;
+  if (sessionAal(session) === 'aal2') return false;
+  var f = session.user.factors;
+  if (Array.isArray(f)) return f.some(function(x) { return x.status === 'verified'; });
+  for (var i = 0; i < 3; i++) {
+    try {
+      var lvl = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (lvl.data) return lvl.data.nextLevel === 'aal2' && lvl.data.currentLevel !== 'aal2';
+    } catch (e) {}
+    await new Promise(function(r) { setTimeout(r, 300 * (i + 1)); });
+  }
+  return true;
+}
+async function getSessionSafe() {
+  for (var i = 0; i < 3; i++) {
+    try { return (await sb.auth.getSession()).data.session; } catch (e) { await new Promise(function(r) { setTimeout(r, 300 * (i + 1)); }); }
+  }
+  return null;
+}
 function trustedFor() { try { var t = JSON.parse(localStorage.getItem('alenjo_trusted') || 'null'); return t && t.until > Date.now() ? t : null; } catch (e) { return null; } }
 function setTrusted(uid) { try { localStorage.setItem('alenjo_trusted', JSON.stringify({ uid: uid, until: Date.now() + TRUST_DAYS * 86400000 })); } catch (e) {} }
 function clearTrusted() { try { localStorage.removeItem('alenjo_trusted'); } catch (e) {} }
@@ -181,11 +212,8 @@ var awaitingUnlock = false;
 async function keepOrSignOut() {
   var t = trustedFor();
   if (t) {
-    try {
-      var s = (await sb.auth.getSession()).data.session;
-      var lvl = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (s && s.user && s.user.id === t.uid && lvl.data && lvl.data.currentLevel === 'aal2') { resumeSession = s; awaitingUnlock = true; return; }
-    } catch (e) {}
+    var s = await getSessionSafe();
+    if (s && s.user && s.user.id === t.uid && sessionAal(s) === 'aal2') { resumeSession = s; awaitingUnlock = true; return; }
   }
   clearTrusted();
   return sb.auth.signOut({ scope: 'local' });
@@ -501,18 +529,9 @@ var isEmailLink = /type=magiclink/.test(location.hash) || /type=magiclink/.test(
 })();
 
 // After the password: ask for the authenticator code if two-step sign-in is on
-async function continueSignIn(session) {
-  try {
-    var lvl = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (lvl.data && lvl.data.nextLevel === 'aal2' && lvl.data.currentLevel !== 'aal2') {
-      showMfaStep();
-      if (isEmailLink) setMfaMode('confirm');   // came from the "lost your code" email
-      return;
-    }
-  } catch (e) { console.error('mfa level', e); }
-  finishSignIn(session);
-}
+async function continueSignIn(session) { finishSignIn(session); }
 function showMfaStep() {
+  signInPhase = 'code';
   hideColdLock();   // the code step is on the sign-in page
   setSigningIn(false);
   $('#auth-form').hidden = true;
@@ -546,8 +565,10 @@ async function callMfaRecovery(body) {
 async function finishRecovered() {
   clearTrusted();
   if (isEmailLink) { try { history.replaceState(null, '', location.pathname); } catch (e) {} isEmailLink = false; }
-  var s = (await sb.auth.getSession()).data.session;
-  hideMfaStep();
+  var s = null;
+  try { s = (await sb.auth.refreshSession()).data.session; } catch (e) {}
+  if (!s) s = await getSessionSafe();
+  if (s && s.user) s.user.factors = [];   // just removed on the server
   showToast('Two-step sign-in is off. Turn it on again in Settings.');
   if (s) finishSignIn(s);
 }
@@ -595,7 +616,10 @@ async function sendRecoveryEmail() {
     finally { btn.disabled = false; btn.textContent = 'Turn off and sign in'; }
   });
 })();
-function hideMfaStep() { $('#mfa-form').hidden = true; $('#auth-form').hidden = false; }
+function hideMfaStep() {
+  $('#mfa-form').hidden = true; $('#auth-form').hidden = false;
+  var b = $('#mfa-submit'); if (b) { b.disabled = false; b.textContent = 'Verify'; }
+}
 $('#mfa-form').addEventListener('submit', async function(e) {
   e.preventDefault();
   var code = $('#mfa-code').value.replace(/\D/g, '');
@@ -607,14 +631,17 @@ $('#mfa-form').addEventListener('submit', async function(e) {
     if (!factor) throw new Error('No authenticator found');
     var v = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code });
     if (v.error) throw v.error;
-    hideMfaStep();
-    var s = (await sb.auth.getSession()).data.session;
-    if ($('#mfa-trust') && $('#mfa-trust').checked && s && s.user) setTrusted(s.user.id); else clearTrusted();
+    var s = (v.data && v.data.access_token) ? { access_token: v.data.access_token, user: v.data.user || (await getSessionSafe() || {}).user } : await getSessionSafe();
+    if (!s || !s.user || sessionAal(s) !== 'aal2') s = await getSessionSafe();
+    if (!s || sessionAal(s) !== 'aal2') throw new Error('not verified');
+    if ($('#mfa-trust') && $('#mfa-trust').checked) setTrusted(s.user.id); else clearTrusted();
+    btn.textContent = 'Signing in…';   // stays on this screen until Home is showing
     finishSignIn(s);
   } catch (x) {
     $('#mfa-error').textContent = 'That code didn’t work. Check your authenticator app and try again.';
     $('#mfa-error').hidden = false;
-  } finally { btn.disabled = false; btn.textContent = 'Verify'; }
+    btn.disabled = false; btn.textContent = 'Verify';
+  }
 });
 $('#mfa-code').addEventListener('input', function() {
   if (this.value.replace(/\D/g, '').length === 6) $('#mfa-form').requestSubmit();
@@ -623,13 +650,27 @@ $('#mfa-cancel').addEventListener('click', function() {
   hideMfaStep();
   sb.auth.signOut({ scope: 'local' });
 });
-function finishSignIn(session) {
+// Sign-in runs once, in order: password (or Face ID) → code if two-step is on → load → Home.
+// signInPhase: 'out' → 'code' (waiting for your code) → 'loading' → 'in'. supabase-js
+// re-announces SIGNED_IN whenever the app comes back on screen; those never restart it.
+var signInPhase = 'out';
+async function finishSignIn(session) {
+  if (!session || !session.user) return;
   // Unlocking a locked app: same person, so keep everything as it was
   if (appLocked && currentUser && session.user.id === currentUser.id) {
     currentUser = session.user;
     unlockApp();
     return;
   }
+  if ((signInPhase === 'loading' || signInPhase === 'in') && currentUser && currentUser.id === session.user.id) return;
+  if (signInPhase === 'loading') return;
+  if (await sessionNeedsCode(session)) {
+    showMfaStep();
+    if (isEmailLink) setMfaMode('confirm');   // came from the "lost your code" email
+    return;
+  }
+  if (signInPhase === 'loading') return;
+  signInPhase = 'loading';
   currentUser = session.user;
   try { localStorage.removeItem('alenjo_signed_out'); } catch (e) {}
   try {
@@ -651,6 +692,9 @@ function finishSignIn(session) {
   }).then(function() {
     showScreen('app');
     hideColdLock();
+    signInPhase = 'in';
+    // Reset the sign-in page behind Home (not before, so it never flashes)
+    hideMfaStep();
     resumePlaidOAuth();
   });
 }
@@ -681,9 +725,15 @@ bootReady.then(function() {
       return;   // a kept session refreshing itself: Face ID or your password still opens it
     }
     if (event === 'SIGNED_IN' && session && session.user) {
+      // Already waiting for your code, loading, or signed in: this is supabase-js re-announcing
+      // the same session (it does on every return to the app), not a new sign-in
+      // A different account signed in on this device (another tab): start over cleanly
+      if (signInPhase !== 'out' && currentUser && session.user.id !== currentUser.id) { location.reload(); return; }
+      if (signInPhase !== 'out') return;
       // Two-step sign-in first if it's on (run outside this callback, per Supabase)
       setTimeout(function() { continueSignIn(session); }, 0);
     } else if (event === 'SIGNED_OUT') {
+      signInPhase = 'out';
       var wasSignedIn = currentUser !== null;
       currentUser = null;
       if (wasSignedIn) {
@@ -778,15 +828,14 @@ function lockApp() {
 // If this session hasn't passed your two-step code (but you have one), ask for it instead of
 // showing an empty app
 async function needsCodeStep() {
-  try {
-    var lvl = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    return !!(lvl.data && lvl.data.nextLevel === 'aal2' && lvl.data.currentLevel !== 'aal2');
-  } catch (e) { return false; }
+  var s = await getSessionSafe();
+  return s ? sessionNeedsCode(s) : false;
 }
 function unlockApp() {
   needsCodeStep().then(function(need) {
     if (!need) return;
     // The code screen; once the code is right, the normal sign-in finish reloads everything
+    signInPhase = 'out'; currentUser = null;
     showScreen('login');
     showMfaStep();
   });
