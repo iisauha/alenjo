@@ -6675,20 +6675,6 @@ function autoGrowNote() {
   el.addEventListener('input', autoGrowNote);
   el.addEventListener('blur', saveTxNote);
 })();
-// Tap the card in a transaction: open that account's settings
-(function() {
-  var c = $('#txs-card');
-  if (!c) return;
-  c.addEventListener('click', function() {
-    var id = c.dataset.id;
-    if (txEditing) return;
-    closeActionSheet();
-    setTimeout(function() {
-      var home = document.querySelector('.account-card[data-id="' + id + '"]');
-      if (home) home.click();
-    }, 250);
-  });
-})();
 // force: close now (edits already saved or thrown away)
 function closeActionSheet(force) {
   if (force !== true && txEditing) {
