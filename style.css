@@ -4213,7 +4213,7 @@ html.boot-locked #screen-login { visibility: hidden; }
 
 /* Swipe a transaction: left = Ignore, right = Reimbursed */
 .act-row.is-swiping { position: relative; z-index: 1; background: var(--bg); transition: none; will-change: transform; }
-.swipe-back { position: absolute; left: 0; right: 0; z-index: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-radius: 12px; background: var(--bg-elevated); color: var(--text-muted); transition: background 0.18s, color 0.18s; pointer-events: none; }
+.swipe-back { position: absolute; left: 0; right: 0; z-index: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-radius: 0; background: var(--bg-elevated); color: var(--text-muted); transition: background 0.18s, color 0.18s; pointer-events: none; }
 .swipe-act { display: inline-flex; align-items: center; gap: 8px; font-size: 0.875rem; font-weight: 600; opacity: 0; transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
 .swipe-back[data-side="reimb"] .swipe-ignore, .swipe-back[data-side="ignore"] .swipe-reimb { visibility: hidden; }
 .swipe-back[data-side="reimb"] { background: color-mix(in srgb, var(--accent) 16%, var(--bg)); color: var(--accent); }
@@ -4233,6 +4233,6 @@ html.boot-locked #screen-login { visibility: hidden; }
 .ptr-leaf { position: fixed; left: 50%; z-index: 30; width: 34px; height: 34px; opacity: 0; pointer-events: none; transform: translate(-50%, -44px); }
 .ptr-leaf img { width: 100%; height: 100%; object-fit: contain; display: block; transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.5); }
 .ptr-leaf.is-armed img { transform: scale(1.12); }
-.ptr-leaf.is-spinning img { animation: ptrSpin 0.9s linear infinite; }
-@keyframes ptrSpin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .ptr-leaf.is-spinning img { animation: ptrPulse 1.2s ease-in-out infinite; } @keyframes ptrPulse { 50% { opacity: 0.4; } } }
+.ptr-leaf.is-spinning img { animation: ptrPulse 1.1s ease-in-out infinite; }
+@keyframes ptrPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.86); opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .ptr-leaf.is-spinning img { animation: ptrFade 1.2s ease-in-out infinite; } @keyframes ptrFade { 50% { opacity: 0.4; } } }
