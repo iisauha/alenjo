@@ -400,6 +400,23 @@ checkForUpdate();
 // ============================================
 // FACE ID (passkeys)
 // ============================================
+// Signed out on purpose (Sign out button): only then does reopening show the email sign-in.
+// Any other reopen (iOS closed the app, auto-lock) shows the Face ID lock screen instead.
+function markSignedOut() { try { localStorage.setItem('alenjo_signed_out', '1'); } catch (e) {} }
+function signedOutOnPurpose() { try { return localStorage.getItem('alenjo_signed_out') === '1'; } catch (e) { return true; } }
+var coldLocked = false;
+function showColdLock() {
+  coldLocked = true;
+  var lock = $('#lock-screen');
+  if (lock) lock.hidden = false;
+  $('#lock-error').hidden = true;
+}
+function hideColdLock() {
+  if (!coldLocked) return;
+  coldLocked = false;
+  var lock = $('#lock-screen');
+  if (lock && !appLocked) lock.hidden = true;
+}
 function hasPasskeyHere() {
   try { return localStorage.getItem('alenjo_has_passkey') === 'true'; } catch (e) { return false; }
 }
@@ -473,6 +490,7 @@ async function continueSignIn(session) {
   finishSignIn(session);
 }
 function showMfaStep() {
+  hideColdLock();   // the code step is on the sign-in page
   setSigningIn(false);
   $('#auth-form').hidden = true;
   $('#mfa-form').hidden = false;
@@ -516,6 +534,7 @@ function finishSignIn(session) {
     return;
   }
   currentUser = session.user;
+  try { localStorage.removeItem('alenjo_signed_out'); } catch (e) {}
   try {
     if (currentUser.created_at) localStorage.setItem('alenjo_since', new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
   } catch (e) {}
@@ -531,6 +550,7 @@ function finishSignIn(session) {
     console.error('Init error:', e);
   }).then(function() {
     showScreen('app');
+    hideColdLock();
     resumePlaidOAuth();
   });
 }
@@ -538,6 +558,7 @@ function finishSignIn(session) {
 // Sign out of THIS device only on load (the default would end your
 // sessions on every device, e.g. opening on the Mac would sign out the iPhone)
 (isRecoveryLink ? Promise.resolve() : keepOrSignOut()).then(function() {
+  if (!isRecoveryLink && hasPasskeyHere() && window.PublicKeyCredential && !signedOutOnPurpose()) showColdLock();
   showScreen('login');
 
   sb.auth.onAuthStateChange(function(event, session) {
@@ -658,6 +679,12 @@ function unlockApp() {
   refreshOnResume();
 }
 async function tryUnlock() {
+  if (coldLocked) {
+    $('#lock-error').hidden = true;
+    await signInWithFaceId(true);
+    if (!currentUser && !authError.hidden) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
+    return;
+  }
   if (unlocking) return;
   unlocking = true;
   if (keptSessionTrusted()) {
@@ -680,7 +707,7 @@ async function tryUnlock() {
 var unlockBtn = $('#btn-unlock');
 if (unlockBtn) unlockBtn.addEventListener('click', tryUnlock);
 var lockSignOut = $('#btn-lock-signout');
-if (lockSignOut) lockSignOut.addEventListener('click', function() { clearTrusted(); location.reload(); });
+if (lockSignOut) lockSignOut.addEventListener('click', function() { markSignedOut(); clearTrusted(); location.reload(); });
 
 function markActivity(e) {
   // Only real taps and keys count. Scroll events also fire when the page
@@ -2181,6 +2208,7 @@ if (prefAutoFaceId) {
 
 var signOutBtn = $('#btn-sign-out');
 if (signOutBtn) signOutBtn.addEventListener('click', function() {
+  markSignedOut();
   clearTrusted();
   sb.auth.signOut({ scope: 'local' });
 });
@@ -4202,9 +4230,11 @@ function renderManageCardFace(acct) {
   var designId = sel ? (sel.dataset.designId || null) : acct.card_design_id;
   var design = designId ? getCardDesignById(designId) : null;
   face.className = 'manage-cardface' + (design ? ' has-art' : '');
-  face.style.backgroundImage = design ? 'url("' + design.url + '")' : '';
+  face.style.backgroundImage = '';
   var name = nicknameInput.value.trim() || acct.name || 'Account';
-  face.innerHTML = design ? '' :
+  var thumb = $('#manage-back-thumb');
+  if (thumb) { thumb.className = 'manage-back-thumb' + (design ? ' has-art' : ''); thumb.innerHTML = design ? '<img src="' + esc(design.url) + '" alt="">' : esc((acct.institution || name).charAt(0).toUpperCase()); }
+  face.innerHTML = design ? '<img src="' + esc(design.url) + '" alt="' + esc(name) + ' card">' :
     '<span class="mcf-bank">' + esc(acct.institution || '') + '</span>' +
     '<span class="mcf-name">' + esc(name) + '</span>' +
     '<span class="mcf-mask">' + (acct.mask ? '•••• ' + esc(shownMask(acct.mask)) : '') + '</span>';
@@ -4221,13 +4251,24 @@ function renderManageCardFace(acct) {
   };
   input.addEventListener('blur', done);
   input.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
-  $('#manage-details-btn').addEventListener('click', function() {
-    var d = $('#manage-details'), open = d.hidden;
-    d.hidden = !open;
-    this.setAttribute('aria-expanded', String(open));
-    this.querySelector('span').textContent = open ? 'Hide card details' : 'Edit card details';
-    if (open) setTimeout(function() { d.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50);
-  });
+  // Tap the card to flip it over to its details; tap the top of the details to flip back
+  var flip = function(toBack) {
+    var face = $('#manage-cardface'), back = $('#manage-details'), hint = $('#manage-hint');
+    var out = toBack ? face : back, inn = toBack ? back : face;
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var swap = function() {
+      out.hidden = true; inn.hidden = false;
+      out.classList.remove('flip-out'); inn.classList.add('flip-in');
+      setTimeout(function() { inn.classList.remove('flip-in'); }, 260);
+      face.setAttribute('aria-expanded', String(toBack));
+      if (hint) hint.hidden = toBack;
+    };
+    if (reduce) return swap();
+    out.classList.add('flip-out');
+    setTimeout(swap, 170);
+  };
+  $('#manage-cardface').addEventListener('click', function() { flip(true); });
+  $('#manage-flip-back').addEventListener('click', function() { flip(false); });
   // Picking a card design updates the big card right away
   $('#card-design-picker').addEventListener('click', function() {
     setTimeout(function() { renderManageCardFace(cachedAccounts && cachedAccounts.find(function(a) { return a.id === editingAccountId; })); }, 0);
@@ -4254,8 +4295,10 @@ document.addEventListener('click', function(e) {
   $('#manage-subtitle').textContent = acct ? [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ') : '';
   $('#manage-name').textContent = nicknameInput.value || (acct && acct.name) || 'Account';
   $('#manage-name-btn').hidden = false; nicknameInput.hidden = true;
-  $('#manage-details').hidden = true; $('#manage-details-btn').setAttribute('aria-expanded', 'false');
-  $('#manage-details-btn').querySelector('span').textContent = 'Edit card details';
+  $('#manage-details').hidden = true; $('#manage-cardface').hidden = false;
+  $('#manage-cardface').setAttribute('aria-expanded', 'false'); $('#manage-hint').hidden = false;
+  // A small tilt on open hints that the card can be tapped
+  var cf = $('#manage-cardface'); cf.classList.remove('hint-tilt'); void cf.offsetWidth; cf.classList.add('hint-tilt');
   renderManageCardFace(acct);
   accountEditModal.classList.add('visible');
   var mc = accountEditModal.querySelector('.modal-card'); if (mc) mc.scrollTop = 0;

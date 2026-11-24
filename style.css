@@ -4031,7 +4031,6 @@ button.txs-fact { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .mcf-bank { font-size: 0.9375rem; font-weight: 600; letter-spacing: 0.01em; }
 .mcf-name { margin-top: auto; font-size: 1.0625rem; font-weight: 500; }
 .mcf-mask { margin-top: 2px; font-size: 0.875rem; color: var(--text-muted); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; padding-bottom: 38px; }
-.manage-details-btn { position: absolute; left: 14px; bottom: 14px; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px 0 12px; border: none; border-radius: 18px; background: rgba(20, 19, 16, 0.55); color: #fff; font: 600 0.875rem 'Inter', sans-serif; cursor: pointer; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); -webkit-tap-highlight-color: transparent; }
 .manage-details[hidden] { display: none; }
 .manage-details .manage-group { margin-top: 4px; }
 /* Card art is cut out with a transparent background: show it as-is, no box behind it */
@@ -4060,3 +4059,29 @@ button.txs-fact { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .txs-map { height: 150px; border-radius: 14px; }
 .txs-places { margin-bottom: 10px; }
 .txs-place { min-height: 46px; font-size: 0.9375rem; gap: 14px; }
+/* Account popup card: fills the width so its edges line up with the text; tap to flip */
+.manage-cardview { max-width: none; margin: 0 0 6px; perspective: 1200px; }
+.manage-cardface { display: block; width: 100%; padding: 0; border: none; background: none; cursor: pointer; transform-origin: center; -webkit-tap-highlight-color: transparent; }
+.manage-cardface[hidden] { display: none; }
+.manage-cardface.has-art { aspect-ratio: auto; border-radius: 0; box-shadow: none; overflow: visible; filter: none; background: none; }
+.manage-cardface.has-art img { display: block; width: 100%; height: auto; filter: drop-shadow(0 10px 18px rgba(0,0,0,.2)); pointer-events: none; }
+.manage-cardface:not(.has-art) { text-align: left; font: inherit; }
+.mcf-mask { padding-bottom: 0; }
+.manage-hint { margin: 8px 0 14px; text-align: center; font-size: 0.75rem; color: var(--text-muted); }
+.manage-hint[hidden] { display: none; }
+.flip-out { animation: card-flip-out 0.17s ease-in forwards; }
+.flip-in { animation: card-flip-in 0.24s ease-out; }
+@keyframes card-flip-out { to { transform: rotateY(90deg); opacity: 0.6; } }
+@keyframes card-flip-in { from { transform: rotateY(-90deg); opacity: 0.6; } to { transform: none; opacity: 1; } }
+.hint-tilt { animation: card-hint 0.9s ease-in-out 0.35s 1; }
+@keyframes card-hint { 0%, 100% { transform: none; } 35% { transform: rotateY(-14deg); } 70% { transform: rotateY(6deg); } }
+@media (prefers-reduced-motion: reduce) { .hint-tilt, .flip-out, .flip-in { animation: none; } }
+/* Back of the card: a small card to flip back, then the details */
+.manage-details { transform-origin: center; }
+.manage-back-head { display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 10px; padding: 10px 12px; border: none; border-radius: 14px; background: var(--group-bg); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+.manage-back-thumb { flex: none; display: flex; align-items: center; justify-content: center; width: 54px; height: 34px; border-radius: 5px; background: var(--sheet-bg); color: var(--text-muted); font-weight: 600; box-shadow: 0 0 0 1px var(--hairline); }
+.manage-back-thumb.has-art { background: none; box-shadow: none; }
+.manage-back-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.manage-back-text { display: flex; flex-direction: column; }
+.manage-back-text span { font-weight: 600; }
+.manage-back-text small { font-size: 0.75rem; color: var(--text-muted); }
