@@ -7,10 +7,10 @@ Alenjo is a personal finance manager aimed at a broader consumer audience. Users
 **Clean, friendly, simple.** Alenjo should feel like a trusted, well-made tool -- not a bank, not a toy. Confident without being cold. Approachable without being juvenile. The interface should get out of the way and let the numbers speak.
 
 ### Aesthetic Direction
-- **Visual tone**: A hybrid of Robinhood's dark minimalism (big numbers, restrained color, generous space) and Apple Wallet's native polish (system-like feel, clean card metaphors, tactile confidence).
-- **Theme**: Dark mode. The deep navy-black background (#060B14) is core to the identity -- it makes financial data feel premium and focused.
-- **Typography**: DM Sans across weights, tabular-nums for financial figures, tight letter-spacing for a dense-but-readable feel.
-- **Color**: Blue accent (#3C82F6) used sparingly. Semantic green/red for gains/losses. Neutrals tinted slightly toward blue for cohesion.
+- **Visual tone**: Robinhood-style minimalism (big numbers, restrained color, generous space) with Apple Wallet's native polish (system-like feel, clean card metaphors, tactile confidence), in a warm, paper-like palette.
+- **Theme**: Light by default: warm cream background (`--bg` #E6E2D8, cards #EEEAE1) with dark warm text (#33312C). A warm dark theme (`:root[data-theme="dark"]`, background #1C1B17) mirrors it. Always use the CSS variables in `style.css`, never hard-coded colors.
+- **Typography**: Newsreader (serif, `--serif`) for page titles, names and the big amounts; Inter for everything else. Tabular-nums for financial figures.
+- **Color**: Forest green accent (`--accent` #2E6B4D; #86C6A2 in dark) used sparingly: actions, links, switches. Semantic `--success` / `--danger` for money in / problems. Category colors only in charts and legends.
 - **Anti-references**: No ad-cluttered layouts (Mint/NerdWallet). No corporate blandness (generic banking apps). No cartoon-ish playfulness (too many colors, illustrations, mascots). No promotions or upsells in the UI.
 
 ### Design Principles
@@ -19,3 +19,11 @@ Alenjo is a personal finance manager aimed at a broader consumer audience. Users
 3. **Mobile-native feel** -- Every interaction should feel like it belongs on iOS. Proper safe areas, touch targets (44px minimum), smooth transitions, and respect for system conventions.
 4. **Information density without clutter** -- Show what matters, hide what doesn't. Progressive disclosure over overwhelming dashboards. One clear action per context.
 5. **No noise** -- No badges, banners, promotions, or gamification. The app exists to show your money, not to sell you something.
+6. **You're in control** -- Never guess on the user's behalf. Edits to a transaction (category, name, logo, amount, date) apply to that one transaction only. Nothing is silently hidden: ignoring only takes a transaction out of totals.
+
+## Working on the code
+
+- See README.md for how the app, database and server functions fit together.
+- Run `./release.sh` before committing app changes (new version + CSP hashes).
+- Deploy a server function with `./tools/deploy-function.sh <name>`; shared code lives in `supabase/functions/_shared/`.
+- New database changes go in `supabase/migrations/<UTC timestamp>_<name>.sql`.
