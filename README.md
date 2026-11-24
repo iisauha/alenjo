@@ -52,6 +52,15 @@ purchases, deposits, card payments, transfers between your own accounts, a minim
 bill reminders and quiet hours (10 PM to 7 AM, then one summary). A send that doesn't reach
 the phone is retried for up to a day.
 
+### History and "count from"
+
+Your first connection brings in history from the month before you joined, and all of it counts.
+Every account added later (a new card, another bank, a partner's accounts) gets `accounts.count_from`
+set to the day it was added (database trigger). Its older transactions (up to Plaid's two years)
+still come in and show as "Before tracking", but they aren't counted, so months you've already
+budgeted never change. After adding, the app asks whether to count them; the account's settings
+have a "Count earlier history" switch. Reconnecting a bank keeps each account's original value.
+
 ### Show-off mode
 
 Settings → Show-off mode swaps in made-up names, accounts and transactions (new each time) so
