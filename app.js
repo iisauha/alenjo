@@ -3317,7 +3317,6 @@ async function finishNewConnection(headers, publicToken, metadata) {
   }
   await loadAccounts();
   showLoading(false);
-  askCountHistory();
 }
 
 // Plaid docs: reopen Link with the same Link token (kept on the server for you) and the
@@ -3442,8 +3441,11 @@ async function loadAccounts() {
   }
 
   cachedAccounts = applyAcctEdits(result.data || []);
+  var hidChanged = applyCountFrom();
   renderAccounts(cachedAccounts);
+  if (hidChanged && txData && txData.length) renderTransactionMonth();
   resolveLogos();
+  askCountHistory();
   loadItemHealth();
 }
 
@@ -3803,7 +3805,7 @@ async function backgroundSync() {
       var dataStartStr = ymdLocal(await txWindowStart());
       var txResult = await fetchAllRows(function() { return sb.from('synced_transactions').select('*').gte('date', dataStartStr).order('date', { ascending: false }).order('id'); });
       if (!txResult.error && txResult.data) {
-        txData = txResult.data;
+        txData = txResult.data; txHidden = {}; applyCountFrom();
         renderAccounts(cachedAccounts);
       }
     }
@@ -4746,42 +4748,48 @@ function dropItemLocally(itemId) {
   }
 }
 
-// Just added an account after your first connection: its older history came in but isn't
-// counted. Ask whether it should be.
+// Just added an account after your first connection: ask where it should start counting.
+// In your first 30 days (still setting up) All history is recommended; after that, From today,
+// with a warning on All history. Until you answer, the recommended choice applies, and the
+// question comes back next time you open the app.
 var historyAsk = null;
 function askCountHistory() {
-  if (!cachedAccounts) return;
-  var today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  var fresh = cachedAccounts.filter(function(a) {
-    return a.count_from === today && !a.closed_at && a.created_at && Date.now() - new Date(a.created_at).getTime() < 30 * 60000;
-  });
+  if (!cachedAccounts || historyAsk || demoOn()) return;
+  var fresh = cachedAccounts.filter(function(a) { return a.count_choice_pending && a.added_later && !a.closed_at; });
   if (!fresh.length) return;
-  var insts = fresh.map(function(a) { return a.institution || 'This bank'; }).filter(function(v, i, arr) { return arr.indexOf(v) === i; });
-  historyAsk = fresh.map(function(a) { return a.id; });
-  $('#history-lead').textContent = insts.join(' and ') + ' can send up to two years of past transactions. Right now ' +
-    (fresh.length === 1 ? 'this account counts' : 'these ' + fresh.length + ' accounts count') + ' from today.';
+  historyAsk = fresh;
+  var a0 = fresh[0], added = accountAddedDay(a0), setup = !a0.count_from;
+  var names = fresh.map(function(a) { return (a.nickname || a.name || 'Account') + (a.mask ? ' ' + shownMask(a.mask) : ''); });
+  var insts = fresh.map(function(a) { return a.institution || 'your bank'; }).filter(function(v, i, arr) { return arr.indexOf(v) === i; });
+  $('#history-title').textContent = 'Where should ' + (fresh.length === 1 ? names[0] : 'these accounts') + ' start?';
+  $('#history-lead').textContent = (fresh.length > 1 ? names.join(', ') + '. ' : '') + insts.join(' and ') + ' sent past transactions. Pick the day ' +
+    (fresh.length === 1 ? 'it starts' : 'they start') + ' counting in your totals.';
+  var from = allHistoryFrom(added), lastPast = new Date(added.slice(0, 8) + '01T12:00:00'); lastPast.setDate(0);
+  $('#history-day-sub').textContent = 'Counts from ' + longDay(added) + '. Nothing before it.';
+  var monthBtn = $('#history-sheet [data-count="month"]');
+  monthBtn.hidden = added.slice(8) === '01';
+  $('#history-month-sub').textContent = 'Counts from ' + longDay(added.slice(0, 8) + '01') + ', so this month is complete. Earlier months stay the same.';
+  $('#history-all-sub').textContent = from.slice(0, 7) < added.slice(0, 7)
+    ? 'Adds its purchases to ' + monthYear(from) + (monthYear(from) !== monthYear(nyDay(lastPast)) ? ' – ' + monthYear(nyDay(lastPast)) : '') + ' too.'
+    : 'Counts everything it sent.';
+  $('#history-all-warn').hidden = setup;
+  var rec = setup ? 'all' : 'day';
+  document.querySelectorAll('#history-sheet [data-count]').forEach(function(b) {
+    b.classList.toggle('is-rec', b.dataset.count === rec);
+    b.querySelector('.history-rec').hidden = b.dataset.count !== rec;
+  });
   var s = $('#history-sheet'); s.classList.add('visible'); s.setAttribute('aria-hidden', 'false');
 }
 (function wireHistoryAsk() {
   var s = $('#history-sheet');
-  function close() { s.classList.remove('visible'); s.setAttribute('aria-hidden', 'true'); historyAsk = null; }
-  $('#history-from-today').addEventListener('click', close);
-  $('#history-include').addEventListener('click', function() {
-    var ids = historyAsk || [];
-    close();
-    ids.forEach(function(id) {
-      var a = cachedAccounts.find(function(x) { return x.id === id; });
-      if (!a) return;
-      var before = a.count_from;
-      a.count_from = null;
-      rememberAcctEdit(id, { count_from: null });
-      sb.from('accounts').update({ count_from: null }).eq('id', id).then(function(r) {
-        if (r.error) { a.count_from = before; forgetAcctEdit(id, ['count_from']); countFromCache.src = null; showToast('Couldn’t save. Try in the account’s settings.'); if (txData && txData.length) renderTransactionMonth(); }
-      });
+  document.querySelectorAll('#history-sheet [data-count]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      var list = historyAsk || [];
+      s.classList.remove('visible'); s.setAttribute('aria-hidden', 'true'); historyAsk = null;
+      list.forEach(function(a) { saveCountFrom(a, countFromFor(a, b.dataset.count)); });
+      if (applyCountFrom()) refreshAfterCount();
+      showToast(b.dataset.count === 'all' ? 'Counting all history' : 'Counting from ' + longDay(countFromFor(list[0], b.dataset.count)));
     });
-    countFromCache.src = null;
-    if (txData && txData.length) renderTransactionMonth();
-    showToast('Past transactions counted');
   });
 })();
 
@@ -4833,7 +4841,6 @@ async function finishAddAccounts(itemId, headers) {
     await loadAccounts();
     await loadItemHealth();
     showToast('Card added');
-    askCountHistory();
   } catch (err) {
     console.error('sync_added_accounts failed:', err);
     showError('Card linked but we couldn\'t finish syncing. Pull to refresh.');
@@ -5199,21 +5206,95 @@ function formatLiabDate(dateStr) {
   return monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
 }
 
-// The day an account was added (New York time), used as its "count from" day
-function accountAddedDay(acct) {
-  if (acct.count_from) return acct.count_from;
-  var d = acct.created_at ? new Date(acct.created_at) : new Date();
-  return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-}
+// ---- Counts from: accounts added after your first connection ----
+// Each one counts from a day you pick (day added, start of that month, or all history). Anything
+// before that day is kept but hidden, so months you've already budgeted never change. All history
+// never goes back further than the month before you joined (or Plaid's two years).
+function nyDay(d) { return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); }
+function accountAddedDay(acct) { return nyDay(acct.created_at ? new Date(acct.created_at) : new Date()); }
 function longDay(ymd) { return formatLiabDate(ymd) + ', ' + ymd.slice(0, 4); }
-function setCountHistoryHint(acct) {
-  var on = $('#edit-count-history').checked;
-  $('#count-history-hint').textContent = on ? 'Everything counts' : 'Counting from ' + longDay(accountAddedDay(acct));
+function monthYear(ymd) { return MONTH_LONG[parseInt(ymd.slice(5, 7), 10) - 1].slice(0, 3) + ' ' + ymd.slice(0, 4); }
+// The month before your first connection: the furthest back Alenjo ever keeps
+function historyStartDay() {
+  var first = null;
+  (cachedAccounts || []).forEach(function(a) { if (!a.added_later && !a.is_manual && a.created_at && (!first || a.created_at < first)) first = a.created_at; });
+  var d = first ? new Date(first) : new Date();
+  var ny = nyDay(d), y = parseInt(ny.slice(0, 4), 10), m = parseInt(ny.slice(5, 7), 10) - 1;
+  if (m === 0) { y -= 1; m = 12; }
+  return y + '-' + String(m).padStart(2, '0') + '-01';
 }
-$('#edit-count-history').addEventListener('change', function() {
+// Earliest day "All history" can bring in for an account added on `added`
+function allHistoryFrom(added) {
+  var two = new Date(added + 'T12:00:00'); two.setDate(two.getDate() - 730);
+  var cap = historyStartDay(), plaid = nyDay(two);
+  return plaid > cap ? plaid : cap;
+}
+function countChoiceOf(acct) {
+  if (!acct.count_from) return 'all';
+  return acct.count_from === accountAddedDay(acct).slice(0, 8) + '01' && acct.count_from !== accountAddedDay(acct) ? 'month' : 'day';
+}
+function countFromFor(acct, choice) {
+  var added = accountAddedDay(acct);
+  return choice === 'all' ? null : choice === 'month' ? added.slice(0, 8) + '01' : added;
+}
+function fillCountFrom(acct) {
+  var added = accountAddedDay(acct), sel = $('#edit-count-from');
+  sel.innerHTML = '<option value="day">' + esc(longDay(added)) + '</option>' +
+    (added.slice(8) !== '01' ? '<option value="month">' + esc(longDay(added.slice(0, 8) + '01')) + '</option>' : '') +
+    '<option value="all">All history</option>';
+  sel.value = countChoiceOf(acct);
+  if (!sel.value) sel.value = 'day';
+  setCountHint(acct);
+}
+function setCountHint(acct) {
+  var v = $('#edit-count-from').value, added = accountAddedDay(acct);
+  $('#count-history-hint').textContent = v === 'all'
+    ? 'Includes purchases back to ' + monthYear(allHistoryFrom(added))
+    : 'Added ' + longDay(added) + ' · earlier purchases hidden';
+}
+$('#edit-count-from').addEventListener('change', function() {
   var acct = cachedAccounts && cachedAccounts.find(function(a) { return a.id === editingAccountId; });
-  if (acct) setCountHistoryHint(acct);
+  if (acct) setCountHint(acct);
 });
+
+// Purchases before an account's count-from day are hidden: moved out of txData (kept here)
+var txHidden = {};
+function applyCountFrom() {
+  if (!cachedAccounts) return false;
+  countFromCache.src = null;
+  var changed = false, back = [];
+  Object.keys(txHidden).forEach(function(id) {
+    var t = txHidden[id], cf = accountCountFrom(t.plaid_account_id);
+    if (!(cf && swipeDate(t) < cf)) { delete txHidden[id]; back.push(t); changed = true; }
+  });
+  var kept = txData.filter(function(t) {
+    var cf = accountCountFrom(t.plaid_account_id);
+    if (cf && swipeDate(t) < cf) { txHidden[t.id] = t; changed = true; return false; }
+    return true;
+  });
+  if (changed) {
+    txData = kept.concat(back);
+    if (back.length) txData.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.id < b.id ? -1 : 1); });
+  }
+  return changed;
+}
+function saveCountFrom(acct, value) {
+  var before = acct.count_from || null, wasPending = acct.count_choice_pending;
+  var changes = { count_from: value, count_choice_pending: false };
+  Object.assign(acct, changes);
+  rememberAcctEdit(acct.id, changes);
+  sb.from('accounts').update(changes).eq('id', acct.id).then(function(r) {
+    if (!r.error) return;
+    acct.count_from = before; acct.count_choice_pending = wasPending;
+    forgetAcctEdit(acct.id, Object.keys(changes));
+    showToast('Couldn’t save. Try again.');
+    if (applyCountFrom()) refreshAfterCount();
+  });
+}
+function refreshAfterCount() {
+  if (cachedAccounts) renderAccounts(cachedAccounts);
+  if (txData && txData.length) renderTransactionMonth();
+}
 
 function computeBonusProgress(account) {
   if (!account || !account.bonus_target_amount || !account.bonus_start_date || !account.bonus_months) return null;
@@ -5333,10 +5414,10 @@ document.addEventListener('click', function(e) {
   $('#apy-input').value = acct && acct.apy != null ? acct.apy : '';
   $('#edit-exclude').checked = !!(acct && acct.exclude_from_totals);
   $('#edit-hide').checked = !!(acct && acct.is_hidden);
-  // Count earlier history: off = only from the day you added it (shown once the server has the setting)
-  var canCount = !!(acct && !acct.is_manual && acct.plaid_item_id && 'count_from' in acct);
+  // Counts from: only for accounts added after your first connection
+  var canCount = !!(acct && acct.added_later && !acct.is_manual);
   $('#count-history-row').hidden = !canCount;
-  if (canCount) { $('#edit-count-history').checked = !acct.count_from; setCountHistoryHint(acct); }
+  if (canCount) fillCountFrom(acct);
   $('#manage-title').textContent = 'Manage ' + ((acct && acct.institution) || '') + ' account';
   $('#manage-subtitle').textContent = acct ? [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ') : '';
   $('#manage-name').textContent = nicknameInput.value || (acct && acct.name) || 'Account';
@@ -5408,9 +5489,11 @@ $('#account-edit-save').addEventListener('click', function() {
       is_hidden: $('#edit-hide').checked
     };
     if (!$('#count-history-row').hidden) {
-      changes.count_from = $('#edit-count-history').checked ? null : accountAddedDay(acctNow);
-      countFromCache.src = null;
-      if ((acctNow.count_from || null) !== changes.count_from && txData && txData.length) setTimeout(renderTransactionMonth, 0);
+      var cfNew = countFromFor(acctNow, $('#edit-count-from').value);
+      if ((acctNow.count_from || null) !== cfNew || acctNow.count_choice_pending) {
+        saveCountFrom(acctNow, cfNew);
+        if (applyCountFrom()) setTimeout(refreshAfterCount, 0);
+      }
     }
     Object.assign(acctNow, changes);
     var settingsId = acctNow.id;
@@ -5602,7 +5685,7 @@ async function loadTransactions() {
     return;
   }
 
-  txData = result.data;
+  txData = result.data; txHidden = {}; applyCountFrom();
   txEmpty.hidden = true;
   txContent.hidden = false;
 

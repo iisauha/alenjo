@@ -52,14 +52,21 @@ purchases, deposits, card payments, transfers between your own accounts, a minim
 bill reminders and quiet hours (10 PM to 7 AM, then one summary). A send that doesn't reach
 the phone is retried for up to a day.
 
-### History and "count from"
+### History and "counts from"
 
 Your first connection brings in history from the month before you joined, and all of it counts.
-Every account added later (a new card, another bank, a partner's accounts) gets `accounts.count_from`
-set to the day it was added (database trigger). Its older transactions (up to Plaid's two years)
-still come in and show as "Before tracking", but they aren't counted, so months you've already
-budgeted never change. After adding, the app asks whether to count them; the account's settings
-have a "Count earlier history" switch. Reconnecting a bank keeps each account's original value.
+Every account added later (a new card through Manage, another bank, a partner's accounts) is marked
+`added_later` by a database trigger, and Alenjo asks where it should start counting:
+
+- **From today** (recommended after your first 30 days)
+- **From the start of this month**
+- **All history** (recommended in your first 30 days, while you're still setting up; otherwise it
+  carries a warning because it changes months you've already budgeted)
+
+Purchases before the chosen day are kept but hidden everywhere (Activity, totals, budgets, charts,
+export). Nothing ever goes back further than the month before you joined, or Plaid's two years.
+Until you answer, the recommended choice applies and the question comes back next time. The
+account's settings have a "Counts from" picker. Reconnecting a bank keeps each account's choice.
 
 ### Show-off mode
 
