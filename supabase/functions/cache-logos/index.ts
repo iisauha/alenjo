@@ -53,6 +53,10 @@ Deno.serve(async (req: Request) => {
     const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
     const { data: u } = await admin.auth.getUser(token);
     if (!u?.user) return json({ error: 'Unauthorized' }, 401);
+    // Same two-step rule as every other function
+    const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: 'Bearer ' + token } } });
+    const { data: mfaOk } = await userClient.rpc('mfa_satisfied');
+    if (mfaOk !== true) return json({ error: 'Two-step sign-in required' }, 403);
     const body = await req.json().catch(() => ({}));
     const items = (Array.isArray(body.items) ? body.items : []).slice(0, 40)
       .filter((i: any) => i && typeof i.key === 'string' && i.key.length < 300 && typeof i.url === 'string' && i.url.length < 1000);
