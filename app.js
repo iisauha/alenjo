@@ -5746,11 +5746,29 @@ var actRange = parseInt(localStorage.getItem('alenjo_act_range') || '7', 10) || 
     }
     try {
       var html = await pageHtml(slug);
-      var theme = document.documentElement.getAttribute('data-theme') || 'light';
-      frame.srcdoc = html.replace('<head>', '<head><script>window.__ALENJO_EMBED = 1; window.__ALENJO_THEME = ' + JSON.stringify(theme) + ';<\/script>');
+      var dark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
+      // The frame can't run scripts (sandboxed, and the page's own scripts are removed), so the
+      // app does their jobs: the look (theme + in-app layout) goes on the page before it shows,
+      // and taps on links to other info pages are handled below.
+      html = html.replace(/<script\b[\s\S]*?<\/script>/gi, '')
+        .replace(/\smedia="print"\s+onload="this\.media='all'"/gi, '')   // font stylesheet: load it normally
+        .replace(/\son[a-z]+="[^"]*"/gi, '')
+        .replace(/<html\b([^>]*)>/i, '<html$1 data-theme="' + (dark ? 'dark' : 'light') + '" class="embed" style="background:' + (dark ? '#1C1B17' : '#E6E2D8') + '">');
+      frame.srcdoc = html;
       frame.onload = function() {
         frame.classList.add('loaded');
-        if (hash) { try { var el = frame.contentDocument.getElementById(hash); if (el) el.scrollIntoView(); } catch (e) {} }
+        var doc = null;
+        try { doc = frame.contentDocument; } catch (e) {}
+        if (!doc) return;
+        doc.addEventListener('click', function(ev) {
+          var link = ev.target.closest && ev.target.closest('a[href^="/privacy"], a[href^="/security"], a[href^="/faq"]');
+          if (!link) return;
+          ev.preventDefault();
+          var href = link.getAttribute('href');
+          var slug = href.split('#')[0].replace(/^[/]/, '').replace(/\.html$/, '').replace(/\/$/, '');
+          if (['privacy', 'security', 'faq'].indexOf(slug) >= 0) show(slug, href.split('#')[1] || '');
+        });
+        if (hash) { var el = doc.getElementById(hash); if (el) el.scrollIntoView(); }
       };
     } catch (err) {
       close();
