@@ -6010,10 +6010,12 @@ function renderTxFacts(tx) {
     card.dataset.id = acct.id;
   }
   // Where: a small map when Plaid shares the spot, plus the address
-  var lat = tx.enriched_location_lat, lon = tx.enriched_location_lon;
+  // Map and address are off: Plaid rarely shares them, and the city it does send is often
+  // just the company's billing city (Amazon: Seattle). The website still shows.
+  var lat = null, lon = null;
   var street = tx.enriched_location_address;
   var cityLine = [tx.enriched_location_city, [tx.enriched_location_region, tx.enriched_location_postal_code].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-  var addr = [street, cityLine].filter(Boolean).join(', ');
+  var addr = '';
   var place = tx.merchant_name || tx.name || '';
   var mapQ = lat != null && lon != null ? 'll=' + lat + ',' + lon + '&q=' + encodeURIComponent(place) : 'q=' + encodeURIComponent([place, addr].filter(Boolean).join(', '));
   var map = $('#txs-map');
