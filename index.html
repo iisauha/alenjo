@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-o6sXe8akYk5T7KmzR4hYiiA0jyCV0IOO1eVEmrOqT0U=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-yVMur8WwvGYpPZ6l4+/kW+a5PTJujJ0HF2+ZlDolcPA=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -88,14 +88,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124050118';</script>
+  <script>var _v = '20261124050532';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124050118">
+  <link rel="stylesheet" href="style.css?v=20261124050532">
 </head>
 <body>
 
@@ -628,16 +628,17 @@
         </div>
         <div class="mfa-backup" id="mfa-backup" hidden>
           <button type="button" class="mfa-backup-head" id="mfa-backup-toggle" aria-expanded="false" aria-controls="mfa-backup-body">
-            <span class="mfa-backup-title">Backup codes</span>
+            <span class="set-row-text"><span>Backup codes</span><span class="set-hint">For when you can’t use your authenticator</span></span>
             <svg class="mfa-backup-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
           </button>
           <div class="mfa-backup-body" id="mfa-backup-body" hidden>
-            <p class="mfa-backup-note">Can’t get a code from your authenticator app? At sign-in, tap “Use a backup code” and enter any one of these. It turns two-step off so you can get back in. Then set it up again here and you’ll get 10 new codes. Tap Copy all to save them, with instructions, in Notes or Passwords.</p>
+            <p class="mfa-backup-note">Can’t get a code from your authenticator app? At sign-in, tap “Use a backup code” and enter any one of these. It turns two-step off so you can get back in. Then set it up again here and you’ll get 10 new codes. Copy them into Notes or Passwords so you have them if you need them.</p>
             <div class="mfa-backup-grid" id="mfa-backup-grid"></div>
             <p class="auth-error" id="mfa-codes-error" hidden></p>
             <div class="mfa-backup-actions">
-              <button type="button" class="mfa-backup-btn" id="mfa-codes-copy">Copy all</button>
-              <button type="button" class="mfa-backup-btn" id="mfa-codes-new">Get new codes</button>
+              <button type="button" class="mfa-backup-btn" id="mfa-codes-copy">Copy with instructions</button>
+              <button type="button" class="mfa-backup-btn" id="mfa-codes-copy-plain">Copy codes only</button>
+              <button type="button" class="mfa-backup-btn mfa-backup-new" id="mfa-codes-new">Get new codes</button>
             </div>
             <p class="mfa-backup-note">No codes left? On the code screen, tap “Email me a sign-in link”.</p>
           </div>

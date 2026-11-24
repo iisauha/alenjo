@@ -4197,3 +4197,10 @@ html.boot-locked #screen-login { visibility: hidden; }
 .mfa-backup-head[aria-expanded="true"] .mfa-backup-chev { transform: rotate(180deg); }
 .mfa-backup-body { display: flex; flex-direction: column; gap: 10px; }
 .mfa-backup-body[hidden] { display: none !important; }
+
+/* Backup codes row matches the other Settings rows; three actions */
+.mfa-backup-head .set-row-text { flex: 1; min-width: 0; }
+.mfa-backup-head .mfa-backup-chev { flex: none; margin-left: 12px; }
+.mfa-backup-head { margin: -4px 0; }
+.mfa-backup-actions .mfa-backup-new { grid-column: 1 / -1; }
+.mfa-backup-btn { padding: 0 10px; line-height: 1.2; }
