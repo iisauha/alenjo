@@ -73,14 +73,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124005323';</script>
+  <script>var _v = '20261124005732';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124005323">
+  <link rel="stylesheet" href="style.css?v=20261124005732">
 </head>
 <body>
 
@@ -637,17 +637,29 @@
   <!-- Nickname Modal -->
   <div id="account-edit-modal" class="modal-overlay">
     <div class="modal-card manage-card" role="dialog" aria-modal="true" aria-labelledby="manage-title">
-      <h3 id="manage-title">Manage account</h3>
-      <p id="manage-subtitle" class="manage-subtitle"></p>
-      <div class="manage-group">
-        <label class="set-row manage-row manage-field"><span>Nickname</span><input type="text" id="nickname-input" placeholder="Account nickname" maxlength="40"></label>
-        <label class="set-row manage-row manage-field" id="apy-field"><span>Interest rate<small id="apy-hint">Copy it from your bank's app</small></span><span class="manage-suffix"><input type="number" id="apy-input" inputmode="decimal" step="0.01" min="0" max="25" placeholder="4.20"><span>% APY</span></span></label>
-        <label class="set-row manage-row manage-toggle"><span>Hide account</span><input type="checkbox" id="edit-hide" class="set-switch" role="switch"></label>
-        <label class="set-row manage-row manage-toggle"><span>Exclude from balance</span><input type="checkbox" id="edit-exclude" class="set-switch" role="switch"></label>
+      <h3 id="manage-title" class="visually-hidden">Manage account</h3>
+      <div class="manage-name-row">
+        <button type="button" class="manage-name-btn" id="manage-name-btn" aria-label="Rename"><span id="manage-name"></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>
+        <input type="text" id="nickname-input" class="manage-name-input" placeholder="Account nickname" maxlength="40" hidden aria-label="Nickname">
       </div>
-      <div id="card-design-picker-section">
-        <span class="sheet-sec">Card design</span>
-        <div id="card-design-picker" class="card-design-picker"></div>
+      <p id="manage-subtitle" class="manage-subtitle"></p>
+      <div class="manage-cardview" id="manage-cardview">
+        <div class="manage-cardface" id="manage-cardface"></div>
+        <button type="button" class="manage-details-btn" id="manage-details-btn" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>
+          <span>Edit card details</span>
+        </button>
+      </div>
+      <div id="manage-details" class="manage-details" hidden>
+        <div class="manage-group">
+          <label class="set-row manage-row manage-field" id="apy-field"><span>Interest rate<small id="apy-hint">Copy it from your bank's app</small></span><span class="manage-suffix"><input type="number" id="apy-input" inputmode="decimal" step="0.01" min="0" max="25" placeholder="4.20"><span>% APY</span></span></label>
+          <label class="set-row manage-row manage-toggle"><span>Hide account</span><input type="checkbox" id="edit-hide" class="set-switch" role="switch"></label>
+          <label class="set-row manage-row manage-toggle"><span>Exclude from balance</span><input type="checkbox" id="edit-exclude" class="set-switch" role="switch"></label>
+        </div>
+        <div id="card-design-picker-section">
+          <span class="sheet-sec">Card design</span>
+          <div id="card-design-picker" class="card-design-picker"></div>
+        </div>
       </div>
       <div class="modal-actions">
         <button id="account-edit-cancel" class="btn-secondary-sm">Cancel</button>

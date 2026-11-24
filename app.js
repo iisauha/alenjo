@@ -4194,6 +4194,45 @@ function computeBonusProgress(account) {
 // Account edit modal (nickname + card design)
 var accountEditModal = $('#account-edit-modal');
 var nicknameInput = $('#nickname-input');
+// The big card in the account popup: your card art, or a plain card with the bank and name
+function renderManageCardFace(acct) {
+  var face = $('#manage-cardface');
+  if (!face || !acct) return;
+  var sel = $('#card-design-picker') && $('#card-design-picker').querySelector('.card-design-option.selected');
+  var designId = sel ? (sel.dataset.designId || null) : acct.card_design_id;
+  var design = designId ? getCardDesignById(designId) : null;
+  face.className = 'manage-cardface' + (design ? ' has-art' : '');
+  face.style.backgroundImage = design ? 'url("' + design.url + '")' : '';
+  var name = nicknameInput.value.trim() || acct.name || 'Account';
+  face.innerHTML = design ? '' :
+    '<span class="mcf-bank">' + esc(acct.institution || '') + '</span>' +
+    '<span class="mcf-name">' + esc(name) + '</span>' +
+    '<span class="mcf-mask">' + (acct.mask ? '•••• ' + esc(shownMask(acct.mask)) : '') + '</span>';
+}
+(function wireManageCard() {
+  var btn = $('#manage-name-btn'), input = $('#nickname-input');
+  if (!btn) return;
+  btn.addEventListener('click', function() { btn.hidden = true; input.hidden = false; input.focus(); input.select(); });
+  var done = function() {
+    var acct = cachedAccounts && cachedAccounts.find(function(a) { return a.id === editingAccountId; });
+    $('#manage-name').textContent = input.value.trim() || (acct && acct.name) || 'Account';
+    input.hidden = true; btn.hidden = false;
+    renderManageCardFace(acct);
+  };
+  input.addEventListener('blur', done);
+  input.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+  $('#manage-details-btn').addEventListener('click', function() {
+    var d = $('#manage-details'), open = d.hidden;
+    d.hidden = !open;
+    this.setAttribute('aria-expanded', String(open));
+    this.querySelector('span').textContent = open ? 'Hide card details' : 'Edit card details';
+    if (open) setTimeout(function() { d.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50);
+  });
+  // Picking a card design updates the big card right away
+  $('#card-design-picker').addEventListener('click', function() {
+    setTimeout(function() { renderManageCardFace(cachedAccounts && cachedAccounts.find(function(a) { return a.id === editingAccountId; })); }, 0);
+  });
+})();
 var editingAccountId = null;
 
 document.addEventListener('click', function(e) {
@@ -4212,7 +4251,12 @@ document.addEventListener('click', function(e) {
   $('#edit-exclude').checked = !!(acct && acct.exclude_from_totals);
   $('#edit-hide').checked = !!(acct && acct.is_hidden);
   $('#manage-title').textContent = 'Manage ' + ((acct && acct.institution) || '') + ' account';
-  $('#manage-subtitle').textContent = acct ? (acct.nickname || acct.name || 'Account') + (acct.mask ? ' ' + shownMask(acct.mask) : '') : '';
+  $('#manage-subtitle').textContent = acct ? [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ') : '';
+  $('#manage-name').textContent = nicknameInput.value || (acct && acct.name) || 'Account';
+  $('#manage-name-btn').hidden = false; nicknameInput.hidden = true;
+  $('#manage-details').hidden = true; $('#manage-details-btn').setAttribute('aria-expanded', 'false');
+  $('#manage-details-btn').querySelector('span').textContent = 'Edit card details';
+  renderManageCardFace(acct);
   accountEditModal.classList.add('visible');
   var mc = accountEditModal.querySelector('.modal-card'); if (mc) mc.scrollTop = 0;
 });
