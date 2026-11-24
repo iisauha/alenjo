@@ -3976,6 +3976,13 @@ function brandColorOf(img) {
   if (lum > 170) { var f = 170 / lum; R = Math.round(R * f); G = Math.round(G * f); B = Math.round(B * f); }
   return '#' + [R, G, B].map(function(v) { return v.toString(16).padStart(2, '0'); }).join('');
 }
+// Only spending accounts come with a card: credit cards and checking. Savings, money market, CDs,
+// HSAs, investments and loans never show a card (card art or bank color), just the bank's logo.
+function accountHasCard(acct) {
+  if (!acct) return false;
+  if (acct.type === 'credit') return true;
+  return acct.type === 'depository' && !/savings|money market|cd|hsa|cash management/i.test(acct.subtype || '');
+}
 function bankCardHtml(color, logo, mask) {
   return '<div class="acct-badge acct-badge-bank" style="background-color:' + color + '"><span class="acct-bank-logo" style="background-image:url(' + esc(logo) + ')"></span>' +
     (mask ? '<span class="acct-bank-mask">•• ' + esc(mask) + '</span>' : '') + '</div>';
@@ -5083,11 +5090,11 @@ function accountCard(account, type) {
   }
 
 
-  var cardDesign = account.card_design_id ? getCardDesignById(account.card_design_id) : null;
+  var cardDesign = account.card_design_id && accountHasCard(account) ? getCardDesignById(account.card_design_id) : null;
   // One badge per card: your card design if you added one, else the bank logo, else an initial
   var artSrc = cardDesign && cardDesign.url ? pic(cardDesign.url) : null;
   logoUrl = logoUrl ? pic(logoUrl) : null;
-  var bankCol = !artSrc && logoUrl ? bankColor(account) : null;
+  var bankCol = !artSrc && logoUrl && accountHasCard(account) ? bankColor(account) : null;
   var badge = artSrc ? '<div class="acct-badge acct-badge-art" style="background-image:url(' + esc(artSrc) + ')"></div>'
     : logoUrl && bankCol ? bankCardHtml(bankCol, logoUrl, account.mask ? shownMask(account.mask) : '')
     : logoUrl ? '<div class="acct-badge acct-badge-logo" style="background-image:url(' + esc(logoUrl) + ')"></div>'
@@ -5174,7 +5181,7 @@ function renderManageCardFace(acct) {
   var designId = sel ? (sel.dataset.designId || null) : acct.card_design_id;
   var design = designId ? getCardDesignById(designId) : null;
   // No card art: the bank's own color with its logo, like the small card on Home
-  var bankCol = !design ? bankColor(acct) : null, logo = bankCol ? getLogoUrl(acct) : null;
+  var bankCol = !design && accountHasCard(acct) ? bankColor(acct) : null, logo = bankCol ? getLogoUrl(acct) : null;
   face.className = 'manage-cardface' + (design ? ' has-art' : bankCol ? ' is-bank' : '');
   face.style.backgroundImage = '';
   face.style.backgroundColor = bankCol || '';
@@ -5249,7 +5256,7 @@ document.addEventListener('click', function(e) {
   $('#manage-name-btn').hidden = false; nicknameInput.hidden = true;
   // Only credit cards and checking accounts come with a card. Savings, investments and loans
   // just show their details: no card, no flip, no card design.
-  var hasCard = !!acct && (acct.type === 'credit' || (acct.type === 'depository' && acct.subtype !== 'savings'));
+  var hasCard = accountHasCard(acct);
   accountEditModal.classList.toggle('no-card', !hasCard);
   $('#manage-flip-back').hidden = !hasCard;
   $('#card-design-picker-section').hidden = !hasCard;
@@ -7145,10 +7152,10 @@ function renderTxFacts(tx) {
   var card = $('#txs-card');
   card.hidden = !acct;
   if (acct) {
-    var design = acct.card_design_id ? getCardDesignById(acct.card_design_id) : null;
+    var design = acct.card_design_id && accountHasCard(acct) ? getCardDesignById(acct.card_design_id) : null;
     var logo = !design && typeof getLogoUrl === 'function' ? getLogoUrl(acct) : null;
     var art = $('#txs-card-art');
-    var bankCol = !design && logo ? bankColor(acct) : null;
+    var bankCol = !design && logo && accountHasCard(acct) ? bankColor(acct) : null;
     art.className = 'txs-card-art' + (design ? ' is-art' : bankCol ? ' is-bank' : logo ? ' is-logo' : '');
     var artUrl = design ? pic(design.url) : logo && !bankCol ? pic(logo) : null;
     art.style.backgroundImage = artUrl ? 'url("' + artUrl + '")' : '';
