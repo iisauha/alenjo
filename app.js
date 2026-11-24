@@ -6434,6 +6434,13 @@ function baseCategory(cat) {
   return cat;
 }
 // Money moved between your own accounts or to pay a card isn't spending
+// What a purchase would grow to if invested instead: 7% a year (a long-run stock market average),
+// for 10 years. Only on real spending: not deposits, transfers, card payments or anything not counted.
+function investedInstead(eff, counted, income) {
+  if (income || eff.excluded || !(counted >= 1) || isTransferCategory(normalizeCategory(eff.category))) return '';
+  var grown = counted * Math.pow(1.07, 10);
+  return 'If invested: $' + Math.round(grown).toLocaleString('en-US') + ' in 10 years at 7%';
+}
 function isTransferCategory(name) {
   return name === 'Transfers in' || name === 'Transfers out' || name === 'Loan & card payments';
 }
@@ -6517,7 +6524,7 @@ function renderTxSheetInner(tx) {
   amtTag.textContent = eff.isAdjusted ? 'Adjusted' : eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split';
   amtTag.className = 'txs-adj ' + (eff.isAdjusted ? 'is-adjusted' : 'is-split');
   $('#txs-amt-sub').textContent = eff.removedByBank ? 'Removed by your bank · not counted' : eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
-    : tx.pending ? 'Pending' : '';
+    : tx.pending ? 'Pending' : investedInstead(eff, counted, income);
 
   $('#txs-cat-val').textContent = normalizeCategory(eff.category);
   $('#txs-split-val').textContent = action.split_ways > 1 ? action.split_ways + ' ways' : action.split_portion > 0 ? 'Custom' : 'Off';
