@@ -4183,3 +4183,10 @@ html.boot-locked #screen-login { visibility: hidden; }
 .mfa-backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .mfa-backup-btn { min-height: 44px; border: none; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font: 600 0.875rem 'Inter', sans-serif; cursor: pointer; }
 #mfa-codes-new { background: var(--bg-input); color: var(--text); }
+
+/* Red reminder after a recovery turned two-step off */
+.mfa-warn { margin: 0 16px 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); font-size: 0.875rem; line-height: 1.45; }
+.mfa-warn[hidden] { display: none !important; }
+.mfa-warn p { margin: 0; }
+.mfa-warn p + p { margin-top: 6px; }
+.mfa-warn .mfa-warn-title { font-weight: 600; font-size: 0.9375rem; }
