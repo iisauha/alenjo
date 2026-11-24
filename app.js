@@ -6640,6 +6640,28 @@ function baseCategory(cat) {
   return cat;
 }
 // Money moved between your own accounts or to pay a card isn't spending
+// Split a purchase, then ask for the rest on Venmo: opens Venmo (app on iPhone) with a request
+// for the amount and the store as the note; you pick who in Venmo. Even split: each person's
+// share. Custom split: what you didn't keep.
+function renderVenmoRequest(tx, eff, action, income) {
+  var a = $('#txs-venmo');
+  if (!a) return;
+  var total = Math.abs(+tx.amount || 0), ask = 0, each = false;
+  if (!income && !eff.excluded && total > 0) {
+    if (action.split_ways > 1) {
+      var mine = Math.ceil(total * 100 / action.split_ways) / 100;
+      ask = Math.round((total - mine) / (action.split_ways - 1) * 100) / 100;
+      each = action.split_ways > 2;
+    } else if (action.split_portion > 0) {
+      ask = Math.round((total - +action.split_portion) * 100) / 100;
+    }
+  }
+  if (!(ask >= 0.01)) { a.hidden = true; return; }
+  var note = String(action.nickname || tx.merchant_name || tx.name || 'Split').slice(0, 80);
+  a.href = 'https://venmo.com/?txn=charge&amount=' + ask.toFixed(2) + '&note=' + encodeURIComponent(note);
+  $('#txs-venmo-text').textContent = 'Request ' + formatMoney(ask) + (each ? ' each' : '') + ' on Venmo';
+  a.hidden = false;
+}
 function isTransferCategory(name) {
   return name === 'Transfers in' || name === 'Transfers out' || name === 'Loan & card payments';
 }
@@ -6810,6 +6832,7 @@ function renderTxSheetInner(tx) {
 
   $('#txs-cat-val').textContent = normalizeCategory(eff.category);
   $('#txs-split-val').textContent = action.split_ways > 1 ? action.split_ways + ' ways' : action.split_portion > 0 ? 'Custom' : 'Off';
+  renderVenmoRequest(tx, eff, action, income);
   document.querySelectorAll('#tx-action-options .action-toggle').forEach(function(btn) {
     btn.classList.toggle('active', action.action_type === btn.dataset.toggle);
     btn.setAttribute('aria-pressed', action.action_type === btn.dataset.toggle);
