@@ -87,14 +87,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124011629';</script>
+  <script>var _v = '20261124012212';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124011629">
+  <link rel="stylesheet" href="style.css?v=20261124012212">
 </head>
 <body>
 
@@ -904,6 +904,7 @@
 
   <div id="tx-action-sheet" class="action-sheet-overlay">
     <div class="action-sheet">
+      <button type="button" class="txs-edit-toggle" id="txs-edit-btn" aria-label="Edit"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg><span>Cancel</span></button>
       <div class="txs-amount">
         <button type="button" class="txs-edit" id="txs-amt-btn" aria-label="Change the amount that counts"><span id="tx-action-amount" class="txs-amt"></span><svg class="txs-pen" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>
         <span class="txs-amt-edit" id="txs-amt-edit" hidden><span>$</span><input type="number" id="txs-amt-input" class="txs-input" inputmode="decimal" step="0.01" min="0" aria-label="Amount that counts"></span>
@@ -939,7 +940,6 @@
         <button type="button" class="txs-card" id="txs-card" hidden>
           <span class="txs-card-art" id="txs-card-art"></span>
           <span class="txs-card-text"><span id="txs-card-name"></span><span class="txs-card-mask" id="txs-card-mask"></span></span>
-          <svg class="txs-card-go" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </button>
         <a class="txs-map" id="txs-map" target="_blank" rel="noopener" hidden aria-label="Open in Maps"></a>
         <div class="txs-places" id="txs-places" hidden>
@@ -1024,6 +1024,15 @@
         <div id="recat-list" class="recat-list"></div>
       </div>
       <button class="action-sheet-cancel" id="action-sheet-cancel">Done</button>
+    </div>
+    <div class="txs-confirm" id="txs-confirm" hidden>
+      <div class="txs-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="txs-confirm-title">
+        <p class="txs-confirm-title" id="txs-confirm-title">Save your changes?</p>
+        <p class="txs-confirm-text">You edited this transaction but haven’t saved yet.</p>
+        <button type="button" class="txs-confirm-btn is-save" id="txs-confirm-save">Save</button>
+        <button type="button" class="txs-confirm-btn is-discard" id="txs-confirm-discard">Don’t save</button>
+        <button type="button" class="txs-confirm-btn" id="txs-confirm-keep">Keep editing</button>
+      </div>
     </div>
   </div>
 
