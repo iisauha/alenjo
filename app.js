@@ -5525,12 +5525,21 @@ function renderTransactionMonth() {
   var legItems = legEntries.map(function(e) {
     return legItem(e[0], outColors[e[0]] || categoryColorMap[e[0]], !incomeMode && activeCategoryFilter === e[0], false);
   });
-  var legPages = paginateLegend(legend, legItems);
+  // Stay on the legend page you were on (read before rebuilding: measuring the pages resets it)
   var legKey = month + '|' + cardId + '|' + (activeDay || '');
-  var keepLeg = legend.dataset.key === legKey ? legend.scrollLeft : 0;
+  var keepPage = legend.dataset.key === legKey ? Math.round(legend.scrollLeft / Math.max(1, legend.clientWidth)) : 0;
+  var legPages = paginateLegend(legend, legItems);
+  // A picked category always stays in view: go to its page if it's on another one
+  if (activeCategoryFilter && !incomeMode) {
+    var picked = 'data-cat="' + esc(activeCategoryFilter) + '"';
+    legPages.forEach(function(pg, i) { if (pg.indexOf(picked) !== -1) keepPage = i; });
+  }
+  keepPage = Math.min(keepPage, Math.max(0, legPages.length - 1));
   legend.innerHTML = legPages.join('') || '<p class="act-empty-note">' + (activeDay ? 'Nothing this day.' : 'Nothing yet this month.') + '</p>';
   legend.dataset.key = legKey;
-  legend.scrollLeft = keepLeg;
+  legend.style.scrollBehavior = 'auto';
+  legend.scrollLeft = keepPage * legend.clientWidth;
+  legend.style.scrollBehavior = '';
   $('#act-leg-dots').innerHTML = legPages.length > 1 ? legPages.map(function(_, i) { return '<button type="button" data-page="' + i + '" aria-label="Page ' + (i + 1) + ' of ' + legPages.length + '"></button>'; }).join('') : '';
   updateLegendDots();
 
