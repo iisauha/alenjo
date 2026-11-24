@@ -408,6 +408,10 @@ authPassword.addEventListener('animationstart', function(e) {
 // and whenever the app comes back to the front, compare our version with
 // the live one; if it's newer, load the new version.
 var pendingVersion = null;
+var reloadingForUpdate = false;
+// A Face ID prompt is open: reloading now would strand Apple's sheet and the new page would open
+// a second one on top. Hold the update until it's done.
+function faceIdPromptOpen() { return !!(typeof passkeyInFlight !== 'undefined' && passkeyInFlight) || !!(typeof unlocking !== 'undefined' && unlocking); }
 async function checkForUpdate() {
   try {
     var res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -417,9 +421,11 @@ async function checkForUpdate() {
     pendingVersion = live;
     var tried = '';
     try { tried = sessionStorage.getItem('alenjo_update_tried') || ''; } catch (e) {}
+    if (faceIdPromptOpen()) return;   // checked again when the app comes back or in 10 minutes
     if (!currentUser && tried !== live) {
       // Only try once per version, so a slow deploy can't cause a reload loop
       try { sessionStorage.setItem('alenjo_update_tried', live); } catch (e) {}
+      reloadingForUpdate = true;
       location.replace('/?v=' + encodeURIComponent(live));
     } else {
       // Full screen, no way around it: the app needs the new version to keep working right
@@ -449,10 +455,18 @@ document.addEventListener('keydown', function(e) {
 }, true);
 // Also check every 10 minutes while the app stays open
 setInterval(checkForUpdate, 10 * 60 * 1000);
+var updateCheck = null;
+function runUpdateCheck() { updateCheck = checkForUpdate(); return updateCheck; }
 document.addEventListener('visibilitychange', function() {
-  if (!document.hidden) checkForUpdate();
+  if (!document.hidden) runUpdateCheck();
 });
-checkForUpdate();
+runUpdateCheck();
+// Before asking for Face ID: let the update check finish (capped), so a new version loads first
+// and you only ever see one Face ID prompt. Returns false when the page is reloading.
+async function readyForFaceId() {
+  await Promise.race([updateCheck || Promise.resolve(), new Promise(function(r) { setTimeout(r, 1500); })]);
+  return !reloadingForUpdate;
+}
 
 // ============================================
 // FACE ID (passkeys)
@@ -502,6 +516,8 @@ async function signInWithFaceId(fromUserTap) {
     if (fromUserTap) { authError.textContent = 'This browser does not support Face ID sign-in.'; authError.hidden = false; }
     return;
   }
+  if (!(await readyForFaceId())) return;   // a new version is loading: one prompt, on the new page
+  if (passkeyInFlight || signingIn) return;
   passkeyInFlight = true;
   authError.hidden = true;
   setSigningIn(true);
@@ -882,6 +898,7 @@ async function tryUnlock() {
     $('#lock-error').hidden = true;
     // Let the startup session check finish first (capped, so a bad connection can't stall the button)
     await Promise.race([bootReady, new Promise(function(r) { setTimeout(r, 4000); })]);
+    if (!(await readyForFaceId())) return;
     await signInWithFaceId(true);
     if (!currentUser && !authError.hidden) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
     return;
