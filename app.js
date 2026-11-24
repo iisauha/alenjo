@@ -695,7 +695,21 @@ function lockApp() {
   $('#lock-error').hidden = true;
   if (document.activeElement) try { document.activeElement.blur(); } catch (e) {}
 }
+// If this session hasn't passed your two-step code (but you have one), ask for it instead of
+// showing an empty app
+async function needsCodeStep() {
+  try {
+    var lvl = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    return !!(lvl.data && lvl.data.nextLevel === 'aal2' && lvl.data.currentLevel !== 'aal2');
+  } catch (e) { return false; }
+}
 function unlockApp() {
+  needsCodeStep().then(function(need) {
+    if (!need) return;
+    // The code screen; once the code is right, the normal sign-in finish reloads everything
+    showScreen('login');
+    showMfaStep();
+  });
   appLocked = false;
   unlocking = false;
   var lock = $('#lock-screen');
@@ -715,27 +729,14 @@ async function tryUnlock() {
   }
   if (unlocking) return;
   unlocking = true;
-  if (keptSessionTrusted()) {
-    var v = await verifyOnSide('passkey');
-    if (v.ok) { unlockApp(); return; }
-    unlocking = false;
-    var c = v.error && /NotAllowed|abort|cancel/i.test((v.error.name || '') + ' ' + (v.error.message || ''));
-    if (!c) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
-    return;
-  }
-  var res = await sb.auth.signInWithPasskey();
-  if (res.error) {
-    unlocking = false;
-    var cancelled = /NotAllowed|abort|cancel/i.test((res.error.name || '') + ' ' + (res.error.message || ''));
-    if (!cancelled) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
-    return;
-  }
-  // Face ID passed: unlock only if it's the same person. Someone else's passkey starts over.
-  var who = res.data && res.data.session && res.data.session.user;
-  if (who && currentUser && who.id === currentUser.id) { currentUser = who; unlockApp(); return; }
+  // Face ID is checked on a side client, so your current session (which already passed your
+  // two-step code) stays in place. Signing in again on the main client replaced it with a
+  // session that hadn't done the code step, and the database then showed nothing.
+  var v = await verifyOnSide('passkey');
+  if (v.ok) { unlockApp(); return; }
   unlocking = false;
-  markSignedOut(); clearTrusted();
-  location.reload();
+  var c = v.error && /NotAllowed|abort|cancel/i.test((v.error.name || '') + ' ' + (v.error.message || ''));
+  if (!c) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
 }
 var unlockBtn = $('#btn-unlock');
 if (unlockBtn) unlockBtn.addEventListener('click', tryUnlock);
