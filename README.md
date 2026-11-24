@@ -52,6 +52,15 @@ purchases, deposits, card payments, transfers between your own accounts, a minim
 bill reminders and quiet hours (10 PM to 7 AM, then one summary). A send that doesn't reach
 the phone is retried for up to a day.
 
+### Show-off mode
+
+Settings → Show-off mode swaps in made-up names, accounts and transactions (new each time) so
+the app can be shown to someone. It is a layer around the Supabase client in `app.js`: reads of
+personal data come from fake data built on the phone, every write and server function call is
+dropped, and local copies (name, photo, settings summaries) go to a temporary store. It only
+lives in memory: closing the app, auto-lock or sign-out ends it, and turning it off restarts
+the app (Face ID before real numbers come back).
+
 ## Making changes
 
 **App:** edit, then run `./release.sh` before committing. It stamps a new version (installed
@@ -69,7 +78,6 @@ apply it. File names match the versions recorded in the live project.
 history (April to November 2026) is recorded in the live project; run
 `./tools/pull-migrations.sh` once with the Supabase CLI to download it here, then commit.
 
-A few old functions are still deployed but no longer used by the app and aren't kept here:
-`ai-chat`, `backfill-institutions`, `item-products-check`, `refresh-balances`,
-`remove-orphan-items`, `resync-once`, `test-plaid-env`. They can be deleted from the
-Supabase dashboard.
+Seven old functions (`ai-chat`, `backfill-institutions`, `item-products-check`,
+`refresh-balances`, `remove-orphan-items`, `resync-once`, `test-plaid-env`) were replaced with
+stubs that do nothing (410 Gone). Delete them from the Supabase dashboard to remove them entirely.

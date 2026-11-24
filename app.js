@@ -10,6 +10,240 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { experimental: { passkey: true } }
 });
 
+// ============================================
+// SHOW-OFF MODE
+// ============================================
+// Settings → Show-off mode: the whole app runs on made-up names and numbers so you can show it
+// to someone. Nothing touches your account: reads of your money come from fake data made on
+// this phone (new every time), and every write to the server is dropped. It lives only in
+// memory, so it ends when the app closes, locks or signs out (turning it off restarts the app,
+// which asks for Face ID before your real numbers come back).
+var demo = null;
+function demoOn() { return !!demo; }
+// Data copies kept on this phone that would otherwise pick up fake values
+var DEMO_SHADOW = { alenjo_set_sums: 1, alenjo_last_name: 1, alenjo_last_avatar: 1, alenjo_tx_view: 1, alenjo_last_tx_sync: 1, alenjo_signed_urls: 1, alenjo_notif_settings: 1 };
+var demoStore = {};
+(function guardStorage() {
+  var P = Storage.prototype, get = P.getItem, set = P.setItem, rem = P.removeItem;
+  P.getItem = function(k) { if (demo && this === window.localStorage && DEMO_SHADOW[k]) return demoStore.hasOwnProperty(k) ? demoStore[k] : null; return get.call(this, k); };
+  P.setItem = function(k, v) { if (demo && this === window.localStorage && DEMO_SHADOW[k]) { demoStore[k] = String(v); return; } return set.call(this, k, v); };
+  // Removing is always safe to do for real (sign-out wipes still happen)
+  P.removeItem = function(k) { if (this === window.localStorage) delete demoStore[k]; return rem.call(this, k); };
+})();
+
+// Fake tables (reads), keyed by table or function name
+var DEMO_FAKED = { profiles: 1, accounts: 1, plaid_items: 1, synced_transactions: 1, transaction_actions: 1, category_budgets: 1, merchant_logos: 1 };
+function demoRows(table) {
+  if (table === 'profiles') return [demo.profile];
+  if (table === 'accounts') return demo.accounts;
+  if (table === 'synced_transactions') return demo.tx;
+  return [];
+}
+// A stand-in for a Supabase query: remembers the calls, answers from fake data (or, for
+// harmless settings tables, from the real ones read-only). Writes never reach the server.
+function demoQuery(table, realFrom) {
+  var calls = [], write = false;
+  var q = new Proxy({}, {
+    get: function(_, prop) {
+      if (prop === 'then') return function(ok, bad) { return answer().then(ok, bad); };
+      if (prop === 'catch') return function(bad) { return answer().catch(bad); };
+      return function() {
+        if (/^(insert|update|upsert|delete)$/.test(prop)) write = true;
+        calls.push([prop, Array.prototype.slice.call(arguments)]);
+        return q;
+      };
+    }
+  });
+  function answer() {
+    if (write) return Promise.resolve({ data: null, error: null });
+    if (!DEMO_FAKED[table]) {
+      var b = realFrom(table);
+      calls.forEach(function(c) { b = b[c[0]].apply(b, c[1]); });
+      return Promise.resolve(b);
+    }
+    var rows = demoRows(table).slice(), one = false, range = null;
+    calls.forEach(function(c) {
+      var f = c[0], a = c[1];
+      if (f === 'gte') rows = rows.filter(function(r) { return !(a[0] in r) || r[a[0]] >= a[1]; });
+      else if (f === 'eq' && rows.length && a[0] in rows[0]) rows = rows.filter(function(r) { return String(r[a[0]]) === String(a[1]); });
+      else if (f === 'range') range = a;
+      else if (f === 'single' || f === 'maybeSingle') one = true;
+    });
+    if (range) rows = rows.slice(range[0], range[1] + 1);
+    return Promise.resolve({ data: one ? (rows[0] || null) : rows, error: null });
+  }
+  return q;
+}
+(function guardClient() {
+  var realFrom = sb.from.bind(sb), realRpc = sb.rpc.bind(sb);
+  sb.from = function(t) { return demo ? demoQuery(t, realFrom) : realFrom(t); };
+  sb.rpc = function(name, args) {
+    if (!demo) return realRpc(name, args);
+    var d = name === 'get_user_accounts' ? demo.accounts : name === 'get_user_holdings' ? demo.holdings
+      : name === 'get_user_liabilities' ? demo.liabilities : name === 'get_first_connection_date' ? demo.since : null;
+    return Promise.resolve({ data: d, error: null });
+  };
+  var st = sb.storage, realStorageFrom = st.from.bind(st);
+  st.from = function(bucket) {
+    var b = realStorageFrom(bucket);
+    if (!demo) return b;
+    var no = function() { return Promise.resolve({ data: null, error: { message: 'Not saved in Show-off mode' } }); };
+    return { createSignedUrl: b.createSignedUrl.bind(b), createSignedUrls: b.createSignedUrls.bind(b), getPublicUrl: b.getPublicUrl.bind(b), upload: no, remove: no, update: no };
+  };
+  var fnDesc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(sb), 'functions');
+  if (fnDesc && fnDesc.get) Object.defineProperty(sb, 'functions', { get: function() {
+    var f = fnDesc.get.call(sb);
+    if (!demo) return f;
+    return { invoke: function() { return Promise.resolve({ data: {}, error: null }); } };
+  } });
+  // Alenjo's server functions (sync, bank connections, push...) are skipped; logo search is read-only
+  var realFetch = window.fetch.bind(window);
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url) || '';
+    if (demo && u.indexOf(SUPABASE_URL + '/functions/v1/') === 0 && u.indexOf('/functions/v1/logo-search') === -1) {
+      return Promise.resolve(new Response(JSON.stringify({ success: true, added: 0, modified: 0, removed: 0, resolved: 0, needs_attention: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    }
+    return realFetch(url, opts);
+  };
+})();
+
+// ---- Made-up data, different every time ----
+function buildDemo() {
+  var R = function(a, b) { return a + Math.random() * (b - a); };
+  var I = function(a, b) { return Math.floor(R(a, b + 1)); };
+  var pick = function(arr) { return arr[I(0, arr.length - 1)]; };
+  var cents = function(n) { return Math.round(n * 100) / 100; };
+  var ymd = function(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  var mask = function() { return String(I(1000, 9999)); };
+  var now = new Date(), today = ymd(now);
+  var first = pick(['Jordan', 'Avery', 'Maya', 'Sam', 'Riley', 'Elena', 'Marcus', 'Priya', 'Noah', 'Camila']);
+  var last = pick(['Rivera', 'Chen', 'Patel', 'Brooks', 'Nguyen', 'Carter', 'Reyes', 'Kim', 'Bennett', 'Okafor']);
+  var start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  var since = new Date(start.getTime() + 86400000 * 3);
+  var n = 0, id = function(p) { return 'demo-' + p + '-' + (++n) + '-' + Math.random().toString(36).slice(2, 8); };
+
+  function acct(o) {
+    var itemId = id('item');
+    return Object.assign({
+      id: id('acct'), plaid_item_id: itemId, is_hidden: false, is_manual: false, iso_currency_code: 'USD',
+      created_at: since.toISOString(), balance_last_updated_at: now.toISOString(), nickname: null, card_design_id: null,
+      bonus_target_amount: null, bonus_start_date: null, bonus_months: null, apy: null, exclude_from_totals: false,
+      closed_at: null, plaid_last_checked_at: new Date(now.getTime() - I(5, 90) * 60000).toISOString(),
+      institution_id: 'demo_' + o.logo, mask: mask(), plaid_account_id: id('pa'), balance_available: null, balance_limit: null,
+      official_name: o.name, plaid_item_id_raw: itemId, institution_url: 'https://' + o.logo, institution_logo_domain: o.logo, all_item_ids: [itemId]
+    }, o);
+  }
+  var checking = acct({ name: 'Everyday Checking', type: 'depository', subtype: 'checking', institution: 'Chase', logo: 'chase.com', balance_current: String(cents(R(2400, 8900))), sort_order: 0 });
+  checking.balance_available = checking.balance_current;
+  var savings = acct({ name: 'High Yield Savings', type: 'depository', subtype: 'savings', institution: 'Ally Bank', logo: 'ally.com', balance_current: String(cents(R(9000, 42000))), apy: 3.8, sort_order: 1 });
+  var cardA = acct({ name: 'Sapphire Preferred', type: 'credit', subtype: 'credit card', institution: 'Chase', logo: 'chase.com', balance_current: '0', balance_limit: String(pick([12000, 15000, 18000])), sort_order: 2 });
+  var cardB = acct({ name: 'Blue Cash Everyday', type: 'credit', subtype: 'credit card', institution: 'American Express', logo: 'americanexpress.com', balance_current: '0', balance_limit: String(pick([8000, 10000, 12500])), sort_order: 3 });
+  var brokerage = acct({ name: 'Individual Brokerage', type: 'investment', subtype: 'brokerage', institution: 'Fidelity', logo: 'fidelity.com', balance_current: '0', sort_order: 4 });
+  var loan = acct({ name: 'Student Loan', type: 'loan', subtype: 'student', institution: 'Nelnet', logo: 'nelnet.com', balance_current: String(cents(R(8000, 24000))), sort_order: 5 });
+  var accounts = [checking, savings, cardA, cardB, brokerage, loan];
+
+  // Purchases: [name, website, category, detailed, low, high, per-month odds weight]
+  var SHOPS = [
+    ['Starbucks', 'starbucks.com', 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_COFFEE', 4.5, 9, 10],
+    ['Blue Bottle Coffee', 'bluebottlecoffee.com', 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_COFFEE', 5, 11, 4],
+    ['Sweetgreen', 'sweetgreen.com', 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_RESTAURANT', 13, 19, 5],
+    ['Chipotle', 'chipotle.com', 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_FAST_FOOD', 11, 17, 5],
+    ['Shake Shack', 'shakeshack.com', 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_FAST_FOOD', 12, 24, 2],
+    ['Trader Joe’s', 'traderjoes.com', 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_GROCERIES', 28, 95, 5],
+    ['Whole Foods Market', 'wholefoodsmarket.com', 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_GROCERIES', 35, 140, 3],
+    ['Amazon', 'amazon.com', 'GENERAL_MERCHANDISE', 'GENERAL_MERCHANDISE_ONLINE_MARKETPLACES', 12, 120, 7],
+    ['Target', 'target.com', 'GENERAL_MERCHANDISE', 'GENERAL_MERCHANDISE_SUPERSTORES', 18, 110, 3],
+    ['Uniqlo', 'uniqlo.com', 'GENERAL_MERCHANDISE', 'GENERAL_MERCHANDISE_CLOTHING_AND_ACCESSORIES', 30, 140, 1],
+    ['Uber', 'uber.com', 'TRANSPORTATION', 'TRANSPORTATION_TAXIS_AND_RIDE_SHARES', 11, 38, 5],
+    ['MTA', 'mta.info', 'TRANSPORTATION', 'TRANSPORTATION_PUBLIC_TRANSIT', 2.9, 2.9, 8],
+    ['Shell', 'shell.com', 'TRANSPORTATION', 'TRANSPORTATION_GAS', 35, 62, 2],
+    ['AMC Theatres', 'amctheatres.com', 'ENTERTAINMENT', 'ENTERTAINMENT_TV_AND_MOVIES', 16, 38, 1],
+    ['CVS', 'cvs.com', 'MEDICAL', 'MEDICAL_PHARMACIES_AND_SUPPLEMENTS', 6, 40, 2],
+    ['Equinox', 'equinox.com', 'PERSONAL_CARE', 'PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS', 25, 25, 1]
+  ];
+  var weighted = [];
+  SHOPS.forEach(function(s) { for (var k = 0; k < s[6]; k++) weighted.push(s); });
+  var tx = [];
+  function add(o) {
+    var d = o.date;
+    tx.push(Object.assign({
+      id: id('tx'), user_id: currentUser ? currentUser.id : null, plaid_item_id: o.acct.plaid_item_id, plaid_account_id: o.acct.plaid_account_id,
+      authorized_date: d, authorized_datetime: d + 'T' + String(I(8, 21)).padStart(2, '0') + ':' + String(I(0, 59)).padStart(2, '0') + ':00Z',
+      merchant_name: o.name, pending: false, type: o.amount < 0 ? 'income' : 'expense', enriched_logo_url: null,
+      enriched_website: o.site || null, enriched_category_detailed: o.detailed, enriched_payment_channel: o.channel || 'in store',
+      enriched_location_city: null, enriched_location_region: null, enriched_location_address: null, enriched_location_postal_code: null,
+      enriched_location_lat: null, enriched_location_lon: null, enriched_location_store: null, removed_at: null
+    }, { name: o.name, amount: o.amount, date: d, category: o.category, subcategory: o.detailed }, o.extra || {}));
+  }
+  var owedA = 0, owedB = 0;
+  for (var day = new Date(start); ymd(day) <= today; day.setDate(day.getDate() + 1)) {
+    var d = ymd(day), dom = day.getDate(), recent = (now - day) < 2 * 86400000;
+    for (var k = I(1, 4); k > 0; k--) {
+      var s = pick(weighted), amt = cents(R(s[4], s[5])), card = pick([cardA, cardA, cardB, checking]);
+      add({ acct: card, name: s[0], site: s[1], category: s[2], detailed: s[3], amount: amt, date: d, channel: s[1] === 'amazon.com' ? 'online' : 'in store', extra: recent && (k === 1 || Math.random() < 0.4) ? { pending: true } : null });
+      if (card === cardA) owedA += amt; else if (card === cardB) owedB += amt;
+    }
+    if (dom === 1) add({ acct: checking, name: 'Greystar Rent', site: 'greystar.com', category: 'RENT_AND_UTILITIES', detailed: 'RENT_AND_UTILITIES_RENT', amount: 1850, date: d, channel: 'online' });
+    if (dom === 5) { add({ acct: cardB, name: 'Netflix', site: 'netflix.com', category: 'ENTERTAINMENT', detailed: 'ENTERTAINMENT_TV_AND_MOVIES', amount: 15.49, date: d, channel: 'online' }); owedB += 15.49; }
+    if (dom === 9) { add({ acct: cardA, name: 'Spotify', site: 'spotify.com', category: 'ENTERTAINMENT', detailed: 'ENTERTAINMENT_MUSIC_AND_AUDIO', amount: 11.99, date: d, channel: 'online' }); owedA += 11.99; }
+    if (dom === 12) add({ acct: checking, name: 'Con Edison', site: 'coned.com', category: 'RENT_AND_UTILITIES', detailed: 'RENT_AND_UTILITIES_GAS_AND_ELECTRICITY', amount: cents(R(62, 118)), date: d, channel: 'online' });
+    if (dom === 15 || dom === 30 || (dom === 28 && day.getMonth() === 1)) add({ acct: checking, name: 'Northwind Labs Payroll', category: 'INCOME', detailed: 'INCOME_WAGES', amount: -cents(R(2650, 2900)), date: d, channel: 'other' });
+    if (dom === 16) add({ acct: checking, name: 'To High Yield Savings', category: 'TRANSFER_OUT', detailed: 'TRANSFER_OUT_SAVINGS', amount: 500, date: d, channel: 'other' }),
+      add({ acct: savings, name: 'From Everyday Checking', category: 'TRANSFER_IN', detailed: 'TRANSFER_IN_SAVINGS', amount: -500, date: d, channel: 'other' });
+    if (dom === 20) add({ acct: checking, name: 'Nelnet Student Loan', site: 'nelnet.com', category: 'LOAN_PAYMENTS', detailed: 'LOAN_PAYMENTS_STUDENT_LOAN_PAYMENT', amount: 285, date: d, channel: 'online' });
+    if (dom === 25) {
+      var payA = cents(owedA * R(0.7, 0.95)), payB = cents(owedB * R(0.7, 0.95));
+      add({ acct: checking, name: 'Chase Card Payment', site: 'chase.com', category: 'LOAN_PAYMENTS', detailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT', amount: payA, date: d, channel: 'online' });
+      add({ acct: cardA, name: 'Payment Thank You', site: 'chase.com', category: 'LOAN_PAYMENTS', detailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT', amount: -payA, date: d, channel: 'online' });
+      add({ acct: checking, name: 'Amex Card Payment', site: 'americanexpress.com', category: 'LOAN_PAYMENTS', detailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT', amount: payB, date: d, channel: 'online' });
+      add({ acct: cardB, name: 'Payment Received', site: 'americanexpress.com', category: 'LOAN_PAYMENTS', detailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT', amount: -payB, date: d, channel: 'online' });
+      owedA -= payA; owedB -= payB;
+    }
+    if (dom === 28) add({ acct: savings, name: 'Interest Paid', category: 'INCOME', detailed: 'INCOME_INTEREST_EARNED', amount: -cents(+savings.balance_current * 0.038 / 12), date: d, channel: 'other' });
+  }
+  tx.sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  cardA.balance_current = String(cents(Math.max(owedA, R(180, 600))));
+  cardB.balance_current = String(cents(Math.max(owedB, R(90, 400))));
+
+  // Investments
+  var HOLD = [['Vanguard Total Stock Market ETF', 'VTI', 'etf', R(255, 300)], ['Apple Inc.', 'AAPL', 'equity', R(190, 240)],
+    ['Microsoft Corporation', 'MSFT', 'equity', R(400, 480)], ['Vanguard Total International Stock ETF', 'VXUS', 'etf', R(58, 68)],
+    ['NVIDIA Corporation', 'NVDA', 'equity', R(120, 170)]];
+  var holdings = HOLD.map(function(h) {
+    var qty = cents(R(4, 60)), price = cents(h[3]), value = cents(qty * price);
+    return { id: id('h'), account_id: brokerage.id, security_id: id('sec'), quantity: qty, cost_basis: cents(value * R(0.7, 1.05)),
+      institution_value: value, institution_price: price, institution_price_as_of: today, iso_currency_code: 'USD',
+      security_name: h[0], ticker_symbol: h[1], security_type: h[2], close_price: price };
+  });
+  brokerage.balance_current = String(cents(holdings.reduce(function(s, h) { return s + h.institution_value; }, 0)));
+
+  // Cards and loan details (due dates a week or two out)
+  var due = function(days) { return ymd(new Date(now.getTime() + days * 86400000)); };
+  function cardLiab(a, days) {
+    var stmt = cents(+a.balance_current * R(0.6, 0.9));
+    return { id: id('l'), user_id: null, account_id: a.id, liability_type: 'credit', apr_purchase: cents(R(20, 28)), apr_cash: 29.99, apr_balance_transfer: null,
+      is_overdue: false, last_payment_amount: cents(R(200, 900)), last_payment_date: due(-20), last_statement_balance: stmt,
+      last_statement_issue_date: due(days - 25), minimum_payment_amount: cents(Math.max(35, stmt * 0.02)), next_payment_due_date: due(days),
+      account_name: a.name, balance_current: a.balance_current, balance_limit: a.balance_limit, nickname: null,
+      account_type: 'credit', account_subtype: 'credit card', institution: a.institution };
+  }
+  var liabilities = [
+    { id: id('l'), user_id: null, account_id: loan.id, liability_type: 'student', interest_rate: 4.99, loan_name: 'Direct Unsubsidized',
+      loan_status: 'repayment', origination_date: '2019-08-15', origination_principal: 32000, outstanding_interest: cents(R(20, 90)),
+      expected_payoff_date: '2031-06-01', ytd_interest_paid: cents(R(500, 900)), ytd_principal_paid: cents(R(1800, 2600)),
+      repayment_plan: 'Standard', last_payment_amount: 285, last_payment_date: due(-14), minimum_payment_amount: 285,
+      next_payment_due_date: due(16), is_overdue: false, account_name: loan.name, balance_current: loan.balance_current,
+      balance_limit: null, nickname: null, account_type: 'loan', account_subtype: 'student', institution: loan.institution },
+    cardLiab(cardA, I(6, 14)), cardLiab(cardB, I(9, 20))
+  ];
+
+  return {
+    profile: { id: currentUser ? currentUser.id : null, display_name: first + ' ' + last, avatar_url: null, tab_order: userProfile ? userProfile.tab_order : null },
+    email: first.toLowerCase() + '.' + last.toLowerCase() + '@example.com',
+    accounts: accounts, tx: tx, holdings: holdings, liabilities: liabilities, since: since.toISOString()
+  };
+}
+
 // Supabase returns at most 1000 rows per request. Page through so large
 // tables (transactions, transaction actions) are never silently cut off.
 async function fetchAllRows(buildQuery) {
@@ -863,6 +1097,7 @@ function lockOrSignOut() {
   else location.reload();
 }
 function lockApp() {
+  if (demo) { location.reload(); return; }   // Show-off mode ends; reopening asks for Face ID
   appLocked = true;
   txViewExpired = true; // past auto-lock: open on the current month next time
   var lock = $('#lock-screen');
@@ -1383,13 +1618,36 @@ function updateSettingsProfile() {
   var avatar = $('#settings-avatar');
   if (nameInput) nameInput.value = userProfile.display_name || '';
   var emailEl = $('#settings-email');
-  if (emailEl && currentUser) emailEl.textContent = currentUser.email || '';
+  if (emailEl && currentUser) emailEl.textContent = demo ? demo.email : (currentUser.email || '');
   var who = $('#set-profile-name');
   if (who) who.textContent = userProfile.display_name || 'Your profile';
   var since = $('#set-profile-since');
   if (since && currentUser && currentUser.created_at) since.textContent = 'Using Alenjo since ' + new Date(currentUser.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   if (avatar && userProfile.avatar_url) setBg(avatar, pic(userProfile.avatar_url) || userProfile.avatar_url);
 }
+
+// Show-off mode on/off (see SHOW-OFF MODE at the top)
+function startShowOff() {
+  if (!currentUser || demo) return;
+  demoStore = {};
+  demo = buildDemo();
+  // Your photo never shows; your name, email and money come from the fake data
+  [headerAvatar, $('#settings-avatar')].forEach(function(el) { if (el) { el._bg = null; el.style.backgroundImage = ''; } });
+  cachedHoldings = null; cachedLiabilities = null;
+  loadProfile();
+  loadAccounts().then(function() { return loadTransactions(); }).catch(function(e) { console.error('Show-off load', e); });
+  showToast('Show-off mode is on');
+}
+(function wireShowOff() {
+  var sw = $('#show-off-toggle');
+  if (!sw) return;
+  sw.checked = false;
+  sw.addEventListener('change', function() {
+    if (this.checked) startShowOff();
+    // Off: start fresh, so nothing made-up is left anywhere (Face ID before your real numbers)
+    else location.reload();
+  });
+})();
 
 // Save name
 $('#btn-save-name').addEventListener('click', async function() {
