@@ -4089,3 +4089,44 @@ button.txs-fact { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* Set before the first paint when reopening with Face ID: lock screen up, sign-in page never shown */
 html.boot-locked #lock-screen[hidden] { display: flex !important; }
 html.boot-locked #screen-login { visibility: hidden; }
+
+/* ---- Transaction popup: one Edit button, everything editable at once ---- */
+#tx-action-sheet .action-sheet { position: relative; }
+.txs-edit-toggle { position: absolute; top: 12px; right: 12px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; height: 44px; padding: 0 12px; border: none; border-radius: 22px; background: transparent; color: var(--text-muted); font: 500 0.9375rem 'Inter', sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.txs-edit-toggle span { display: none; }
+.txs-edit-toggle.is-on svg { display: none; }
+.txs-edit-toggle.is-on span { display: inline; color: var(--text); }
+/* Viewing: nothing looks or acts editable */
+#tx-action-sheet .action-sheet:not(.is-editing) .txs-pen,
+#tx-action-sheet .action-sheet:not(.is-editing) .txs-avatar-badge { display: none; }
+#tx-action-sheet .action-sheet:not(.is-editing) .txs-edit,
+#tx-action-sheet .action-sheet:not(.is-editing) .txs-avatar-btn,
+#tx-action-sheet .action-sheet:not(.is-editing) button.txs-fact,
+#tx-action-sheet .action-sheet:not(.is-editing) .txs-when { pointer-events: none; cursor: default; }
+#tx-action-sheet .action-sheet:not(.is-editing) #tx-date-reset { display: none; }
+/* Editing: the fields you can change get a soft fill; actions that save right away step aside */
+#tx-action-sheet .is-editing .txs-pen { opacity: 1; color: var(--accent); }
+#tx-action-sheet .is-editing .txs-input { border: none; background: var(--group-bg); }
+#tx-action-sheet .is-editing .txs-amt-edit { display: inline-flex; align-items: center; gap: 4px; font: 600 1.75rem 'Inter', sans-serif; }
+#tx-action-sheet .is-editing .txs-amt-edit .txs-input { width: 170px; min-height: 48px; font-size: 1.75rem; }
+#tx-action-sheet .is-editing .txs-title .txs-input { min-height: 44px; font-size: 1.25rem; }
+#tx-action-sheet .is-editing .txs-when,
+#tx-action-sheet .is-editing button.txs-fact { padding: 6px 10px; margin: -6px -10px; border-radius: 10px; background: var(--group-bg); }
+#tx-action-sheet .is-editing button.txs-fact { margin: -6px 12px -6px -10px; }
+#tx-action-sheet .is-editing .txs-when { margin-left: -10px; }
+#tx-action-sheet .is-editing .txs-facts { row-gap: 18px; }
+#tx-action-sheet .is-editing .txs-seg,
+#tx-action-sheet .is-editing .txs-links { display: none; }
+#tx-action-sheet .is-editing .txs-card { pointer-events: none; }
+#tx-action-sheet .action-sheet-cancel.is-save { background: var(--accent); color: var(--on-accent); font-weight: 600; box-shadow: none; }
+#tx-action-sheet .action-sheet { padding-top: 14px; }
+#tx-action-sheet .txs-amount { padding-right: 56px; }
+/* Unsaved-changes prompt */
+.txs-confirm { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(0, 0, 0, 0.45); }
+.txs-confirm[hidden] { display: none !important; }
+.txs-confirm-card { width: 100%; max-width: 300px; padding: 20px 16px 12px; border-radius: 18px; background: var(--sheet-bg); text-align: center; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+.txs-confirm-title { margin: 0 0 6px; font-size: 1.0625rem; font-weight: 600; color: var(--text); }
+.txs-confirm-text { margin: 0 0 16px; font-size: 0.875rem; color: var(--text-muted); }
+.txs-confirm-btn { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: none; border-radius: 12px; background: var(--group-bg); color: var(--text); font: 500 1rem 'Inter', sans-serif; cursor: pointer; }
+.txs-confirm-btn.is-save { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.txs-confirm-btn.is-discard { color: var(--danger, #ef4444); }

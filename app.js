@@ -4302,8 +4302,14 @@ document.addEventListener('click', function(e) {
   $('#manage-subtitle').textContent = acct ? [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ') : '';
   $('#manage-name').textContent = nicknameInput.value || (acct && acct.name) || 'Account';
   $('#manage-name-btn').hidden = false; nicknameInput.hidden = true;
-  $('#manage-details').hidden = true; $('#manage-cardface').hidden = false;
-  $('#manage-cardface').setAttribute('aria-expanded', 'false'); $('#manage-hint').hidden = false;
+  // Only credit cards and checking accounts come with a card. Savings, investments and loans
+  // just show their details: no card, no flip, no card design.
+  var hasCard = !!acct && (acct.type === 'credit' || (acct.type === 'depository' && acct.subtype !== 'savings'));
+  accountEditModal.classList.toggle('no-card', !hasCard);
+  $('#manage-flip-back').hidden = !hasCard;
+  $('#card-design-picker-section').hidden = !hasCard;
+  $('#manage-details').hidden = hasCard; $('#manage-cardface').hidden = !hasCard;
+  $('#manage-cardface').setAttribute('aria-expanded', 'false'); $('#manage-hint').hidden = !hasCard;
   // A small tilt on open hints that the card can be tapped
   var cf = $('#manage-cardface'); cf.classList.remove('hint-tilt'); void cf.offsetWidth; cf.classList.add('hint-tilt');
   renderManageCardFace(acct);
@@ -5649,6 +5655,8 @@ document.addEventListener('click', function(e) {
 function openActionSheet(tx) {
   actionTxId = tx.id;
   actionTx = tx;
+  txEditing = false; txDraft = {}; txDraftLogo = undefined;
+  $('#txs-confirm').hidden = true;
   var action = txActions[tx.id] || {};
   renderMonthMove(tx);
   var noteEl = $('#tx-note');
@@ -5668,8 +5676,13 @@ function openActionSheet(tx) {
   actionSheet.classList.add('visible');
 }
 
-// Fill the transaction sheet (called on open and after every change)
+// Fill the transaction sheet (called on open and after every change).
+// In edit mode it shows your unsaved edits on top of what's saved.
 function renderTxSheet(tx) {
+  withTxPreview(function() { renderTxSheetInner(tx); });
+  applyTxEditUi();
+}
+function renderTxSheetInner(tx) {
   var action = txActions[tx.id] || {}, eff = getEffectiveTx(tx);
   var bankName = tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
   var name = eff.nickname || bankName;
@@ -5728,61 +5741,143 @@ function renderTxSheet(tx) {
   renderMonthMove(tx);
 }
 
-// Inline edit: name
-(function() {
-  var btn = $('#txs-name-btn'), input = $('#txs-name-input');
-  if (!btn) return;
-  btn.addEventListener('click', function() {
-    if (!actionTx) return;
-    input.value = getEffectiveTx(actionTx).nickname || actionTx.enriched_merchant_name || actionTx.merchant_name || actionTx.name || '';
-    btn.hidden = true; input.hidden = false; input.focus(); input.select();
+// ---- Edit mode: one pencil (top right) makes everything editable at once; Save applies it all ----
+var txEditing = false, txDraft = {}, txDraftLogo;
+function txBankName(tx) { return tx.enriched_merchant_name || tx.merchant_name || tx.name || ''; }
+// Saved changes for this transaction with your unsaved edits on top
+function txDraftAction() {
+  var a = Object.assign({}, txActions[actionTxId] || {});
+  Object.keys(txDraft).forEach(function(k) { if (k.charAt(0) !== '_') a[k] = txDraft[k]; });
+  return a;
+}
+// Run fn as if the edits were saved (only touches this transaction and its store logo, then puts them back)
+function withTxPreview(fn) {
+  if (!txEditing || !actionTx) return fn();
+  var id = actionTx.id, hadA = txActions.hasOwnProperty(id), oldA = txActions[id];
+  var key = merchantKey(actionTx), logoOn = key && txDraftLogo !== undefined, hadL = logoOn && merchantLogos.hasOwnProperty(key), oldL = logoOn ? merchantLogos[key] : null;
+  txActions[id] = txDraftAction();
+  if (logoOn) { if (txDraftLogo === 'auto') delete merchantLogos[key]; else merchantLogos[key] = txDraftLogo; }
+  try { return fn(); } finally {
+    if (hadA) txActions[id] = oldA; else delete txActions[id];
+    if (logoOn) { if (hadL) merchantLogos[key] = oldL; else delete merchantLogos[key]; }
+  }
+}
+// From a picker: in edit mode, hold the change until Save; otherwise save now
+function stageOrSave(updates) {
+  if (!actionTxId) return;
+  if (!txEditing) { saveMultiAction(actionTxId, updates, { quiet: true }); return; }
+  Object.assign(txDraft, updates);
+  if (updates.hasOwnProperty('split_ways') || updates.hasOwnProperty('split_portion') || updates.hasOwnProperty('amount_override')) delete txDraft._amt;
+  showMainOptions();
+  renderTxSheet(actionTx);
+}
+function txCountedAmount(tx) {
+  var eff = getEffectiveTx(tx);
+  return (eff.isSplit || eff.isAdjusted) && !eff.excluded ? Math.abs(eff.amount) : Math.abs(tx.amount);
+}
+function sameVal(a, b) {
+  if (a == null || a === '') a = null; if (b == null || b === '') b = null;
+  if (a === null || b === null) return a === b;
+  if (!isNaN(parseFloat(a)) && !isNaN(parseFloat(b)) && typeof a !== 'boolean') return Math.abs(parseFloat(a) - parseFloat(b)) < 0.005 && String(a).replace(/[\d.\-]/g, '') === String(b).replace(/[\d.\-]/g, '');
+  return String(a) === String(b);
+}
+// What Save would change. With validate, a bad amount comes back as an error message.
+function txPendingEdits(validate) {
+  var tx = actionTx, out = { updates: {}, logo: undefined, error: null };
+  if (!tx || !txEditing) return out;
+  var upd = {};
+  Object.keys(txDraft).forEach(function(k) { if (k.charAt(0) !== '_') upd[k] = txDraft[k]; });
+  if (txDraft.hasOwnProperty('_name')) {
+    var v = String(txDraft._name).trim(), bank = txBankName(tx);
+    upd.nickname = (!v || v === bank) ? null : v.slice(0, 80);
+  }
+  if (txDraft.hasOwnProperty('_amt')) {
+    var total = Math.abs(tx.amount), n = parseFloat(txDraft._amt);
+    var shown = withTxPreview(function() { return txCountedAmount(tx); });
+    if (isNaN(n) || n < 0) { if (validate) out.error = 'Enter an amount'; }
+    else if (n > total + 0.004) { if (validate) out.error = 'Can’t be more than ' + formatMoney(total); }
+    else if (Math.abs(n - shown) >= 0.005) {
+      upd.amount_override = Math.abs(n - total) < 0.005 ? null : Math.round(n * 100) / 100;
+      upd.split_portion = null; upd.split_ways = null;
+    }
+  }
+  var saved = txActions[tx.id] || {};
+  Object.keys(upd).forEach(function(k) { if (!sameVal(upd[k], saved[k])) out.updates[k] = upd[k]; });
+  // Splitting or adjusting something you'd ignored counts it again (same as before)
+  if ((out.updates.split_ways || out.updates.split_portion || out.updates.category_override) && (saved.action_type === 'ignored' || saved.action_type === 'reimbursed')) out.updates.action_type = null;
+  var key = merchantKey(tx);
+  if (key && txDraftLogo !== undefined && txDraftLogo !== (merchantLogos[key] || 'auto')) out.logo = txDraftLogo;
+  return out;
+}
+function txHasEdits() { var r = txPendingEdits(false); return Object.keys(r.updates).length > 0 || r.logo !== undefined; }
+function setTxEditing(on) {
+  txEditing = on; txDraft = {}; txDraftLogo = undefined;
+  $('#txs-confirm').hidden = true;
+  showMainOptions();
+  if (actionTx) renderTxSheet(actionTx);
+}
+// Save everything at once. Returns false if something needs fixing first.
+function saveTxEdits() {
+  var r = txPendingEdits(true);
+  if (r.error) { showToast(r.error); return false; }
+  var tx = actionTx, any = Object.keys(r.updates).length > 0 || r.logo !== undefined;
+  txEditing = false; txDraft = {}; txDraftLogo = undefined;
+  if (r.logo !== undefined) {
+    var key = merchantKey(tx);
+    if (r.logo === 'auto') { delete merchantLogos[key]; sb.from('merchant_logos').delete().eq('merchant_key', key).then(function() {}); }
+    else {
+      merchantLogos[key] = r.logo;
+      sb.from('merchant_logos').upsert({ merchant_key: key, domain: r.logo, updated_at: new Date().toISOString() }, { onConflict: 'user_id,merchant_key' })
+        .then(function(res) { if (res.error) showToast('Couldn’t save the logo'); });
+    }
+    renderTransactionMonth();
+  }
+  if (Object.keys(r.updates).length) saveMultiAction(tx.id, r.updates, { quiet: true });
+  showMainOptions();
+  renderTxSheet(tx);
+  if (any) showToast('Saved');
+  return true;
+}
+// Inputs and buttons only act in edit mode
+function applyTxEditUi() {
+  var sheet = actionSheet.querySelector('.action-sheet');
+  sheet.classList.toggle('is-editing', txEditing);
+  var tog = $('#txs-edit-btn');
+  tog.classList.toggle('is-on', txEditing);
+  tog.setAttribute('aria-label', txEditing ? 'Cancel editing' : 'Edit');
+  var done = $('#action-sheet-cancel');
+  done.textContent = txEditing ? 'Save' : 'Done';
+  done.classList.toggle('is-save', txEditing);
+  $('#tx-date-input').disabled = !txEditing;
+  if (!txEditing || !actionTx) return;
+  var tx = actionTx;
+  var name = $('#txs-name-input');
+  $('#txs-name-btn').hidden = true; name.hidden = false;
+  if (document.activeElement !== name) name.value = txDraft.hasOwnProperty('_name') ? txDraft._name : (withTxPreview(function() { return getEffectiveTx(tx).nickname; }) || txBankName(tx));
+  var amt = $('#txs-amt-input');
+  $('#txs-amt-btn').hidden = true; $('#txs-amt-edit').hidden = false;
+  if (document.activeElement !== amt) amt.value = txDraft.hasOwnProperty('_amt') ? txDraft._amt : withTxPreview(function() { return txCountedAmount(tx); }).toFixed(2);
+}
+(function wireTxEditing() {
+  var tog = $('#txs-edit-btn');
+  if (!tog) return;
+  tog.addEventListener('click', function() { if (actionTx) setTxEditing(!txEditing); });   // Cancel throws the edits away
+  $('#txs-name-input').addEventListener('input', function() { if (txEditing) txDraft._name = this.value; });
+  $('#txs-amt-input').addEventListener('input', function() { if (txEditing) txDraft._amt = this.value; });
+  ['#txs-name-input', '#txs-amt-input'].forEach(function(sel) {
+    $(sel).addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
   });
-  var commit = function() {
-    if (input.hidden || !actionTx) return;
-    var v = input.value.trim(), bank = actionTx.enriched_merchant_name || actionTx.merchant_name || actionTx.name || '';
-    var cur = getEffectiveTx(actionTx).nickname || null, next = (!v || v === bank) ? null : v;
-    input.hidden = true; btn.hidden = false;
-    if (next !== cur) saveMultiAction(actionTx.id, { nickname: next }, { silent: true, quiet: true }); else renderTxSheet(actionTx);
-  };
-  input.addEventListener('blur', commit);
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { input.hidden = true; btn.hidden = false; }
-  });
-})();
-// Inline edit: amount that counts (saved as "your share"; the bank amount stays as is)
-(function() {
-  var btn = $('#txs-amt-btn'), wrap = $('#txs-amt-edit'), input = $('#txs-amt-input');
-  if (!btn) return;
-  btn.addEventListener('click', function() {
-    if (!actionTx) return;
-    var eff = getEffectiveTx(actionTx);
-    input.value = ((eff.isSplit || eff.isAdjusted) && !eff.excluded ? Math.abs(eff.amount) : Math.abs(actionTx.amount)).toFixed(2);
-    btn.hidden = true; wrap.hidden = false; input.focus(); input.select();
-  });
-  var commit = function() {
-    if (wrap.hidden || !actionTx) return;
-    var total = Math.abs(actionTx.amount), v = parseFloat(input.value);
-    wrap.hidden = true; btn.hidden = false;
-    if (isNaN(v) || v < 0) { renderTxSheet(actionTx); return; }
-    if (v > total) { showToast('Can’t be more than ' + formatMoney(total)); renderTxSheet(actionTx); return; }
-    var amt = Math.abs(v - total) < 0.005 ? null : Math.round(v * 100) / 100;
-    saveMultiAction(actionTx.id, { amount_override: amt, split_portion: null, split_ways: null }, { silent: true, quiet: true });
-  };
-  input.addEventListener('blur', commit);
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { wrap.hidden = true; btn.hidden = false; }
-  });
-})();
-(function() {
-  var cat = $('#txs-cat'), split = $('#txs-split');
-  if (cat) cat.addEventListener('click', function() { if (actionTx) showRecatPicker(); });
-  if (split) split.addEventListener('click', function() {
-    if (!actionTx) return;
+  $('#txs-cat').addEventListener('click', function() { if (actionTx && txEditing) showRecatPicker(); });
+  $('#txs-split').addEventListener('click', function() {
+    if (!actionTx || !txEditing) return;
     showSubPicker('#split-picker');
     openSplitPicker();
   });
+  // Closing with unsaved edits: Save, Don't save, or keep editing
+  $('#txs-confirm-save').addEventListener('click', function() { $('#txs-confirm').hidden = true; if (saveTxEdits()) closeActionSheet(true); });
+  $('#txs-confirm-discard').addEventListener('click', function() { $('#txs-confirm').hidden = true; txEditing = false; txDraft = {}; txDraftLogo = undefined; closeActionSheet(true); });
+  $('#txs-confirm-keep').addEventListener('click', function() { $('#txs-confirm').hidden = true; });
+  $('#txs-confirm').addEventListener('click', function(e) { if (e.target === this) this.hidden = true; });
 })();
 
 // Logo picker: tap the logo in the sheet, type, pick. Applies to every transaction from that store.
@@ -5791,7 +5886,7 @@ function renderTxSheet(tx) {
   if (!btn) return;
   var timer = null, seq = 0, lastResults = [];
   function tiles(results) {
-    var current = merchantLogos[merchantKey(actionTx)];
+    var current = withTxPreview(function() { return merchantLogos[merchantKey(actionTx)]; });
     var eff = getEffectiveTx(actionTx);
     var letter = ((eff.nickname || actionTx.merchant_name || actionTx.name || '?').replace(/^(to|from)\s+/i, '').trim().charAt(0) || '?').toUpperCase();
     var none = '<button type="button" class="logo-tile' + (current === 'none' ? ' on' : '') + '" data-domain="none">' +
@@ -5833,19 +5928,19 @@ function renderTxSheet(tx) {
     finally { if (my === seq) out.classList.remove('loading'); }
   }
   btn.addEventListener('click', function() {
-    if (!actionTx) return;
+    if (!actionTx || !txEditing) return;
     showSubPicker('#logo-picker');
     closeForm();
-    var eff = getEffectiveTx(actionTx);
-    q.value = eff.nickname || actionTx.merchant_name || (actionTx.name || '').replace(/^(to|from)\s+/i, '');
-    $('#logo-reset').hidden = !merchantLogos[merchantKey(actionTx)];
+    var eff = withTxPreview(function() { return getEffectiveTx(actionTx); });
+    q.value = (txDraft._name || '').trim() || eff.nickname || actionTx.merchant_name || (actionTx.name || '').replace(/^(to|from)\s+/i, '');
+    $('#logo-reset').hidden = !withTxPreview(function() { return merchantLogos[merchantKey(actionTx)]; });
     search(q.value);
     setTimeout(function() { q.focus(); q.select(); }, 50);
   });
   q.addEventListener('input', function() { clearTimeout(timer); timer = setTimeout(function() { search(q.value); }, 250); });
   q.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); search(q.value); } });
   $('#logo-back').addEventListener('click', showMainOptions);
-  function after() { renderTransactionMonth(); showMainOptions(); renderTxSheet(actionTx); }
+  function after() { if (!txEditing) renderTransactionMonth(); showMainOptions(); renderTxSheet(actionTx); }
   var file = $('#logo-file'), form = $('#logo-new'), nameIn = $('#logo-new-name'), prev = $('#logo-new-img'), pending = null;
   var frame = $('#logo-frame'), zoomIn = $('#logo-zoom');
   // Framing: the circle is exactly what shows next to transactions. Zoom 1 = whole image fits.
@@ -5927,13 +6022,8 @@ function renderTxSheet(tx) {
     var btn = this; btn.disabled = true; btn.textContent = 'Saving…';
     try {
       var logo = await uploadCustomLogo(await exportFramed(), name);
-      var key = merchantKey(actionTx);
-      if (key) {
-        merchantLogos[key] = 'custom:' + logo.id;
-        sb.from('merchant_logos').upsert({ merchant_key: key, domain: 'custom:' + logo.id, updated_at: new Date().toISOString() }, { onConflict: 'user_id,merchant_key' })
-          .then(function(r) { if (r.error) showToast('Couldn’t save the logo'); });
-      }
-      closeForm(); showToast('Logo saved'); after();
+      if (merchantKey(actionTx)) txDraftLogo = 'custom:' + logo.id;   // applied when you tap Save
+      closeForm(); after();
     } catch (err) {
       console.error('logo upload', err); showToast('Couldn’t upload that image');
     } finally { btn.disabled = false; btn.textContent = 'Save'; }
@@ -5952,19 +6042,13 @@ function renderTxSheet(tx) {
     }
     var t = e.target.closest('.logo-tile');
     if (!t || !actionTx) return;
-    var key = merchantKey(actionTx), domain = t.dataset.domain;
-    if (!key) return;
-    merchantLogos[key] = domain;
-    sb.from('merchant_logos').upsert({ merchant_key: key, domain: domain, updated_at: new Date().toISOString() }, { onConflict: 'user_id,merchant_key' })
-      .then(function(r) { if (r.error) showToast('Couldn’t save the logo'); });
-    showToast(domain === 'none' ? 'Logo removed' : 'Logo updated');
+    if (!merchantKey(actionTx)) return;
+    txDraftLogo = t.dataset.domain;   // applied when you tap Save
     after();
   });
   $('#logo-reset').addEventListener('click', function() {
     if (!actionTx) return;
-    var key = merchantKey(actionTx);
-    delete merchantLogos[key];
-    sb.from('merchant_logos').delete().eq('merchant_key', key).then(function() {});
+    txDraftLogo = 'auto';
     after();
   });
 })();
@@ -6051,23 +6135,17 @@ function renderTxFacts(tx) {
   if (!input) return;
   // Open the calendar from anywhere on the date button
   input.parentNode.addEventListener('click', function(e) {
+    if (!txEditing) { e.preventDefault(); return; }
     if (e.target !== input && input.showPicker) { e.preventDefault(); try { input.showPicker(); } catch (err) { input.focus(); } }
   });
   input.addEventListener('change', function() {
-    if (!actionTx || !input.value) return;
-    var tx = actionTx, base = swipeDate(tx), v = input.value;
-    saveTxNote();
-    saveMultiAction(tx.id, { date_override: v === base ? null : v }, { silent: true, quiet: true });
-    renderMonthMove(tx);
-    var p = v.split('-');
-    showToast('Date changed to ' + new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    if (!actionTx || !input.value || !txEditing) return;
+    var base = swipeDate(actionTx), v = input.value;
+    stageOrSave({ date_override: v === base ? null : v });
   });
   $('#tx-date-reset').addEventListener('click', function() {
-    if (!actionTx) return;
-    saveTxNote();
-    saveMultiAction(actionTx.id, { date_override: null }, { silent: true, quiet: true });
-    renderMonthMove(actionTx);
-    showToast('Date reset');
+    if (!actionTx || !txEditing) return;
+    stageOrSave({ date_override: null });
   });
 })();
 function saveTxNote() {
@@ -6096,6 +6174,7 @@ function autoGrowNote() {
   if (!c) return;
   c.addEventListener('click', function() {
     var id = c.dataset.id;
+    if (txEditing) return;
     closeActionSheet();
     setTimeout(function() {
       var home = document.querySelector('.account-card[data-id="' + id + '"]');
@@ -6103,14 +6182,22 @@ function autoGrowNote() {
     }, 250);
   });
 })();
-function closeActionSheet() {
+// force: close now (edits already saved or thrown away)
+function closeActionSheet(force) {
+  if (force !== true && txEditing) {
+    if (txHasEdits()) { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); $('#txs-confirm').hidden = false; return; }
+    setTxEditing(false);
+  }
+  txEditing = false; txDraft = {}; txDraftLogo = undefined;
+  $('#txs-confirm').hidden = true;
   saveTxNote();
   actionSheet.classList.remove('visible');
   actionTxId = null;
   actionTx = null;
 }
 
-$('#action-sheet-cancel').addEventListener('click', closeActionSheet);
+// Bottom button: Save in edit mode, Done otherwise
+$('#action-sheet-cancel').addEventListener('click', function() { if (txEditing) saveTxEdits(); else closeActionSheet(); });
 actionSheet.addEventListener('click', function(e) {
   if (e.target === actionSheet) closeActionSheet();
 });
@@ -6261,7 +6348,7 @@ function updateSplitPreview() {
   $('#split-preview').textContent = isNaN(mine) ? '' : 'Counts ' + formatMoney(mine) + ' toward your spending' + (theirs > 0 ? ' · ' + formatMoney(theirs) + ' comes back to you' : '');
 }
 function openSplitPicker() {
-  var a = txActions[actionTxId] || {}, total = splitTotal();
+  var a = txDraftAction(), total = splitTotal();
   $('#split-total').textContent = 'of ' + formatMoney(total);
   $('#split-custom-ways').value = '';
   if (a.split_ways > 1) setSplitFields(Math.ceil(total * 100 / a.split_ways) / 100, a.split_ways);
@@ -6275,10 +6362,9 @@ function openSplitPicker() {
   if (!even) return;
   // Older edits were saved as splits; this turns one into an adjusted amount
   $('#split-to-adjusted').addEventListener('click', function() {
-    var a = txActions[actionTxId] || {};
+    var a = txDraftAction();
     if (!(a.split_portion > 0)) return;
-    saveMultiAction(actionTxId, { amount_override: parseFloat(a.split_portion), split_portion: null, split_ways: null }, { quiet: true });
-    showToast('Marked as adjusted');
+    stageOrSave({ amount_override: parseFloat(a.split_portion), split_portion: null, split_ways: null });
   });
   even.addEventListener('click', function(e) {
     var b = e.target.closest('button[data-ways]');
@@ -6308,11 +6394,9 @@ function openSplitPicker() {
     var total = splitTotal(), mine = parseFloat($('#split-mine').value);
     if (isNaN(mine)) { showToast('Enter what you owe or what you got back'); return; }
     if (mine > total + 0.004) { showToast('Can’t be more than ' + formatMoney(total)); return; }
-    if (Math.abs(mine - total) < 0.005) { saveMultiAction(actionTxId, { split_ways: null, split_portion: null }, { quiet: true }); return; }
-    var existing = txActions[actionTxId] || {};
+    if (Math.abs(mine - total) < 0.005) { stageOrSave({ split_ways: null, split_portion: null }); return; }
     var updates = splitWaysPicked ? { split_ways: splitWaysPicked, split_portion: null, amount_override: null } : { split_ways: null, split_portion: Math.round(mine * 100) / 100, amount_override: null };
-    if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
-    saveMultiAction(actionTxId, updates);
+    stageOrSave(updates);
   });
 })();
 
@@ -6321,7 +6405,7 @@ function openSplitPicker() {
 // Re-categorize picker
 (function() {
   var rm = $('#split-remove');
-  if (rm) rm.addEventListener('click', function() { if (actionTxId) saveMultiAction(actionTxId, { split_ways: null, split_portion: null }, { quiet: true }); });
+  if (rm) rm.addEventListener('click', function() { stageOrSave({ split_ways: null, split_portion: null }); });
   var nc = $('#recat-custom-input');
   if (nc) nc.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); $('#recat-custom-apply').click(); } });
 })();
@@ -6380,7 +6464,8 @@ function showRecatPicker() {
   $('#recat-custom-input').value = '';
   renderRecatList();
 }
-function renderRecatList() {
+function renderRecatList() { withTxPreview(renderRecatListInner); }
+function renderRecatListInner() {
   var list = $('#recat-list');
   var current = normalizeCategory(getEffectiveTx(actionTx).category);
   var bankCat = normalizeCategory(actionTx.enriched_category_primary || actionTx.category);
@@ -6407,7 +6492,7 @@ function renderRecatList() {
   list.addEventListener('click', function(e) {
     if (!actionTxId) return;
     var t = e.target;
-    if (t.closest('[data-reset]')) { saveMultiAction(actionTxId, { category_override: null }, { quiet: true }); return; }
+    if (t.closest('[data-reset]')) { stageOrSave({ category_override: null }); return; }
     var del = t.closest('[data-del]');
     if (del) {
       var name = del.dataset.del;
@@ -6438,11 +6523,8 @@ function renderRecatList() {
     }
     var pick = t.closest('.cat-pill[data-cat]:not(.edit)');
     if (pick) {
-      var existing = txActions[actionTxId] || {};
       var bankCat = normalizeCategory(actionTx.enriched_category_primary || actionTx.category);
-      var updates = { category_override: pick.dataset.cat === bankCat ? null : pick.dataset.cat };
-      if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
-      saveMultiAction(actionTxId, updates, { quiet: true });
+      stageOrSave({ category_override: pick.dataset.cat === bankCat ? null : pick.dataset.cat });
     }
   });
 })();
@@ -6455,10 +6537,7 @@ $('#recat-custom-apply').addEventListener('click', function() {
   if (!existingCat) saveCatMap([{ source: cat, display: cat }]);   // remember it even before it's used
   $('#recat-custom-input').value = '';
   if (catEditMode) { renderRecatList(); showToast('Added ' + cat); return; }
-  var existing = txActions[actionTxId] || {};
-  var updates = { category_override: cat };
-  if (existing.action_type === 'ignored' || existing.action_type === 'reimbursed') updates.action_type = null;
-  saveMultiAction(actionTxId, updates, { quiet: true });
+  stageOrSave({ category_override: cat });
 });
 
 // Edit picker
