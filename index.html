@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-thAZ/Vy3hzfTSkuIhxEB4P/QnDK3/ZOGl9qQjgAuIjk=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-ulBPJiz0eO0TCWO2scONm+Xwk/cUA4krsLxp4T7FGO0=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -88,14 +88,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124051256';</script>
+  <script>var _v = '20261124113018';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124051256">
+  <link rel="stylesheet" href="style.css?v=20261124113018">
 </head>
 <body>
 
@@ -486,6 +486,14 @@
           <label class="set-row">
             <span>Deposits</span>
             <input type="checkbox" id="notif-deposits" class="set-switch" role="switch">
+          </label>
+          <label class="set-row">
+            <span class="set-row-text"><span>Card payments</span><span class="set-hint">Paying off a card or loan</span></span>
+            <input type="checkbox" id="notif-card-payments" class="set-switch" role="switch">
+          </label>
+          <label class="set-row">
+            <span class="set-row-text"><span>Transfers</span><span class="set-hint">Between your own accounts</span></span>
+            <input type="checkbox" id="notif-transfers" class="set-switch" role="switch">
           </label>
           <label class="set-row">
             <span>Minimum amount</span>

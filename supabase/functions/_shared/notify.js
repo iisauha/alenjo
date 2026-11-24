@@ -3,7 +3,7 @@
 // sends to every device where you allowed notifications.
 import { sendPush } from './webpush.js';
 
-const DEFAULTS = { purchases: true, deposits: true, bills: true, min_amount: 0, quiet: true, quiet_start: 22, quiet_end: 7, tz: 'America/New_York' };
+const DEFAULTS = { purchases: true, deposits: true, card_payments: true, transfers: true, bills: true, min_amount: 0, quiet: true, quiet_start: 22, quiet_end: 7, tz: 'America/New_York' };
 
 let vapidCache = null;
 export async function vapidConfig(admin) {
@@ -87,7 +87,14 @@ export async function sendToUser(admin, userId, messages, onlyEndpoint) {
   return { sent, devices: (devices || []).length };
 }
 
-// items: [{ id, pending_id, name, amount, account, pending }]
+// Your switches in Settings: card payments and moves between your own accounts have their own
+function wanted(t, s) {
+  if (t.kind === 'card_payment') return s.card_payments !== false;
+  if (t.kind === 'transfer') return s.transfers !== false;
+  return isDeposit(t) ? s.deposits : s.purchases;
+}
+
+// items: [{ id, pending_id, name, amount, account, pending, kind }]
 export async function deliver(admin, userId, items) {
   if (!items.length) return { sent: 0 };
   // A posted transaction whose pending version already notified stays quiet
@@ -104,7 +111,7 @@ export async function deliver(admin, userId, items) {
   const fresh = new Set((claimed || []).map((r) => r.transaction_id));
   const s = await settingsFor(admin, userId);
   const due = items.filter((t) => fresh.has(t.id) && !(t.pending_id && seenPending.has(t.pending_id)))
-    .filter((t) => (isDeposit(t) ? s.deposits : s.purchases) && Math.abs(t.amount) >= Number(s.min_amount || 0));
+    .filter((t) => wanted(t, s) && Math.abs(t.amount) >= Number(s.min_amount || 0));
   if (!due.length) return { sent: 0 };
   if (inQuietHours(s)) {
     await admin.from('push_queue').insert(due.map((t) => ({ user_id: userId, item: t })));
