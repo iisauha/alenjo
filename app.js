@@ -3317,6 +3317,7 @@ async function finishNewConnection(headers, publicToken, metadata) {
   }
   await loadAccounts();
   showLoading(false);
+  askCountHistory();
 }
 
 // Plaid docs: reopen Link with the same Link token (kept on the server for you) and the
@@ -4745,6 +4746,45 @@ function dropItemLocally(itemId) {
   }
 }
 
+// Just added an account after your first connection: its older history came in but isn't
+// counted. Ask whether it should be.
+var historyAsk = null;
+function askCountHistory() {
+  if (!cachedAccounts) return;
+  var today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  var fresh = cachedAccounts.filter(function(a) {
+    return a.count_from === today && !a.closed_at && a.created_at && Date.now() - new Date(a.created_at).getTime() < 30 * 60000;
+  });
+  if (!fresh.length) return;
+  var insts = fresh.map(function(a) { return a.institution || 'This bank'; }).filter(function(v, i, arr) { return arr.indexOf(v) === i; });
+  historyAsk = fresh.map(function(a) { return a.id; });
+  $('#history-lead').textContent = insts.join(' and ') + ' can send up to two years of past transactions. Right now ' +
+    (fresh.length === 1 ? 'this account counts' : 'these ' + fresh.length + ' accounts count') + ' from today.';
+  var s = $('#history-sheet'); s.classList.add('visible'); s.setAttribute('aria-hidden', 'false');
+}
+(function wireHistoryAsk() {
+  var s = $('#history-sheet');
+  function close() { s.classList.remove('visible'); s.setAttribute('aria-hidden', 'true'); historyAsk = null; }
+  $('#history-from-today').addEventListener('click', close);
+  $('#history-include').addEventListener('click', function() {
+    var ids = historyAsk || [];
+    close();
+    ids.forEach(function(id) {
+      var a = cachedAccounts.find(function(x) { return x.id === id; });
+      if (!a) return;
+      var before = a.count_from;
+      a.count_from = null;
+      rememberAcctEdit(id, { count_from: null });
+      sb.from('accounts').update({ count_from: null }).eq('id', id).then(function(r) {
+        if (r.error) { a.count_from = before; forgetAcctEdit(id, ['count_from']); countFromCache.src = null; showToast('Couldn’t save. Try in the account’s settings.'); if (txData && txData.length) renderTransactionMonth(); }
+      });
+    });
+    countFromCache.src = null;
+    if (txData && txData.length) renderTransactionMonth();
+    showToast('Past transactions counted');
+  });
+})();
+
 // Closed accounts: delete their saved history later
 (function wirePurge() {
   var sheet = $('#purge-sheet'), btn = $('#purge-confirm'), itemId = null;
@@ -4793,6 +4833,7 @@ async function finishAddAccounts(itemId, headers) {
     await loadAccounts();
     await loadItemHealth();
     showToast('Card added');
+    askCountHistory();
   } catch (err) {
     console.error('sync_added_accounts failed:', err);
     showError('Card linked but we couldn\'t finish syncing. Pull to refresh.');
@@ -5158,6 +5199,22 @@ function formatLiabDate(dateStr) {
   return monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
 }
 
+// The day an account was added (New York time), used as its "count from" day
+function accountAddedDay(acct) {
+  if (acct.count_from) return acct.count_from;
+  var d = acct.created_at ? new Date(acct.created_at) : new Date();
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+function longDay(ymd) { return formatLiabDate(ymd) + ', ' + ymd.slice(0, 4); }
+function setCountHistoryHint(acct) {
+  var on = $('#edit-count-history').checked;
+  $('#count-history-hint').textContent = on ? 'Everything counts' : 'Counting from ' + longDay(accountAddedDay(acct));
+}
+$('#edit-count-history').addEventListener('change', function() {
+  var acct = cachedAccounts && cachedAccounts.find(function(a) { return a.id === editingAccountId; });
+  if (acct) setCountHistoryHint(acct);
+});
+
 function computeBonusProgress(account) {
   if (!account || !account.bonus_target_amount || !account.bonus_start_date || !account.bonus_months) return null;
   var target = parseFloat(account.bonus_target_amount);
@@ -5276,6 +5333,10 @@ document.addEventListener('click', function(e) {
   $('#apy-input').value = acct && acct.apy != null ? acct.apy : '';
   $('#edit-exclude').checked = !!(acct && acct.exclude_from_totals);
   $('#edit-hide').checked = !!(acct && acct.is_hidden);
+  // Count earlier history: off = only from the day you added it (shown once the server has the setting)
+  var canCount = !!(acct && !acct.is_manual && acct.plaid_item_id && 'count_from' in acct);
+  $('#count-history-row').hidden = !canCount;
+  if (canCount) { $('#edit-count-history').checked = !acct.count_from; setCountHistoryHint(acct); }
   $('#manage-title').textContent = 'Manage ' + ((acct && acct.institution) || '') + ' account';
   $('#manage-subtitle').textContent = acct ? [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ') : '';
   $('#manage-name').textContent = nicknameInput.value || (acct && acct.name) || 'Account';
@@ -5346,6 +5407,11 @@ $('#account-edit-save').addEventListener('click', function() {
       exclude_from_totals: $('#edit-exclude').checked,
       is_hidden: $('#edit-hide').checked
     };
+    if (!$('#count-history-row').hidden) {
+      changes.count_from = $('#edit-count-history').checked ? null : accountAddedDay(acctNow);
+      countFromCache.src = null;
+      if ((acctNow.count_from || null) !== changes.count_from && txData && txData.length) setTimeout(renderTransactionMonth, 0);
+    }
     Object.assign(acctNow, changes);
     var settingsId = acctNow.id;
     rememberAcctEdit(settingsId, changes);
@@ -5668,6 +5734,17 @@ async function loadTransactions() {
 
 // The day the card was used (Plaid's authorized_date); falls back to the posted date
 function swipeDate(tx) { return tx.authorized_date || tx.date; }
+// An account added after your first connection counts only from the day Alenjo first saw it
+var countFromCache = { src: null, map: {} };
+function accountCountFrom(plaidAccountId) {
+  if (!plaidAccountId || !cachedAccounts) return null;
+  if (countFromCache.src !== cachedAccounts) {
+    var m = {};
+    cachedAccounts.forEach(function(a) { if (a.plaid_account_id && a.count_from) m[a.plaid_account_id] = a.count_from; });
+    countFromCache = { src: cachedAccounts, map: m };
+  }
+  return countFromCache.map[plaidAccountId] || null;
+}
 function getEffectiveTx(tx) {
   var action = txActions[tx.id];
   var result = {
@@ -5682,6 +5759,9 @@ function getEffectiveTx(tx) {
   };
   // Your bank withdrew it: not counted until you choose to keep it
   if (tx.removed_at) { result.excluded = true; result.amount = 0; }
+  // From before you added this account (its "count from" day): shown, not counted
+  var cf = accountCountFrom(tx.plaid_account_id);
+  if (cf && swipeDate(tx) < cf) { result.excluded = true; result.amount = 0; result.beforeTracking = true; }
   if (!action) return result;
   if (action.nickname) result.nickname = action.nickname;
   if (action.note) result.note = action.note;
@@ -6040,6 +6120,7 @@ function renderTransactionMonth() {
       var tags = '';
       if (tx.pending) tags += '<span class="act-tag act-tag-pending">Pending</span>';
       if (eff.removedByBank) tags += '<span class="act-tag act-tag-pending">Removed by bank</span>';
+      if (eff.beforeTracking) tags += '<span class="act-tag">Before tracking</span>';
       if (movedEarlier[tx.id]) tags += '<span class="act-tag act-tag-pending">Moved to ' + MONTH_LONG[parseInt(movedEarlier[tx.id].substring(5, 7), 10) - 1] + '</span>';
       else if (eff.date !== swipeDate(tx)) tags += '<span class="act-tag">Moved</span>';
       if (eff.actionType === 'reimbursed') tags += '<span class="act-tag">Reimbursed</span>';
@@ -6827,7 +6908,8 @@ function renderTxSheetInner(tx) {
   amtTag.hidden = eff.excluded || !(eff.isSplit || eff.isAdjusted);
   amtTag.textContent = eff.isAdjusted ? 'Adjusted' : eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split';
   amtTag.className = 'txs-adj ' + (eff.isAdjusted ? 'is-adjusted' : 'is-split');
-  $('#txs-amt-sub').textContent = eff.removedByBank ? 'Removed by your bank · not counted' : eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
+  $('#txs-amt-sub').textContent = eff.removedByBank ? 'Removed by your bank · not counted'
+    : eff.beforeTracking ? 'Before you added this account · not counted' : eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
     : tx.pending ? 'Pending' : '';
 
   $('#txs-cat-val').textContent = normalizeCategory(eff.category);

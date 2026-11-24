@@ -4249,3 +4249,4 @@ html.boot-locked #screen-login { visibility: hidden; }
 .txs-venmo:active { opacity: 0.7; }
 .txs-venmo svg { margin-left: auto; color: var(--text-muted); }
 .txs-venmo-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: #3D95CE; color: #FFFFFF; font-weight: 800; font-style: italic; font-size: 16px; }
+#history-sheet .history-later { margin: 0 0 6px; font-size: 0.8125rem; text-align: center; }
