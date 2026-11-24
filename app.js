@@ -1519,30 +1519,25 @@ function loadCropper() {
   return cropperAssetsPromise;
 }
 
-var bgRemovalModulePromise = null;
-var bgRemovalEverLoaded = false;
-function loadBgRemoval() {
-  if (bgRemovalModulePromise) return bgRemovalModulePromise;
-  bgRemovalModulePromise = import('https://esm.sh/@imgly/background-removal@1.5.8');
-  return bgRemovalModulePromise;
-}
-
-async function removeCardBackground(blob) {
-  var mod = await loadBgRemoval();
-  var result = await mod.removeBackground(blob, {
-    model: 'isnet_quint8',
-    output: { format: 'image/png' },
-    progress: function(key, cur, total) {
-      if (key && key.indexOf('fetch') === 0 && total) {
-        var pct = Math.round((cur / total) * 100);
-        setDesignStatus('Loading extraction model... ' + pct + '%');
-      } else if (key && key.indexOf('compute') === 0) {
-        setDesignStatus('Extracting card...');
-      }
-    }
-  });
-  bgRemovalEverLoaded = true;
-  return result;
+// Card cutout, done here on the phone (no downloads, no outside code). The crop box is locked to
+// a standard card's proportions; this makes the corners transparent with a standard card's
+// corner radius, so every card comes out the same shape.
+async function cutCardCorners(blob) {
+  var img = await blobToImage(blob);
+  var w = img.naturalWidth, h = img.naturalHeight;
+  var c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  var ctx = c.getContext('2d');
+  var r = Math.min(w, h) * ISO_CARD_RADIUS_RATIO;
+  ctx.beginPath();
+  ctx.moveTo(r, 0); ctx.lineTo(w - r, 0); ctx.quadraticCurveTo(w, 0, w, r);
+  ctx.lineTo(w, h - r); ctx.quadraticCurveTo(w, h, w - r, h);
+  ctx.lineTo(r, h); ctx.quadraticCurveTo(0, h, 0, h - r);
+  ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, 0, 0);
+  return new Promise(function(resolve, reject) { c.toBlob(function(b) { b ? resolve(b) : reject(new Error('cutout failed')); }, 'image/png'); });
 }
 
 async function trimTransparentEdges(blob) {
@@ -1617,6 +1612,7 @@ function openCropModal(file) {
   img.onload = function() {
     activeCropper = new window.Cropper(img, {
       viewMode: 1,
+      aspectRatio: ISO_CARD_ASPECT,   // a card's shape; line its edges up with the card
       autoCropArea: 0.9,
       background: false,
       movable: false,
@@ -1689,11 +1685,10 @@ $('#card-crop-apply').addEventListener('click', async function() {
 
   var extractedBlob;
   try {
-    setDesignStatus(bgRemovalEverLoaded ? 'Extracting card...' : 'Loading extraction model (first time, ~40MB)...');
-    extractedBlob = await removeCardBackground(croppedBlob);
+    extractedBlob = await cutCardCorners(croppedBlob);
   } catch (err) {
-    console.error('background removal error', err);
-    setDesignStatus('Could not remove background. Try a clearer image.', true);
+    console.error('card cutout error', err);
+    setDesignStatus('Could not cut out the card. Try another image.', true);
     return;
   }
 
