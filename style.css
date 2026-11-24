@@ -4250,3 +4250,10 @@ html.boot-locked #screen-login { visibility: hidden; }
 .txs-venmo svg { margin-left: auto; color: var(--text-muted); }
 .txs-venmo-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: #3D95CE; color: #FFFFFF; font-weight: 800; font-style: italic; font-size: 16px; }
 #history-sheet .history-later { margin: 0 0 6px; font-size: 0.8125rem; text-align: center; }
+.history-rec { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--bg); font: 600 0.6875rem 'Inter', sans-serif; font-style: normal; vertical-align: 2px; }
+.disc-option .history-warn { color: var(--danger); font-weight: 500; }
+.disc-option.is-rec { border-color: var(--accent); }
+.count-row > span:first-child { flex: 1; min-width: 0; }
+.count-row > span:first-child { display: flex; flex-direction: column; gap: 2px; font-weight: 500; }
+.count-row > span:first-child small { font-size: 0.6875rem; font-weight: 400; color: var(--text-muted); }
+.count-row[hidden] { display: none; }

@@ -1,9 +1,15 @@
--- Count from: an account added after your first connection counts toward totals only from the
--- day Alenjo first saw it. Its older history still comes in (shown as "Before tracking"), so a
+-- Count from: an account added after your first connection counts toward totals only from a day
+-- you choose (Alenjo asks right after you add it). Anything before that day is kept but hidden, so a
 -- new card, a new bank or a partner's accounts never change months you've already budgeted.
--- Null = count everything (your first connection, and every account that existed before this).
+--   count_from            null = count everything Alenjo has (never earlier than the month before you joined)
+--   added_later           true for accounts added after your first connection (they get the choice)
+--   count_choice_pending  true until you answer the question in the app
+-- Your first connection counts everything. In your first 30 days new accounts default to everything
+-- too (you're still setting up); after that they default to the day they're added.
 
 alter table public.accounts add column if not exists count_from date;
+alter table public.accounts add column if not exists added_later boolean not null default false;
+alter table public.accounts add column if not exists count_choice_pending boolean not null default false;
 
 create or replace function public.set_account_count_from()
 returns trigger
@@ -11,15 +17,30 @@ language plpgsql
 security definer
 set search_path to 'public'
 as $$
+declare
+  v_first timestamptz;
+  v_inst text;
 begin
-  if new.is_manual or new.count_from is not null or new.plaid_item_id is null then
+  if new.is_manual or new.plaid_item_id is null then
     return new;
   end if;
-  -- First connection ever (and its accounts) counts everything. Anything later starts today.
-  if exists (select 1 from plaid_items where user_id = new.user_id and id <> new.plaid_item_id)
-     or exists (select 1 from plaid_items where id = new.plaid_item_id and created_at < now() - interval '1 hour') then
-    new.count_from := (now() at time zone 'America/New_York')::date;
+  -- Accounts of your very first connection count everything
+  if not exists (select 1 from plaid_items where user_id = new.user_id and id <> new.plaid_item_id)
+     and exists (select 1 from plaid_items where id = new.plaid_item_id and created_at > now() - interval '1 hour') then
+    return new;
   end if;
+  select min(created_at) into v_first from plaid_items where user_id = new.user_id;
+  select institution_id into v_inst from plaid_items where id = new.plaid_item_id;
+  new.added_later := true;
+  if v_first < now() - interval '30 days' then
+    new.count_from := (now() at time zone 'America/New_York')::date;
+  else
+    new.count_from := null;
+  end if;
+  -- Reconnecting a bank you removed: merge_reconnected_history brings back your earlier choice
+  new.count_choice_pending := not exists (
+    select 1 from plaid_items where user_id = new.user_id and status = 'removed' and institution_id = v_inst
+  );
   return new;
 end;
 $$;
@@ -30,7 +51,7 @@ drop trigger if exists accounts_set_count_from on public.accounts;
 create trigger accounts_set_count_from before insert on public.accounts
   for each row execute function public.set_account_count_from();
 
-grant update (count_from) on public.accounts to authenticated;
+grant update (count_from, count_choice_pending) on public.accounts to authenticated;
 
 create or replace function public.get_user_accounts()
 returns jsonb
@@ -68,6 +89,8 @@ begin
       a.exclude_from_totals,
       a.closed_at,
       a.count_from,
+      a.added_later,
+      a.count_choice_pending,
       pi.plaid_last_checked_at,
       pi.institution_id,
       case when a.name_enc is not null then extensions.pgp_sym_decrypt(a.name_enc, v_key) end as name,
@@ -142,7 +165,7 @@ begin
     ), candidates as (
       select oc.id as old_id, nc.id as new_id, oc.plaid_item_id as old_item, oc.pid as old_pid, nc.pid as new_pid,
              oc.nickname, oc.card_design_id, oc.apy, oc.bonus_target_amount, oc.bonus_start_date, oc.bonus_months,
-             oc.sort_order, oc.is_hidden, oc.exclude_from_totals, oc.count_from,
+             oc.sort_order, oc.is_hidden, oc.exclude_from_totals, oc.count_from, oc.added_later,
              count(*) over (partition by oc.id) as n_for_old,
              count(*) over (partition by nc.id) as n_for_new
       from old_accts oc
@@ -235,7 +258,9 @@ begin
       sort_order = coalesce(na.sort_order, pair.sort_order),
       is_hidden = coalesce(pair.is_hidden, na.is_hidden),
       exclude_from_totals = coalesce(pair.exclude_from_totals, na.exclude_from_totals),
-      count_from = pair.count_from,   -- reconnecting keeps the account's original start
+      count_from = pair.count_from,   -- reconnecting keeps your earlier choice
+      added_later = pair.added_later,
+      count_choice_pending = false,
       updated_at = now()
     where na.id = pair.new_id and na.user_id = p_user_id;
 

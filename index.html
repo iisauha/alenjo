@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-DubX7DJBeihz1ui0L+EPWX1gvXHvlLxGvCtdmhIsdRc=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-kvnZDTkfJ08ShINk0gGq/PTqlZmqIoRyTcwYNrUsa38=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -88,14 +88,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124194559';</script>
+  <script>var _v = '20261124200236';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124194559">
+  <link rel="stylesheet" href="style.css?v=20261124200236">
 </head>
 <body>
 
@@ -742,7 +742,7 @@
           <label class="set-row manage-row manage-field" id="apy-field"><span>Interest rate<small id="apy-hint">Copy it from your bank's app</small></span><span class="manage-suffix"><input type="number" id="apy-input" inputmode="decimal" step="0.01" min="0" max="25" placeholder="4.20"><span>% APY</span></span></label>
           <label class="set-row manage-row manage-toggle"><span>Hide account</span><input type="checkbox" id="edit-hide" class="set-switch" role="switch"></label>
           <label class="set-row manage-row manage-toggle"><span>Exclude from balance</span><input type="checkbox" id="edit-exclude" class="set-switch" role="switch"></label>
-          <label class="set-row manage-row manage-toggle" id="count-history-row" hidden><span>Count earlier history<small id="count-history-hint"></small></span><input type="checkbox" id="edit-count-history" class="set-switch" role="switch"></label>
+          <label class="set-row manage-row count-row" id="count-history-row" hidden><span>Counts from<small id="count-history-hint"></small></span><select id="edit-count-from" class="set-select" aria-label="Counts from"></select></label>
         </div>
         <div id="card-design-picker-section">
           <span class="sheet-sec">Card design</span>
@@ -942,19 +942,24 @@
 
   <div id="history-sheet" class="action-sheet-overlay" aria-hidden="true">
     <div class="action-sheet delete-sheet" role="dialog" aria-modal="true" aria-labelledby="history-title">
-      <h2 id="history-title" class="delete-title">Count past transactions?</h2>
+      <h2 id="history-title" class="delete-title">Where should it start?</h2>
       <p class="delete-lead" id="history-lead"></p>
       <div class="disc-options">
-        <button type="button" class="disc-option" id="history-from-today">
-          <b>Start from today</b>
-          <span>Earlier ones show as Before tracking and aren’t counted. Months you’ve already budgeted stay the same.</span>
+        <button type="button" class="disc-option" data-count="day">
+          <b>From today<em class="history-rec" hidden>Recommended</em></b>
+          <span id="history-day-sub"></span>
         </button>
-        <button type="button" class="disc-option" id="history-include">
-          <b>Count them too</b>
-          <span>They’re added to the months they happened in.</span>
+        <button type="button" class="disc-option" data-count="month">
+          <b>From the start of this month<em class="history-rec" hidden>Recommended</em></b>
+          <span id="history-month-sub"></span>
+        </button>
+        <button type="button" class="disc-option" data-count="all">
+          <b>All history<em class="history-rec" hidden>Recommended</em></b>
+          <span id="history-all-sub"></span>
+          <span class="history-warn" id="history-all-warn" hidden>Not recommended: this changes months you’ve already budgeted.</span>
         </button>
       </div>
-      <p class="delete-lead history-later">You can change this anytime in the account’s settings.</p>
+      <p class="delete-lead history-later">Purchases before the day you pick are hidden. You can change this anytime in the account’s settings.</p>
     </div>
   </div>
 
