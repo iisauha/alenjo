@@ -4203,3 +4203,6 @@ html.boot-locked #screen-login { visibility: hidden; }
 .mfa-backup-head { margin: -4px 0; }
 .mfa-backup-actions .mfa-backup-new { grid-column: 1 / -1; }
 .mfa-backup-btn { padding: 0 10px; line-height: 1.2; }
+
+/* The card row in a transaction is information only */
+#tx-action-sheet .txs-card { cursor: default; pointer-events: none; -webkit-tap-highlight-color: transparent; }
