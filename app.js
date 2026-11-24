@@ -2806,6 +2806,7 @@ function saveGroupOrder(group) {
     var a = cachedAccounts.find(function(x) { return x.id === r.dataset.id; });
     if (a && a.sort_order !== i) {
       a.sort_order = i;
+      rememberAcctEdit(a.id, { sort_order: i });
       sb.from('accounts').update({ sort_order: i }).eq('id', a.id).then(function(res) { if (res.error) showToast('Could not save order'); });
     }
   });
@@ -2820,6 +2821,7 @@ if (accountOrderList) {
       cachedAccounts.forEach(function(a) {
         if (accountKind(a) !== reset.dataset.resetOrder || a.sort_order == null) return;
         a.sort_order = null;
+        rememberAcctEdit(a.id, { sort_order: null });
         sb.from('accounts').update({ sort_order: null }).eq('id', a.id).then(function(res) { if (res.error) showToast('Could not save order'); });
       });
       renderAccountOrderList();
@@ -2831,6 +2833,7 @@ if (accountOrderList) {
     var acct = cachedAccounts.find(function(a) { return a.id === btn.closest('.acct-order-row').dataset.id; });
     if (!acct) return;
     acct.is_hidden = !acct.is_hidden;
+    rememberAcctEdit(acct.id, { is_hidden: acct.is_hidden });
     sb.from('accounts').update({ is_hidden: acct.is_hidden }).eq('id', acct.id).then(function(r) { if (r.error) showToast('Could not save'); });
     renderAccountOrderList();
     renderAccounts(cachedAccounts);
@@ -3397,22 +3400,50 @@ btnAddAccount.addEventListener('click', function() { openPlaidLink(['transaction
 // LOAD ACCOUNTS
 // ============================================
 var loadingAccounts = false;
+// Account settings you just saved (exclude, hide, rate, name, card design) win over a list of
+// accounts that was already on its way from the server before the save landed. Kept 30 seconds,
+// or until the server agrees.
+var acctLocalEdits = {};
+function rememberAcctEdit(id, changes) {
+  var e = acctLocalEdits[id] || (acctLocalEdits[id] = { fields: {} });
+  Object.assign(e.fields, changes);
+  e.at = Date.now();
+}
+function forgetAcctEdit(id, keys) {
+  var e = acctLocalEdits[id];
+  if (!e) return;
+  keys.forEach(function(k) { delete e.fields[k]; });
+  if (!Object.keys(e.fields).length) delete acctLocalEdits[id];
+}
+function applyAcctEdits(list) {
+  var now = Date.now();
+  list.forEach(function(a) {
+    var e = acctLocalEdits[a.id];
+    if (!e) return;
+    if (now - e.at > 30000) { delete acctLocalEdits[a.id]; return; }
+    var same = Object.keys(e.fields).every(function(k) { return (a[k] == null ? null : a[k]) === (e.fields[k] == null ? null : e.fields[k]); });
+    if (same) delete acctLocalEdits[a.id];
+    else Object.assign(a, e.fields);
+  });
+  return list;
+}
+
 async function loadAccounts() {
   if (loadingAccounts) return;
   loadingAccounts = true;
-  var result = await sb.rpc('get_user_accounts');
+  var result;
+  try { result = await sb.rpc('get_user_accounts'); }
+  finally { loadingAccounts = false; }   // a failed load must not block every later one
 
   if (result.error) {
     console.error('Error loading accounts:', result.error);
     return;
   }
 
-  cachedAccounts = result.data || [];
+  cachedAccounts = applyAcctEdits(result.data || []);
   renderAccounts(cachedAccounts);
   resolveLogos();
   loadItemHealth();
-
-  loadingAccounts = false;
 }
 
 // ============================================
@@ -5275,8 +5306,9 @@ $('#account-edit-save').addEventListener('click', function() {
     refreshAccountNames();
     // Save to DB in background (must call .then() to execute the request)
     var saveId = editingAccountId;
+    rememberAcctEdit(saveId, { nickname: newName });
     sb.from('accounts').update({ nickname: newName }).eq('id', saveId).then(function(result) {
-      if (result.error) console.error('Nickname save error:', result.error);
+      if (result.error) { console.error('Nickname save error:', result.error); forgetAcctEdit(saveId, ['nickname']); }
     });
   }
 
@@ -5296,8 +5328,9 @@ $('#account-edit-save').addEventListener('click', function() {
     }
     if (newDesignId !== prevDesignId) {
       var saveDesignId = editingAccountId;
+      rememberAcctEdit(saveDesignId, { card_design_id: newDesignId });
       sb.from('accounts').update({ card_design_id: newDesignId }).eq('id', saveDesignId).then(function(result) {
-        if (result.error) console.error('Card design save error:', result.error);
+        if (result.error) { console.error('Card design save error:', result.error); forgetAcctEdit(saveDesignId, ['card_design_id']); }
       });
     }
   }
@@ -5314,8 +5347,10 @@ $('#account-edit-save').addEventListener('click', function() {
       is_hidden: $('#edit-hide').checked
     };
     Object.assign(acctNow, changes);
-    sb.from('accounts').update(changes).eq('id', acctNow.id).then(function(result) {
-      if (result.error) { console.error('Account settings save error:', result.error); showToast('Could not save account settings'); }
+    var settingsId = acctNow.id;
+    rememberAcctEdit(settingsId, changes);
+    sb.from('accounts').update(changes).eq('id', settingsId).then(function(result) {
+      if (result.error) { console.error('Account settings save error:', result.error); forgetAcctEdit(settingsId, Object.keys(changes)); showToast('Could not save account settings'); }
     });
   }
 
