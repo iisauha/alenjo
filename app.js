@@ -490,6 +490,8 @@ authFaceId.addEventListener('click', function() { signInWithFaceId(true); });
 // Then listen for fresh sign-ins only
 // Opening a password-reset link: keep that session so you can set a new password
 var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
+// Opening the "lost your code" email link: keep that session so you can confirm with your password
+var isEmailLink = /type=magiclink/.test(location.hash) || /type=magiclink/.test(location.search);
 // Coming back from a bank's own sign-in page (Plaid OAuth redirect): remember the full
 // address Plaid sent you back to, and finish connecting once you're signed in.
 (function() {
@@ -502,7 +504,11 @@ var isRecoveryLink = /type=recovery/.test(location.hash) || /type=recovery/.test
 async function continueSignIn(session) {
   try {
     var lvl = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (lvl.data && lvl.data.nextLevel === 'aal2' && lvl.data.currentLevel !== 'aal2') { showMfaStep(); return; }
+    if (lvl.data && lvl.data.nextLevel === 'aal2' && lvl.data.currentLevel !== 'aal2') {
+      showMfaStep();
+      if (isEmailLink) setMfaMode('confirm');   // came from the "lost your code" email
+      return;
+    }
   } catch (e) { console.error('mfa level', e); }
   finishSignIn(session);
 }
@@ -513,8 +519,82 @@ function showMfaStep() {
   $('#mfa-form').hidden = false;
   $('#mfa-error').hidden = true;
   $('#mfa-code').value = '';
-  setTimeout(function() { $('#mfa-code').focus(); }, 50);
+  setMfaMode('code');
 }
+// ---- Can't get your code? A backup code, or an email link + your password ----
+// The code screen has four views: code, backup, email (link sent), confirm (opened the link).
+function setMfaMode(mode) {
+  ['code', 'backup', 'email', 'confirm'].forEach(function(m) { var el = $('#mfa-mode-' + m); if (el) el.hidden = m !== mode; });
+  document.querySelectorAll('#mfa-form .auth-error').forEach(function(el) { el.hidden = true; });
+  $('#mfa-cancel').hidden = mode === 'confirm';
+  var focus = { code: '#mfa-code', backup: '#mfa-backup-code', confirm: '#mfa-confirm-password' }[mode];
+  if (focus) setTimeout(function() { var f = $(focus); if (f) f.focus(); }, 50);
+}
+async function callMfaRecovery(body) {
+  var s = (await sb.auth.getSession()).data.session;
+  if (!s) throw new Error('Sign in again first.');
+  var res = await fetch(SUPABASE_URL + '/functions/v1/mfa-recovery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.access_token, 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify(body)
+  });
+  var data = await res.json().catch(function() { return {}; });
+  if (!res.ok) throw new Error(data.error || 'Something went wrong. Try again.');
+  return data;
+}
+// Two-step is off now: you're in. Set it up again in Settings.
+async function finishRecovered() {
+  clearTrusted();
+  if (isEmailLink) { try { history.replaceState(null, '', location.pathname); } catch (e) {} isEmailLink = false; }
+  var s = (await sb.auth.getSession()).data.session;
+  hideMfaStep();
+  showToast('Two-step sign-in is off. Turn it on again in Settings.');
+  if (s) finishSignIn(s);
+}
+function showMfaErr(id, msg) { var el = $(id); if (el) { el.textContent = msg; el.hidden = false; } }
+async function sendRecoveryEmail() {
+  var s = (await sb.auth.getSession()).data.session;
+  var email = s && s.user && s.user.email;
+  if (!email) { showMfaErr('#mfa-error', 'Sign in with your password first.'); return; }
+  var r = await sb.auth.signInWithOtp({ email: email, options: { shouldCreateUser: false } });
+  setMfaMode('email');
+  var at = email.indexOf('@');
+  $('#mfa-email-sub').textContent = 'We sent a sign-in link to ' + (at > 1 ? email.slice(0, 2) + '•••' + email.slice(at) : email) + '. Open it on this phone, then enter your password to turn off two-step. You can set it up again in Settings.';
+  if (r.error) showMfaErr('#mfa-email-error', /rate|seconds|too many/i.test(r.error.message) ? 'Wait a minute before sending another link.' : r.error.message);
+}
+(function wireMfaHelp() {
+  var go = $('#mfa-go-backup');
+  if (!go) return;
+  go.addEventListener('click', function() { $('#mfa-backup-code').value = ''; setMfaMode('backup'); });
+  $('#mfa-go-email').addEventListener('click', sendRecoveryEmail);
+  $('#mfa-email-again').addEventListener('click', sendRecoveryEmail);
+  document.querySelectorAll('[data-mfa-back]').forEach(function(b) { b.addEventListener('click', function() { setMfaMode('code'); }); });
+  // Backup code: XXXX-XXXX (letters and digits; dash optional)
+  var bc = $('#mfa-backup-code');
+  bc.addEventListener('input', function() {
+    var v = bc.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    bc.value = v.length > 4 ? v.slice(0, 4) + '-' + v.slice(4) : v;
+  });
+  bc.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); $('#mfa-backup-submit').click(); } });
+  $('#mfa-backup-submit').addEventListener('click', async function() {
+    var btn = this, code = bc.value.replace(/[^A-Za-z0-9]/g, '');
+    if (code.length !== 8) { showMfaErr('#mfa-backup-error', 'Backup codes have 8 letters and numbers.'); return; }
+    btn.disabled = true; btn.textContent = 'Checking…';
+    try { await callMfaRecovery({ action: 'use-code', code: code }); await finishRecovered(); }
+    catch (e) { showMfaErr('#mfa-backup-error', e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Use backup code'; }
+  });
+  var pw = $('#mfa-confirm-password');
+  pw.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); $('#mfa-confirm-submit').click(); } });
+  $('#mfa-confirm-submit').addEventListener('click', async function() {
+    var btn = this;
+    if (!pw.value) { showMfaErr('#mfa-confirm-error', 'Enter your password.'); return; }
+    btn.disabled = true; btn.textContent = 'Checking…';
+    try { await callMfaRecovery({ action: 'use-email', password: pw.value }); pw.value = ''; await finishRecovered(); }
+    catch (e) { showMfaErr('#mfa-confirm-error', e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Turn off and sign in'; }
+  });
+})();
 function hideMfaStep() { $('#mfa-form').hidden = true; $('#auth-form').hidden = false; }
 $('#mfa-form').addEventListener('submit', async function(e) {
   e.preventDefault();
@@ -578,9 +658,9 @@ function finishSignIn(session) {
 // Sign out of THIS device only on load (the default would end your
 // sessions on every device, e.g. opening on the Mac would sign out the iPhone)
 window._alenjoBoot = true;
-if (!isRecoveryLink && hasPasskeyHere() && window.PublicKeyCredential && !signedOutOnPurpose()) showColdLock();
+if (!isRecoveryLink && !isEmailLink && hasPasskeyHere() && window.PublicKeyCredential && !signedOutOnPurpose()) showColdLock();
 else document.documentElement.classList.remove('boot-locked');
-var bootReady = isRecoveryLink ? Promise.resolve() : keepOrSignOut();
+var bootReady = (isRecoveryLink || isEmailLink) ? Promise.resolve() : keepOrSignOut();
 bootReady.then(function() {
   showScreen('login');
 
@@ -2945,7 +3025,52 @@ async function refreshMfaStatus() {
   } catch (e) { mfaFactor = null; }
   st.textContent = mfaFactor ? 'On · Alenjo asks for a code after your password' : 'Off · a code from an authenticator app after your password';
   btn.textContent = mfaFactor ? 'Turn off' : 'Turn on';
+  $('#mfa-backup').hidden = !mfaFactor;
+  if (mfaFactor) { loadBackupCodes(backupMakeNew); backupMakeNew = false; }
 }
+// Backup codes in Settings: always shown while two-step is on (kept encrypted on the server).
+// The first time (or after using one to get in), a set of 10 is made for you.
+var backupCodes = [], backupMakeNew = false;
+async function loadBackupCodes(makeNew) {
+  var grid = $('#mfa-backup-grid'), err = $('#mfa-codes-error');
+  if (!grid) return;
+  err.hidden = true;
+  if (!backupCodes.length) grid.innerHTML = '<p class="mfa-backup-loading">Loading your codes…</p>';
+  try {
+    var r = await callMfaRecovery({ action: makeNew ? 'generate' : 'list' });
+    if (!makeNew && !(r.codes || []).length) r = await callMfaRecovery({ action: 'generate' });
+    backupCodes = r.codes || [];
+    renderBackupCodes();
+  } catch (e) { grid.innerHTML = ''; err.textContent = e.message; err.hidden = false; }
+}
+function renderBackupCodes() {
+  var left = backupCodes.filter(function(c) { return !c.used; }).length;
+  $('#mfa-backup-count').textContent = backupCodes.length ? left + ' of ' + backupCodes.length + ' left' : '';
+  $('#mfa-backup-grid').innerHTML = backupCodes.map(function(c) {
+    return '<span class="mfa-bcode' + (c.used ? ' used' : '') + '"' + (c.used ? ' title="Already used"' : '') + '>' + esc(c.code) + '</span>';
+  }).join('');
+}
+(function wireBackupCodes() {
+  var copy = $('#mfa-codes-copy');
+  if (!copy) return;
+  copy.addEventListener('click', function() {
+    var unused = backupCodes.filter(function(c) { return !c.used; }).map(function(c) { return c.code; });
+    if (!unused.length) return;
+    var text = 'Alenjo backup codes (each works once)\n' + unused.join('\n');
+    var done = function() { copy.textContent = 'Copied'; setTimeout(function() { copy.textContent = 'Copy all'; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function() { showToast('Couldn’t copy. Press and hold a code to copy it.'); });
+  });
+  var nw = $('#mfa-codes-new');
+  nw.addEventListener('click', function() {
+    if (!nw._armed) {
+      nw._armed = true; nw.textContent = 'Tap again · old codes stop working';
+      clearTimeout(nw._t); nw._t = setTimeout(function() { nw._armed = false; nw.textContent = 'Get new codes'; }, 3500);
+      return;
+    }
+    clearTimeout(nw._t); nw._armed = false; nw.textContent = 'Get new codes';
+    loadBackupCodes(true).then(function() { showToast('New backup codes · save them'); });
+  });
+})();
 // Tap the key to copy it (paste it into any authenticator app)
 (function() {
   var btn = $('#mfa-key-copy');
@@ -3007,7 +3132,8 @@ $('#mfa-enroll-verify').addEventListener('click', async function() {
   if (v.error) { err.textContent = 'That code didn’t work. Try the newest one.'; err.hidden = false; return; }
   mfaPending = null;
   closeMfaEnroll();
-  showToast('Two-step sign-in is on');
+  backupCodes = []; backupMakeNew = true;   // a fresh set of backup codes for the new setup
+  showToast('Two-step sign-in is on · save your backup codes below');
   refreshMfaStatus();
 });
 $('#mfa-enroll-cancel').addEventListener('click', async function() {
