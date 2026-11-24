@@ -1038,37 +1038,32 @@ bootReady.then(function() {
 var lastHiddenAt = 0;
 var resumeRefreshInFlight = false;
 
-// Pull down on Home to refresh: the Alenjo leaf fades in and grows as you pull, and gently
-// pulses while your banks sync (the free sync, so pulling costs nothing).
+// Pull down on Home to refresh: Home stretches down, the Alenjo logo in the top right grows a
+// little as you pull and gently pulses while your banks sync (the free sync, so pulling costs nothing).
 (function pullToRefresh() {
   var tab = $('#tab-snapshot');
   if (!tab) return;
-  var leaf = document.createElement('div');
-  leaf.className = 'ptr-leaf';
-  leaf.innerHTML = '<img src="alenjo-mark.png?v=1" alt="">';
-  document.body.appendChild(leaf);
-  var LINE = 72, start = null, pull = 0, busy = false, lastManual = 0, baseTop = 0;
-  // The leaf sits in the middle of the space the pull opens above Home
-  function place(p, turn, scale, op) {
-    leaf.style.top = baseTop + 'px';
-    leaf.style.transform = 'translate(-50%, ' + (p / 2 - 17) + 'px) rotate(' + turn + 'deg) scale(' + scale + ')';
-    leaf.style.opacity = op;
+  var leaf = document.querySelector('.header-logo');
+  if (!leaf) return;
+  var LINE = 72, start = null, pull = 0, busy = false, lastManual = 0;
+  function place(scale) {
+    leaf.style.transform = scale === 1 ? '' : 'scale(' + scale + ')';
   }
   function setPull(p) {
     pull = p;
     tab.style.transform = p ? 'translateY(' + p + 'px)' : '';
     var k = Math.min(1, p / LINE);
-    place(p, 0, 0.6 + 0.4 * k, k ? Math.min(1, k * 1.4) : 0);   // stays upright, grows in as you pull
-    leaf.classList.toggle('is-armed', p >= LINE);
+    place(1 + 0.18 * k);   // the logo grows a little as you pull
+    leaf.classList.toggle('ptr-armed', p >= LINE);
   }
   function settle() {
     tab.style.transition = leaf.style.transition = 'transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.25s';
     setPull(0);
-    setTimeout(function() { tab.style.transition = leaf.style.transition = ''; leaf.classList.remove('is-spinning'); }, 340);
+    leaf.classList.remove('ptr-pulsing');
+    setTimeout(function() { tab.style.transition = leaf.style.transition = ''; }, 340);
   }
   tab.addEventListener('touchstart', function(e) {
     if (busy || e.touches.length !== 1 || tab.scrollTop > 0) { start = null; return; }
-    baseTop = tab.getBoundingClientRect().top;   // before the pull moves it
     start = { y: e.touches[0].clientY, x: e.touches[0].clientX, on: false };
   }, { passive: true });
   tab.addEventListener('touchmove', function(e) {
@@ -1091,7 +1086,8 @@ var resumeRefreshInFlight = false;
     busy = true;
     tab.style.transition = leaf.style.transition = 'transform 0.25s ease';
     setPull(LINE * 0.8);
-    leaf.classList.add('is-spinning');
+    place(1);
+    leaf.classList.add('ptr-pulsing');
     var now = Date.now(), work;
     if (now - lastManual > 15000 && !syncInFlight) {
       lastManual = now;
