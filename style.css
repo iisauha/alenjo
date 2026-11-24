@@ -533,7 +533,7 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   contain: layout style;
   padding: 0.5rem var(--pad);
   padding-bottom: 5rem;
-  animation: tabFadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: tabFadeIn 0.18s ease-out;
   min-width: 0;
 }
 
@@ -541,9 +541,10 @@ input.app-input[type="date"]::-webkit-calendar-picker-indicator {
   display: block;
 }
 
+/* A quick fade only: sliding the page made the text look like it was shifting around */
 @keyframes tabFadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ================================

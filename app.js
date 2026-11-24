@@ -878,7 +878,8 @@ function refreshSettingsSummary() {
     put('set-sum-banks', banks ? banks + ' connected' : 'None connected yet');
   }
   var fid = $('#faceid-status'), mins = $('#pref-lock-minutes');
-  if (fid && faceIdStatusKnown) put('set-sum-lock', fid.textContent + (mins ? ' · locks after ' + mins.value + ' min' : ''));
+  // Built only from this phone's settings (no server check), so it reads the same every time
+  put('set-sum-lock', (hasPasskeyHere() ? 'Face ID on' : 'Face ID off') + ' · locks after ' + Math.round(getLockMs() / 60000) + ' min');
   if (changed) try { localStorage.setItem(SET_SUMS_KEY, JSON.stringify(saved)); } catch (e) {}
 }
 (function wireSettingsPages() {
@@ -2153,7 +2154,11 @@ async function updateFaceIdSetting() {
   }
   if (count) { try { localStorage.setItem('alenjo_has_passkey', 'true'); } catch (e) {} }
   var on = count ? true : hasPasskeyHere();
-  var text = count ? count + ' passkey' + (count !== 1 ? 's' : '') + ' saved' : (on ? 'On for this device' : 'Not set up yet');
+  // Couldn't check (offline or slow): keep the last known line instead of switching wording
+  var known = null; try { known = localStorage.getItem('alenjo_faceid_text'); } catch (e) {}
+  var text = count ? count + ' passkey' + (count !== 1 ? 's' : '') + ' saved'
+    : count === 0 ? (on ? 'On for this device' : 'Not set up yet')
+    : (known || (on ? 'On for this device' : 'Not set up yet'));
   try { localStorage.setItem('alenjo_faceid_text', text); } catch (e) {}
   faceIdStatusKnown = true;
   if (status.textContent !== text) status.textContent = text;
@@ -2409,9 +2414,10 @@ function applyTheme() {
     if (pref !== 'adaptive') { note.hidden = true; }
     else {
       var p = AT.place(), set = AT.sunset(new Date(), p.lat, p.lon);
-      note.hidden = false;
-      note.innerHTML = 'Dark from sunset (' + esc(fmtClock(set)) + ' today) until 6:00 AM.' +
+      var noteHtml = 'Dark from sunset (' + esc(fmtClock(set)) + ' today) until 6:00 AM.' +
         (p.guessed ? ' <button type="button" class="theme-loc" id="theme-loc">Use my location for exact sunset</button>' : '');
+      if (note._html !== noteHtml) { note.innerHTML = noteHtml; note._html = noteHtml; }
+      if (note.hidden) note.hidden = false;
     }
   }
 }
