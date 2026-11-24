@@ -1038,6 +1038,104 @@ bootReady.then(function() {
 var lastHiddenAt = 0;
 var resumeRefreshInFlight = false;
 
+// Pull down on Home to refresh: the Alenjo leaf drops in and turns as you pull, unfurls at the
+// refresh point, and spins while your banks sync (the free sync, so pulling costs nothing).
+(function pullToRefresh() {
+  var tab = $('#tab-snapshot');
+  if (!tab) return;
+  var leaf = document.createElement('div');
+  leaf.className = 'ptr-leaf';
+  leaf.innerHTML = '<img src="alenjo-mark.png?v=1" alt="">';
+  document.body.appendChild(leaf);
+  var LINE = 72, start = null, pull = 0, busy = false, lastManual = 0, baseTop = 0;
+  // The leaf sits in the middle of the space the pull opens above Home
+  function place(p, turn, scale, op) {
+    leaf.style.top = baseTop + 'px';
+    leaf.style.transform = 'translate(-50%, ' + (p / 2 - 17) + 'px) rotate(' + turn + 'deg) scale(' + scale + ')';
+    leaf.style.opacity = op;
+  }
+  function setPull(p) {
+    pull = p;
+    tab.style.transform = p ? 'translateY(' + p + 'px)' : '';
+    var k = Math.min(1, p / LINE);
+    place(p, k * 300, 0.5 + 0.5 * k, k ? Math.min(1, k * 1.4) : 0);
+    leaf.classList.toggle('is-armed', p >= LINE);
+  }
+  function settle() {
+    tab.style.transition = leaf.style.transition = 'transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.25s';
+    setPull(0);
+    setTimeout(function() { tab.style.transition = leaf.style.transition = ''; leaf.classList.remove('is-spinning'); }, 340);
+  }
+  tab.addEventListener('touchstart', function(e) {
+    if (busy || e.touches.length !== 1 || tab.scrollTop > 0) { start = null; return; }
+    baseTop = tab.getBoundingClientRect().top;   // before the pull moves it
+    start = { y: e.touches[0].clientY, x: e.touches[0].clientX, on: false };
+  }, { passive: true });
+  tab.addEventListener('touchmove', function(e) {
+    if (!start) return;
+    var dy = e.touches[0].clientY - start.y, dx = e.touches[0].clientX - start.x;
+    if (!start.on) {
+      if (dy < 8 || Math.abs(dx) > dy || tab.scrollTop > 0) { if (dy < -4 || Math.abs(dx) > 10) start = null; return; }
+      start.on = true;
+    }
+    e.preventDefault();
+    // Resistance like iOS: the leaf reaches the refresh point after about 130px of finger travel
+    var p = Math.max(0, dy) * 0.55;
+    setPull(p <= LINE ? p : LINE + (p - LINE) * 0.35);
+  }, { passive: false });
+  tab.addEventListener('touchend', function() {
+    if (!start || !start.on) { start = null; return; }
+    start = null;
+    if (pull < LINE) { settle(); return; }
+    // Hold the leaf in place and spin it while syncing
+    busy = true;
+    tab.style.transition = leaf.style.transition = 'transform 0.25s ease';
+    setPull(LINE * 0.8);
+    leaf.classList.add('is-spinning');
+    var now = Date.now(), work;
+    if (now - lastManual > 15000 && !syncInFlight) {
+      lastManual = now;
+      syncInFlight = true;
+      try { localStorage.setItem('alenjo_last_tx_sync', String(now)); } catch (e) {}
+      work = backgroundSync().finally(function() { syncInFlight = false; });
+    } else {
+      work = loadAccounts();
+    }
+    Promise.all([work, new Promise(function(r) { setTimeout(r, 700); })]).catch(function() {}).then(function() {
+      busy = false;
+      settle();
+    });
+  }, { passive: true });
+})();
+
+// Pinch a chart to change its range: fingers apart = shorter range (zoom in), together = longer.
+// It steps through the range buttons under the chart, one step each time the pinch grows enough.
+(function pinchCharts() {
+  [['#home-chart', '#home-ranges'], ['#act-bars', '#act-range']].forEach(function(pair) {
+    var area = $(pair[0]), group = $(pair[1]);
+    if (!area || !group) return;
+    var d0 = 0;
+    function dist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+    function step(dir) {
+      var btns = Array.prototype.slice.call(group.querySelectorAll('button[data-range]'));
+      var i = btns.findIndex(function(b) { return b.classList.contains('on'); });
+      var j = Math.max(0, Math.min(btns.length - 1, (i < 0 ? 0 : i) + dir));
+      if (j !== i) btns[j].click();
+    }
+    area.addEventListener('touchstart', function(e) { if (e.touches.length === 2) d0 = dist(e.touches); }, { passive: true });
+    area.addEventListener('touchmove', function(e) {
+      if (e.touches.length !== 2 || !d0) return;
+      e.preventDefault();
+      var r = dist(e.touches) / d0;
+      if (r > 1.3) { step(-1); d0 = dist(e.touches); }        // apart: shorter range
+      else if (r < 0.77) { step(1); d0 = dist(e.touches); }   // together: longer range
+    }, { passive: false });
+    area.addEventListener('touchend', function(e) { if (e.touches.length < 2) d0 = 0; }, { passive: true });
+    // Safari's own page zoom gesture stays out of the chart
+    area.addEventListener('gesturestart', function(e) { e.preventDefault(); });
+  });
+})();
+
 function refreshOnResume() {
   if (!currentUser) return;
   if (resumeRefreshInFlight) return;
@@ -3825,6 +3923,63 @@ function getLogoUrl(account) {
     '?token=' + LOGO_KEY + '&size=200&format=png&retina=true';
 }
 
+// Cards in the bank's own colors: an account without card art gets a card in its bank's brand
+// color (read once from the logo, kept on this phone so it never flashes), with the logo on it.
+var BANK_COLORS_KEY = 'alenjo_bank_colors';
+var bankColors = (function() { try { return JSON.parse(localStorage.getItem(BANK_COLORS_KEY) || '{}') || {}; } catch (e) { return {}; } })();
+var bankColorBusy = {};
+function bankColor(account) {
+  var d = account && account.institution_logo_domain;
+  if (!d) return null;
+  if (bankColors.hasOwnProperty(d)) return bankColors[d] || null;
+  var url = getLogoUrl(account), src = url ? pic(url) : null;
+  // Only read pictures already saved on this phone (data URLs); the rest wait for the next render
+  if (!src || src.indexOf('data:') !== 0 || bankColorBusy[d]) return null;
+  bankColorBusy[d] = true;
+  var img = new Image();
+  img.onload = function() {
+    var c = null;
+    try { c = brandColorOf(img); } catch (e) {}
+    bankColors[d] = c || '';
+    try { localStorage.setItem(BANK_COLORS_KEY, JSON.stringify(bankColors)); } catch (e) {}
+    if (c && cachedAccounts) renderAccounts(cachedAccounts);
+  };
+  img.src = src;
+  return null;
+}
+// The logo's strongest brand color: the most common clearly colored pixels, skipping white,
+// near-white, see-through and grays. Black-and-white logos get a deep charcoal card.
+function brandColorOf(img) {
+  var N = 48, cv = document.createElement('canvas');
+  cv.width = N; cv.height = N;
+  var ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0, N, N);
+  var px = ctx.getImageData(0, 0, N, N).data, buckets = {}, dark = 0, seen = 0;
+  for (var i = 0; i < px.length; i += 4) {
+    var r = px[i], g = px[i + 1], b = px[i + 2], a = px[i + 3];
+    if (a < 200) continue;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mn > 225) continue;   // white background
+    seen++;
+    var sat = mx === 0 ? 0 : (mx - mn) / mx;
+    if (sat < 0.25) { if (mx < 90) dark++; continue; }
+    var k = (r >> 4) + ',' + (g >> 4) + ',' + (b >> 4);
+    var e = buckets[k] || (buckets[k] = { n: 0, r: 0, g: 0, b: 0 });
+    e.n++; e.r += r; e.g += g; e.b += b;
+  }
+  var best = null;
+  Object.keys(buckets).forEach(function(k) { if (!best || buckets[k].n > best.n) best = buckets[k]; });
+  if (!best || best.n < seen * 0.08) return dark > seen * 0.2 ? '#1F1F1D' : null;
+  var R = Math.round(best.r / best.n), G = Math.round(best.g / best.n), B = Math.round(best.b / best.n);
+  // Too light to carry a white logo tile and text: deepen it a little
+  var lum = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  if (lum > 170) { var f = 170 / lum; R = Math.round(R * f); G = Math.round(G * f); B = Math.round(B * f); }
+  return '#' + [R, G, B].map(function(v) { return v.toString(16).padStart(2, '0'); }).join('');
+}
+function bankCardHtml(color, logo) {
+  return '<div class="acct-badge acct-badge-bank" style="background-color:' + color + '"><span class="acct-bank-logo" style="background-image:url(' + esc(logo) + ')"></span></div>';
+}
+
 // ============================================
 // BALANCE HELPERS
 // ============================================
@@ -4931,7 +5086,9 @@ function accountCard(account, type) {
   // One badge per card: your card design if you added one, else the bank logo, else an initial
   var artSrc = cardDesign && cardDesign.url ? pic(cardDesign.url) : null;
   logoUrl = logoUrl ? pic(logoUrl) : null;
+  var bankCol = !artSrc && logoUrl ? bankColor(account) : null;
   var badge = artSrc ? '<div class="acct-badge acct-badge-art" style="background-image:url(' + esc(artSrc) + ')"></div>'
+    : logoUrl && bankCol ? bankCardHtml(bankCol, logoUrl)
     : logoUrl ? '<div class="acct-badge acct-badge-logo" style="background-image:url(' + esc(logoUrl) + ')"></div>'
     : '<div class="acct-badge acct-badge-initial">' + esc((account.institution || displayName).charAt(0).toUpperCase()) + '</div>';
   var cleanName = account.nickname ? displayName : displayName.replace(/\s*[*•]+\s*\d{2,4}\s*$/, '');
@@ -6434,13 +6591,6 @@ function baseCategory(cat) {
   return cat;
 }
 // Money moved between your own accounts or to pay a card isn't spending
-// What a purchase would grow to if invested instead: 7% a year (a long-run stock market average),
-// for 10 years. Only on real spending: not deposits, transfers, card payments or anything not counted.
-function investedInstead(eff, counted, income) {
-  if (income || eff.excluded || !(counted >= 1) || isTransferCategory(normalizeCategory(eff.category))) return '';
-  var grown = counted * Math.pow(1.07, 10);
-  return 'If invested: $' + Math.round(grown).toLocaleString('en-US') + ' in 10 years at 7%';
-}
 function isTransferCategory(name) {
   return name === 'Transfers in' || name === 'Transfers out' || name === 'Loan & card payments';
 }
@@ -6461,6 +6611,89 @@ document.addEventListener('click', function(e) {
   if (!tx) return;
   openActionSheet(tx);
 });
+
+// Swipe a transaction row: left = Ignore, right = Reimbursed (again to undo), like Mail.
+// The action shows behind the row as you drag; past the line it locks in and the icon pops.
+(function swipeRows() {
+  var ICON_IGNORE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/></svg>';
+  var ICON_REIMB = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>';
+  var s = null, swallowClick = false;
+  function labelFor(type, txId) {
+    var on = txActions[txId] && txActions[txId].action_type === type;
+    return type === 'ignored' ? (on ? 'Count again' : 'Ignore') : (on ? 'Not reimbursed' : 'Reimbursed');
+  }
+  function begin() {
+    var row = s.row, parent = row.parentElement;
+    if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+    var back = document.createElement('div');
+    back.className = 'swipe-back';
+    back.style.top = row.offsetTop + 'px';
+    back.style.height = row.offsetHeight + 'px';
+    back.innerHTML = '<span class="swipe-act swipe-reimb">' + ICON_REIMB + '<span>' + labelFor('reimbursed', s.id) + '</span></span>' +
+      '<span class="swipe-act swipe-ignore"><span>' + labelFor('ignored', s.id) + '</span>' + ICON_IGNORE + '</span>';
+    parent.insertBefore(back, row);
+    row.classList.add('is-swiping');
+    s.back = back; s.width = row.offsetWidth; s.on = true;
+  }
+  function paint(dx) {
+    var row = s.row, back = s.back, w = s.width, line = Math.min(120, w * 0.3);
+    // Past the line it gets harder to drag, like iOS
+    var shown = Math.abs(dx) > line ? Math.sign(dx) * (line + (Math.abs(dx) - line) * 0.45) : dx;
+    row.style.transform = 'translateX(' + shown + 'px)';
+    var side = dx > 0 ? 'reimb' : 'ignore';
+    back.dataset.side = dx === 0 ? '' : side;
+    var armed = Math.abs(dx) >= line;
+    back.classList.toggle('is-armed', armed);
+    var act = back.querySelector(dx > 0 ? '.swipe-reimb' : '.swipe-ignore');
+    if (act) act.style.opacity = Math.min(1, Math.abs(dx) / (line * 0.6)).toFixed(2);
+    s.armed = armed; s.side = side;
+  }
+  function finish(commit) {
+    var row = s.row, back = s.back, cur = s;
+    s = null;
+    row.style.transition = 'transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1)';
+    row.style.transform = 'translateX(0)';
+    setTimeout(function() {
+      row.classList.remove('is-swiping'); row.style.transition = ''; row.style.transform = '';
+      if (back.parentNode) back.parentNode.removeChild(back);
+      if (commit) {
+        var type = cur.side === 'reimb' ? 'reimbursed' : 'ignored';
+        var on = txActions[cur.id] && txActions[cur.id].action_type === type;
+        saveMultiAction(cur.id, { action_type: on ? null : type });
+      }
+    }, 280);
+  }
+  document.addEventListener('touchstart', function(e) {
+    if (s || e.touches.length !== 1) return;
+    var row = e.target.closest('.act-row[data-txid]');
+    if (!row || row.classList.contains('is-swiping')) return;
+    var t = e.touches[0];
+    s = { row: row, id: row.dataset.txid, x: t.clientX, y: t.clientY, on: false, dead: false };
+  }, { passive: true });
+  document.addEventListener('touchmove', function(e) {
+    if (!s || s.dead) return;
+    var t = e.touches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (!s.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { s.dead = true; return; }   // scrolling
+      if (Math.abs(dx) < 12 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      begin();
+    }
+    e.preventDefault();
+    paint(dx);
+  }, { passive: false });
+  function end() {
+    if (!s) return;
+    if (!s.on) { s = null; return; }
+    swallowClick = true; setTimeout(function() { swallowClick = false; }, 400);
+    finish(!!s.armed);
+  }
+  document.addEventListener('touchend', end, { passive: true });
+  document.addEventListener('touchcancel', function() { if (s && s.on) finish(false); else s = null; }, { passive: true });
+  // The tap that ends a swipe shouldn't also open the transaction
+  document.addEventListener('click', function(e) {
+    if (swallowClick && e.target.closest('.act-row')) { e.stopPropagation(); e.preventDefault(); swallowClick = false; }
+  }, true);
+})();
 
 function openActionSheet(tx) {
   actionTxId = tx.id;
@@ -6524,7 +6757,7 @@ function renderTxSheetInner(tx) {
   amtTag.textContent = eff.isAdjusted ? 'Adjusted' : eff.splitWays ? 'Split ' + eff.splitWays + ' ways' : 'Split';
   amtTag.className = 'txs-adj ' + (eff.isAdjusted ? 'is-adjusted' : 'is-split');
   $('#txs-amt-sub').textContent = eff.removedByBank ? 'Removed by your bank · not counted' : eff.excluded ? (eff.actionType === 'reimbursed' ? 'Reimbursed · not counted in spending' : 'Ignored · not counted in spending')
-    : tx.pending ? 'Pending' : investedInstead(eff, counted, income);
+    : tx.pending ? 'Pending' : '';
 
   $('#txs-cat-val').textContent = normalizeCategory(eff.category);
   $('#txs-split-val').textContent = action.split_ways > 1 ? action.split_ways + ' ways' : action.split_portion > 0 ? 'Custom' : 'Off';
@@ -6906,10 +7139,13 @@ function renderTxFacts(tx) {
     var design = acct.card_design_id ? getCardDesignById(acct.card_design_id) : null;
     var logo = !design && typeof getLogoUrl === 'function' ? getLogoUrl(acct) : null;
     var art = $('#txs-card-art');
-    art.className = 'txs-card-art' + (design ? ' is-art' : logo ? ' is-logo' : '');
-    var artUrl = design ? pic(design.url) : logo ? pic(logo) : null;
+    var bankCol = !design && logo ? bankColor(acct) : null;
+    art.className = 'txs-card-art' + (design ? ' is-art' : bankCol ? ' is-bank' : logo ? ' is-logo' : '');
+    var artUrl = design ? pic(design.url) : logo && !bankCol ? pic(logo) : null;
     art.style.backgroundImage = artUrl ? 'url("' + artUrl + '")' : '';
-    art.textContent = design || logo ? '' : (acct.institution || acct.name || '?').charAt(0).toUpperCase();
+    art.style.backgroundColor = bankCol || '';
+    art.innerHTML = bankCol ? '<span class="acct-bank-logo" style="background-image:url(' + esc(pic(logo)) + ')"></span>' : '';
+    if (!design && !logo) art.textContent = (acct.institution || acct.name || '?').charAt(0).toUpperCase();
     $('#txs-card-name').textContent = acct.nickname || acct.name || 'Account';
     $('#txs-card-mask').textContent = [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ');
     card.dataset.id = acct.id;
