@@ -87,31 +87,11 @@ function sameSecret(a: string, b: string) {
   return d === 0;
 }
 
-// Money moving between your own accounts or paying a card isn't a purchase or a deposit.
-// Money someone else sends you is a deposit, even though Plaid files it under
-// TRANSFER_IN: Venmo, Zelle, Cash App (TRANSFER_IN_FROM_APPS), payouts
-// (TRANSFER_IN_OTHER_TRANSFER_IN) and cash or check deposits (TRANSFER_IN_DEPOSIT).
-const OWN_MONEY_IN = new Set([
-  'TRANSFER_IN_ACCOUNT_TRANSFER',
-  'TRANSFER_IN_SAVINGS',
-  'TRANSFER_IN_INVESTMENT_AND_RETIREMENT_FUNDS',
-  'TRANSFER_IN_CASH_ADVANCES_AND_LOANS',
-]);
-// Money moving between your own accounts: no notification. Money to someone else (Venmo, Zelle,
-// cash withdrawals, anything else) is spending you'd want to hear about.
-const OWN_MONEY_OUT = new Set([
-  'TRANSFER_OUT_SAVINGS',
-  'TRANSFER_OUT_ACCOUNT_TRANSFER',
-  'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS',
-]);
-function notifiable(tx: any, accountType: string | undefined) {
-  const cat = tx.personal_finance_category || {};
-  if (cat.primary === 'LOAN_PAYMENTS') return false;
-  if (cat.primary === 'TRANSFER_OUT') return typeof cat.detailed === 'string' && !OWN_MONEY_OUT.has(cat.detailed);
-  if (cat.primary !== 'TRANSFER_IN') return true;
-  // On a card or loan, money in under "transfer" is a payment toward it
-  if (accountType === 'credit' || accountType === 'loan') return false;
-  return typeof cat.detailed === 'string' && !OWN_MONEY_IN.has(cat.detailed);
+// Everything that shows up in Activity notifies: purchases, deposits, Venmo/Zelle, card
+// payments and moves between your own accounts. Marking something ignored only hides it
+// from your totals; it never silences notifications.
+function notifiable(_tx: any, _accountType: string | undefined) {
+  return true;
 }
 
 Deno.serve(async (req: Request) => {
