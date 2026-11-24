@@ -6236,7 +6236,6 @@ function renderTxSheetInner(tx) {
     : tx.pending ? 'Pending' : '';
 
   $('#txs-cat-val').textContent = normalizeCategory(eff.category);
-  $('#txs-cat-dot').hidden = !action.category_override;
   $('#txs-split-val').textContent = action.split_ways > 1 ? action.split_ways + ' ways' : action.split_portion > 0 ? 'Custom' : 'Off';
   document.querySelectorAll('#tx-action-options .action-toggle').forEach(function(btn) {
     btn.classList.toggle('active', action.action_type === btn.dataset.toggle);
