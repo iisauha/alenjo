@@ -551,6 +551,8 @@ function finishSignIn(session) {
   }).catch(function(e) {
     console.error('Init error:', e);
   }).then(function() {
+    return picturesReady($('#screen-app'), 800).catch(function() {});
+  }).then(function() {
     showScreen('app');
     hideColdLock();
     resumePlaidOAuth();
@@ -1106,6 +1108,7 @@ $('#avatar-upload').addEventListener('change', async function(e) {
   var urlResult = sb.storage.from('avatars').getPublicUrl(path);
   await sb.from('profiles').update({ avatar_url: urlResult.data.publicUrl }).eq('id', currentUser.id);
   delete signedUrlCache['avatars/' + path];
+  await dropCachedImage('avatars', path);   // same file name: forget the old photo saved on the phone
   if (oldPath && oldPath !== path) sb.storage.from('avatars').remove([oldPath]);   // the old photo under another name
   try { localStorage.setItem('alenjo_opt_avatars/' + path, '1'); localStorage.setItem('alenjo_last_avatar', JSON.stringify({ uid: currentUser.id, path: path })); } catch (e) {}
   userProfile.avatar_url = (await signedUrl('avatars', path)) + '&v=' + Date.now();
@@ -1158,12 +1161,12 @@ function renderCardDesignsSettings() {
   if (countEl) countEl.textContent = String(cachedCardDesigns.length);
   if (det) det.hidden = !cachedCardDesigns.length;
   if (!cachedCardDesigns.length) { list.innerHTML = ''; return; }
-  list.innerHTML = cachedCardDesigns.map(function(d) {
-    return '<div class="card-design-tile">' +
+  morphInto(list, cachedCardDesigns.map(function(d) {
+    return '<div class="card-design-tile" data-id="' + esc(d.id) + '">' +
       '<div class="card-design-tile-img" style="background-image:url(' + esc(d.url) + ')"></div>' +
       '<button class="card-design-delete" data-delete-design="' + d.id + '" aria-label="Delete">&times;</button>' +
     '</div>';
-  }).join('');
+  }).join(''));
 }
 
 function loadScript(src, integrity) {
@@ -3976,6 +3979,36 @@ async function loadLiabilities() {
 }
 
 
+// The phone keeps copies of pictures (see sw.js). A file replaced under the same name has to be forgotten.
+function dropCachedImage(bucket, path) {
+  try {
+    if (!window.caches) return Promise.resolve();
+    return caches.open('alenjo-img-v1').then(function(c) { return c.delete(SUPABASE_URL + '/storage/v1/object/any/' + bucket + '/' + path); }).catch(function() {});
+  } catch (e) { return Promise.resolve(); }
+}
+// Before the app shows after sign-in, give the pictures on screen a moment to be ready (at most
+// 0.8 s), so logos and card art are there on the first frame instead of popping in.
+function picturesReady(root, maxMs) {
+  var urls = {};
+  root.querySelectorAll('[style*="background-image"]').forEach(function(el) {
+    var m = /url\(["']?([^"')]+)["']?\)/.exec(el.getAttribute('style') || '');
+    if (m) urls[m[1]] = true;
+  });
+  root.querySelectorAll('img[src]').forEach(function(img) { if (img.getAttribute('loading') !== 'lazy') urls[img.getAttribute('src')] = true; });
+  var list = Object.keys(urls).slice(0, 40).map(function(u) {
+    return new Promise(function(res) {
+      var im = new Image();
+      im.onload = function() { (im.decode ? im.decode() : Promise.resolve()).then(res, res); };
+      im.onerror = res;
+      im.src = u;
+    });
+  });
+  return Promise.race([Promise.all(list), new Promise(function(r) { setTimeout(r, maxMs || 800); })]);
+}
+// Logos that failed to load: remembered so re-renders show the letter instead of retrying
+var badImg = {};
+window.alenjoBadImg = function(img) { badImg[img.getAttribute('src')] = true; img.remove(); };
+var rowN = 0;
 // Update a list in place instead of rebuilding it: cards that didn't change keep the same
 // elements, so their card art and logos don't blink when balances refresh (on open, after a
 // sync, on returning to the app). Only the parts whose text or attributes changed are touched.
@@ -3984,18 +4017,25 @@ function morphInto(parent, html) {
   t.innerHTML = html;
   morphChildren(parent, t.content);
 }
+// Rows with an id (accounts, transactions, days, designs) are matched by id, so a new one at the
+// top doesn't shift every picture down a row and make them all reload.
+function morphKey(n) {
+  return n.nodeType === 1 ? (n.getAttribute('data-id') || n.getAttribute('data-txid') || n.getAttribute('data-day') || n.getAttribute('data-delete-design') || null) : null;
+}
 function morphChildren(oldP, newP) {
-  var oldKids = Array.prototype.slice.call(oldP.childNodes), newKids = Array.prototype.slice.call(newP.childNodes);
+  var keyed = {};
+  Array.prototype.forEach.call(oldP.childNodes, function(o) { var k = morphKey(o); if (k) keyed[k] = o; });
+  var newKids = Array.prototype.slice.call(newP.childNodes);
   newKids.forEach(function(n, i) {
-    var o = oldKids[i];
-    if (!o) { oldP.appendChild(n); return; }
-    var sameKind = o.nodeType === n.nodeType && o.nodeName === n.nodeName &&
-      (o.nodeType !== 1 || o.getAttribute('data-id') === n.getAttribute('data-id'));
-    if (!sameKind) { oldP.replaceChild(n, o); return; }
-    if (o.nodeType !== 1) { if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue; return; }
-    morphEl(o, n);
+    var cur = oldP.childNodes[i] || null, k = morphKey(n), match = null;
+    if (k) { if (keyed[k] && keyed[k].nodeName === n.nodeName) { match = keyed[k]; delete keyed[k]; } }
+    else if (cur && !morphKey(cur) && cur.nodeType === n.nodeType && cur.nodeName === n.nodeName) match = cur;
+    if (!match) { oldP.insertBefore(n, cur); return; }
+    if (match !== cur) oldP.insertBefore(match, cur);
+    if (match.nodeType !== 1) { if (match.nodeValue !== n.nodeValue) match.nodeValue = n.nodeValue; return; }
+    morphEl(match, n);
   });
-  for (var j = oldKids.length - 1; j >= newKids.length; j--) oldP.removeChild(oldKids[j]);
+  while (oldP.childNodes.length > newKids.length) oldP.removeChild(oldP.lastChild);
 }
 function morphEl(o, n) {
   if (o.isEqualNode(n)) return;
@@ -5086,7 +5126,7 @@ function renderTransactionMonth() {
     if (da !== db) return da > db ? -1 : 1;
     return (b.authorized_datetime || '') > (a.authorized_datetime || '') ? 1 : -1;
   });
-  var html = '';
+  var html = ''; rowN = 0;
   if (!displayTx.length) {
     html += '<p class="act-empty-note">' + (searchVal ? 'Nothing matches “' + esc(searchVal) + '”.' : 'No transactions here yet.') + '</p>';
   }
@@ -5099,7 +5139,7 @@ function renderTransactionMonth() {
   groups.forEach(function(key) {
     var dayNet = 0;
     groupMap[key].forEach(function(tx) { var e = getEffectiveTx(tx); if (!e.excluded && !movedEarlier[tx.id]) dayNet -= e.amount; });
-    html += '<div class="act-day"><div class="act-day-head"><span>' + friendlyDay(key) + '</span><span>' + (dayNet > 0 ? '+' : dayNet < 0 ? '−' : '') + formatMoney(dayNet) + '</span></div>';
+    html += '<div class="act-day" data-day="' + key + '"><div class="act-day-head"><span>' + friendlyDay(key) + '</span><span>' + (dayNet > 0 ? '+' : dayNet < 0 ? '−' : '') + formatMoney(dayNet) + '</span></div>';
     groupMap[key].forEach(function(tx) {
       var eff = getEffectiveTx(tx);
       var name = eff.nickname || tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
@@ -5119,8 +5159,9 @@ function renderTransactionMonth() {
       if (eff.nickname) tags += '<span class="act-tag">Renamed</span>';
       // Store logo (see txLogoUrl); the first letter shows underneath as a fallback
       var logoSrc = txLogoUrl(tx, eff);
+      if (logoSrc && badImg[logoSrc]) logoSrc = null;   // known to have no logo: keep the letter, don't retry
       var avatar = '<span class="act-avatar" data-i="' + esc(name.charAt(0).toUpperCase()) + '">' +
-        (logoSrc ? '<img src="' + esc(logoSrc) + '" alt="" loading="lazy" onerror="this.remove()">' : '') + '</span>';
+        (logoSrc ? '<img src="' + esc(logoSrc) + '" alt=""' + (rowN++ > 24 ? ' loading="lazy"' : '') + ' onerror="alenjoBadImg(this)">' : '') + '</span>';
       var amountMain = (income ? '+' : '−') + formatMoney((eff.isSplit || eff.isAdjusted) && !eff.excluded ? eff.amount : tx.amount);
       html += '<div class="tx-row act-row' + (eff.excluded || movedEarlier[tx.id] ? ' is-excluded' : '') + '" role="button" tabindex="0" data-txid="' + esc(tx.id) + '">' +
         avatar +
@@ -5134,7 +5175,7 @@ function renderTransactionMonth() {
     });
     html += '</div>';
   });
-  breakdown.innerHTML = html;
+  morphInto(breakdown, html);
   updateMonthButtons();
 }
 
