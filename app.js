@@ -5907,7 +5907,10 @@ function renderTransactionMonth() {
       if (!v || (activeCategoryFilter && activeCategoryFilter !== e[0])) return;
       segs += '<i style="flex-grow:' + v.toFixed(2) + ';background:' + categoryColorMap[e[0]] + '"></i>';
     });
-    var showLabel = vis <= 14 || d === 1 || d % 7 === 1 || d === daysInMonth;
+    // Month view: every 7th day, plus the last day only when it isn't crowding the last weekly
+    // mark (30 or 31 next to 29 would run together as "2930")
+    var lastWeekly = daysInMonth - ((daysInMonth - 1) % 7);
+    var showLabel = vis <= 14 || d === 1 || d % 7 === 1 || (d === daysInMonth && daysInMonth - lastWeekly >= 4);
     bars += '<button type="button" class="act-bar' + (activeDay === d ? ' on' : '') + (activeDay && activeDay !== d ? ' dim' : '') + (isThisMonth && d === now.getDate() ? ' today' : '') + '" data-day="' + d + '"' + (future ? ' disabled' : '') +
       ' aria-pressed="' + (activeDay === d) + '" aria-label="' + MONTH_SHORT[m - 1] + ' ' + d + ': ' + formatMoney(total) + '">' +
       '<span class="act-bar-col">' + (h ? '<span class="act-bar-fill" style="height:' + h.toFixed(1) + '%">' + segs + '</span>' : '<span class="act-bar-zero"></span>') + '</span>' +
