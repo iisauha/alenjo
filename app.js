@@ -3151,8 +3151,14 @@ function setBackupOpen(open) {
   var copy = $('#mfa-codes-copy');
   if (!copy) return;
   $('#mfa-backup-toggle').addEventListener('click', function() { setBackupOpen($('#mfa-backup-body').hidden); });
+  function unusedCodes() { return backupCodes.filter(function(c) { return !c.used; }).map(function(c) { return c.code; }); }
+  function copyText(btn, label, text) {
+    var done = function() { btn.textContent = 'Copied'; setTimeout(function() { btn.textContent = label; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function() { showToast('Couldn’t copy. Press and hold a code to copy it.'); });
+  }
+  // Copy with instructions: a short how-to, then "Code 1: …", "Code 2: …"
   copy.addEventListener('click', function() {
-    var unused = backupCodes.filter(function(c) { return !c.used; }).map(function(c) { return c.code; });
+    var unused = unusedCodes();
     if (!unused.length) return;
     var saved = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     var text = [
@@ -3167,8 +3173,13 @@ function setBackupOpen(open) {
       'Keep these private. Anyone with one of these and your password can turn off two-step.',
       ''
     ].concat(unused.map(function(c, i) { return 'Code ' + (i + 1) + ': ' + c; })).join('\n');
-    var done = function() { copy.textContent = 'Copied'; setTimeout(function() { copy.textContent = 'Copy all'; }, 1800); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function() { showToast('Couldn’t copy. Press and hold a code to copy it.'); });
+    copyText(copy, 'Copy with instructions', text);
+  });
+  // Copy codes only: one per line
+  var plain = $('#mfa-codes-copy-plain');
+  plain.addEventListener('click', function() {
+    var unused = unusedCodes();
+    if (unused.length) copyText(plain, 'Copy codes only', unused.join('\n'));
   });
   var nw = $('#mfa-codes-new');
   nw.addEventListener('click', function() {
