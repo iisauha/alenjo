@@ -65,8 +65,8 @@ Every account added later (a new card through Manage, another bank, a partner's 
 
 Purchases before the chosen day are kept but hidden everywhere (Activity, totals, budgets, charts,
 export). Nothing ever goes back further than the month before you joined, or Plaid's two years.
-Until you answer, the recommended choice applies and the question comes back next time. The
-account's settings have a "Counts from" picker. Reconnecting a bank keeps each account's choice.
+Until you answer, the recommended choice applies and the question comes back next time. Reconnecting
+a bank keeps each account's choice.
 
 ### Show-off mode
 
