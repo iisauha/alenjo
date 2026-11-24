@@ -110,12 +110,18 @@ export async function deliver(admin, userId, items) {
     await admin.from('push_queue').insert(due.map((t) => ({ user_id: userId, item: t })));
     return { queued: due.length };
   }
-  return sendToUser(admin, userId, buildMessages(due, false));
+  const res = await sendToUser(admin, userId, buildMessages(due, false));
+  // Nothing reached your phone (push service hiccup): hold them so the next flush tries again
+  if (!res.sent && res.devices) {
+    await admin.from('push_queue').insert(due.map((t) => ({ user_id: userId, item: { ...t, retry: true } })));
+    return { ...res, retrying: due.length };
+  }
+  return res;
 }
 
 // Morning: send what was held overnight as one summary
 export async function flushQueues(admin) {
-  const { data: rows } = await admin.from('push_queue').select('id, user_id, item').order('created_at');
+  const { data: rows } = await admin.from('push_queue').select('id, user_id, item, created_at').order('created_at');
   const byUser = {};
   for (const r of rows || []) (byUser[r.user_id] = byUser[r.user_id] || []).push(r);
   let users = 0;
@@ -123,8 +129,14 @@ export async function flushQueues(admin) {
     const s = await settingsFor(admin, uid);
     if (inQuietHours(s)) continue;
     const list = byUser[uid];
-    await admin.from('push_queue').delete().in('id', list.map((r) => r.id));
-    await sendToUser(admin, uid, buildMessages(list.map((r) => r.item), true));
+    // Held overnight -> one summary. Only retries of a failed send -> sent as they were.
+    const overnight = list.some((r) => !r.item.retry);
+    const res = await sendToUser(admin, uid, buildMessages(list.map((r) => r.item), overnight));
+    // Cleared once it reaches your phone (or there's no phone to send to). If the push service
+    // failed, they stay and the next run (15 min) tries again, for up to a day.
+    const dayAgo = Date.now() - 86400000;
+    const done = res.sent || !res.devices ? list : list.filter((r) => new Date(r.created_at).getTime() < dayAgo);
+    if (done.length) await admin.from('push_queue').delete().in('id', done.map((r) => r.id));
     users++;
   }
   return { users };
