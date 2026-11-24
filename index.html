@@ -87,14 +87,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124012212';</script>
+  <script>var _v = '20261124012754';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124012212">
+  <link rel="stylesheet" href="style.css?v=20261124012754">
 </head>
 <body>
 
@@ -957,7 +957,7 @@
           <button type="button" class="action-toggle" data-toggle="ignored">Ignore</button>
         </div>
         <div class="txs-links">
-          <button type="button" class="signin-link action-option-clear" data-action="clear" hidden>Undo all my changes</button>
+          <button type="button" class="signin-link action-option-clear" data-action="clear" hidden>Undo all my changes…</button>
           <button type="button" class="signin-link txs-danger" id="btn-delete-tx" hidden>Delete transaction</button>
         </div>
       </div>
@@ -1024,6 +1024,14 @@
         <div id="recat-list" class="recat-list"></div>
       </div>
       <button class="action-sheet-cancel" id="action-sheet-cancel">Done</button>
+    </div>
+    <div class="txs-confirm" id="txs-reset-confirm" hidden>
+      <div class="txs-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="txs-reset-title">
+        <p class="txs-confirm-title" id="txs-reset-title">Undo all your changes?</p>
+        <p class="txs-confirm-text">This goes back to what your bank sent: the name, amount, date and category, with no split, note, Reimbursed or Ignore. It can’t be undone.</p>
+        <button type="button" class="txs-confirm-btn is-danger" id="txs-reset-yes">Undo all changes</button>
+        <button type="button" class="txs-confirm-btn" id="txs-reset-no">Cancel</button>
+      </div>
     </div>
     <div class="txs-confirm" id="txs-confirm" hidden>
       <div class="txs-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="txs-confirm-title">
