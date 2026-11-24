@@ -3110,7 +3110,10 @@ async function refreshMfaStatus() {
   $('#mfa-backup').hidden = !mfaFactor;
   if (mfaFactor) clearMfaReset();
   $('#mfa-reset-warn').hidden = !!mfaFactor || !mfaResetPending();
-  if (mfaFactor) { loadBackupCodes(backupMakeNew); backupMakeNew = false; }
+  if (mfaFactor) {
+    if (backupMakeNew) setBackupOpen(true);   // just set up: show the new codes
+    loadBackupCodes(backupMakeNew); backupMakeNew = false;
+  }
 }
 // Backup codes in Settings: always shown while two-step is on (kept encrypted on the server).
 // The first time (or after using one to get in), a set of 10 is made for you.
@@ -3133,15 +3136,21 @@ async function loadBackupCodes(makeNew) {
   } catch (e) { grid.innerHTML = ''; err.textContent = e.message; err.hidden = false; }
 }
 function renderBackupCodes() {
-  var left = backupCodes.filter(function(c) { return !c.used; }).length;
-  $('#mfa-backup-count').textContent = backupCodes.length ? left + ' of ' + backupCodes.length + ' left' : '';
   $('#mfa-backup-grid').innerHTML = backupCodes.map(function(c) {
     return '<span class="mfa-bcode' + (c.used ? ' used' : '') + '"' + (c.used ? ' title="Already used"' : '') + '>' + esc(c.code) + '</span>';
   }).join('');
 }
+// Backup codes start folded; tap the heading (chevron) to show or hide them
+function setBackupOpen(open) {
+  var t = $('#mfa-backup-toggle'), body = $('#mfa-backup-body');
+  if (!t || !body) return;
+  body.hidden = !open;
+  t.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 (function wireBackupCodes() {
   var copy = $('#mfa-codes-copy');
   if (!copy) return;
+  $('#mfa-backup-toggle').addEventListener('click', function() { setBackupOpen($('#mfa-backup-body').hidden); });
   copy.addEventListener('click', function() {
     var unused = backupCodes.filter(function(c) { return !c.used; }).map(function(c) { return c.code; });
     if (!unused.length) return;
