@@ -410,8 +410,10 @@ function showColdLock() {
   var lock = $('#lock-screen');
   if (lock) lock.hidden = false;
   $('#lock-error').hidden = true;
+  document.documentElement.classList.remove('boot-locked');   // the real lock screen takes over
 }
 function hideColdLock() {
+  document.documentElement.classList.remove('boot-locked');
   if (!coldLocked) return;
   coldLocked = false;
   var lock = $('#lock-screen');
@@ -557,8 +559,11 @@ function finishSignIn(session) {
 
 // Sign out of THIS device only on load (the default would end your
 // sessions on every device, e.g. opening on the Mac would sign out the iPhone)
-(isRecoveryLink ? Promise.resolve() : keepOrSignOut()).then(function() {
-  if (!isRecoveryLink && hasPasskeyHere() && window.PublicKeyCredential && !signedOutOnPurpose()) showColdLock();
+window._alenjoBoot = true;
+if (!isRecoveryLink && hasPasskeyHere() && window.PublicKeyCredential && !signedOutOnPurpose()) showColdLock();
+else document.documentElement.classList.remove('boot-locked');
+var bootReady = isRecoveryLink ? Promise.resolve() : keepOrSignOut();
+bootReady.then(function() {
   showScreen('login');
 
   sb.auth.onAuthStateChange(function(event, session) {
@@ -681,6 +686,8 @@ function unlockApp() {
 async function tryUnlock() {
   if (coldLocked) {
     $('#lock-error').hidden = true;
+    // Let the startup session check finish first (capped, so a bad connection can't stall the button)
+    await Promise.race([bootReady, new Promise(function(r) { setTimeout(r, 4000); })]);
     await signInWithFaceId(true);
     if (!currentUser && !authError.hidden) { $('#lock-error').textContent = 'Face ID didn\u2019t work. Try again or sign out.'; $('#lock-error').hidden = false; }
     return;

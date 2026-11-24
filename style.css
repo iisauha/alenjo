@@ -4085,3 +4085,7 @@ button.txs-fact { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .manage-back-text { display: flex; flex-direction: column; }
 .manage-back-text span { font-weight: 600; }
 .manage-back-text small { font-size: 0.75rem; color: var(--text-muted); }
+
+/* Set before the first paint when reopening with Face ID: lock screen up, sign-in page never shown */
+html.boot-locked #lock-screen[hidden] { display: flex !important; }
+html.boot-locked #screen-login { visibility: hidden; }

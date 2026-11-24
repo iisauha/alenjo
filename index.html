@@ -60,6 +60,20 @@
       if (m) m.setAttribute('content', dark ? '#1C1B17' : '#E6E2D8');
     })();
   </script>
+  <script>
+    // Reopening with Face ID set up (and not signed out on purpose): show the lock screen from
+    // the very first frame, so the email sign-in page never flashes. Same rule as app.js.
+    (function() {
+      try {
+        var recovery = /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
+        if (!recovery && window.PublicKeyCredential && localStorage.getItem('alenjo_has_passkey') === 'true' && localStorage.getItem('alenjo_signed_out') !== '1') {
+          document.documentElement.classList.add('boot-locked');
+          // If the app code never loads, don't leave you on a lock screen with a dead button
+          setTimeout(function() { if (!window._alenjoBoot) document.documentElement.classList.remove('boot-locked'); }, 10000);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <title>Alenjo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,14 +87,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261124011202';</script>
+  <script>var _v = '20261124011629';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
     html, body { background: #060B14; margin: 0; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261124011202">
+  <link rel="stylesheet" href="style.css?v=20261124011629">
 </head>
 <body>
 
