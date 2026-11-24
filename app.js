@@ -426,6 +426,11 @@ function hasPasskeyHere() {
 var passkeyInFlight = false;
 async function signInWithFaceId(fromUserTap) {
   if (passkeyInFlight || signingIn) return;
+  // Signed out on purpose (Settings → Sign out): your password is needed once before Face ID works again
+  if (signedOutOnPurpose()) {
+    if (fromUserTap) { authError.textContent = 'You signed out, so sign in with your password this time. Face ID works again after that.'; authError.hidden = false; }
+    return;
+  }
   if (!window.PublicKeyCredential) {
     if (fromUserTap) { authError.textContent = 'This browser does not support Face ID sign-in.'; authError.hidden = false; }
     return;
@@ -778,9 +783,11 @@ function showScreen(name) {
   }
   if (name === 'login') {
     authEmail.setAttribute('readonly', ''); authPassword.setAttribute('readonly', '');
+    // After signing out on purpose, only your password signs you in (Face ID comes back after)
+    authFaceId.hidden = signedOutOnPurpose();
     // "Ask for Face ID on open": start the native Face ID prompt right away.
     // If the browser insists on a tap first, the big Face ID button stays up.
-    if (autoFaceIdEnabled() && hasPasskeyHere()) setTimeout(function() { signInWithFaceId(false); }, 300);
+    if (autoFaceIdEnabled() && hasPasskeyHere() && !signedOutOnPurpose()) setTimeout(function() { signInWithFaceId(false); }, 300);
   }
 }
 
