@@ -3631,8 +3631,12 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .act-updated { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* Settings > Notifications */
-.notif-min { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; color: var(--text-muted); }
-.notif-min .app-input { width: 64px; min-height: 36px; padding: 6px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+/* Minimum amount: a plain value on the right like iOS Settings, no box. "Any" when empty, "$25" when set */
+.notif-min { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: 1px; flex: 0 0 auto; color: var(--text); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.notif-min:has(.app-input:placeholder-shown) > span:first-child { display: none; }
+#notif-group .notif-min .app-input { width: 3.5ch; max-width: 9ch; min-height: 0; height: auto; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: inherit; font: inherit; text-align: right; font-variant-numeric: tabular-nums; }
+#notif-group .notif-min .app-input:focus { outline: none; box-shadow: none; background: transparent; }
+#notif-group .notif-min .app-input::placeholder { color: var(--text-muted); opacity: 1; }
 #notif-options[hidden], #notif-enable[hidden] { display: none; }
 .notif-device { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 10px 16px; border-top: 1px solid var(--border); }
 .notif-device .set-hint { display: block; }

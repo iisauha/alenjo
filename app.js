@@ -1053,9 +1053,10 @@ function refreshSettingsSummary() {
   if (!notifSettingsLoaded && !notifSettings) {
     // not loaded yet: keep what's showing
   } else if (on && notifSettings) {
+    var all = [notifSettings.purchases, notifSettings.deposits, notifSettings.card_payments !== false, notifSettings.transfers !== false, notifSettings.bills !== false];
     var kinds = [notifSettings.purchases ? 'purchases' : '', notifSettings.deposits ? 'deposits' : '', notifSettings.bills !== false ? 'payments due' : ''].filter(Boolean);
     var said = kinds.length > 1 ? kinds.slice(0, -1).join(', ') + ' and ' + kinds[kinds.length - 1] : kinds[0];
-    put('set-sum-notif', kinds.length ? 'On · ' + said : 'On · everything paused');
+    put('set-sum-notif', all.every(Boolean) ? 'On · everything' : kinds.length ? 'On · ' + said : all.some(Boolean) ? 'On' : 'On · everything paused');
   } else {
     put('set-sum-notif', typeof Notification !== 'undefined' && Notification.permission === 'denied' ? 'Blocked in iPhone Settings' : 'Off');
   }
@@ -2699,15 +2700,23 @@ function cachedNotifSettings() {
   if (notifSettings) return notifSettings;
   try { return JSON.parse(localStorage.getItem(NOTIF_CACHE) || 'null'); } catch (e) { return null; }
 }
+// Minimum amount hugs what's typed so the "$" sits right next to it ("Any" when empty)
+function fitNotifMin() {
+  var el = $('#notif-min');
+  if (el) el.style.width = Math.max(1, (el.value || el.placeholder || '').length) + 0.2 + 'ch';
+}
 // Set the switches without their slide animation, so opening Settings never shows them flip
 function paintNotifSettings(s) {
   var opts = $('#notif-options');
   opts.classList.add('no-anim');
   $('#notif-purchases').checked = !!s.purchases;
   $('#notif-deposits').checked = !!s.deposits;
+  $('#notif-card-payments').checked = s.card_payments !== false;
+  $('#notif-transfers').checked = s.transfers !== false;
   $('#notif-bills').checked = s.bills !== false;
   $('#notif-quiet').checked = !!s.quiet;
   if (document.activeElement !== $('#notif-min')) $('#notif-min').value = Number(s.min_amount) ? String(+s.min_amount) : '';
+  fitNotifMin();
   void opts.offsetWidth;
   requestAnimationFrame(function() { requestAnimationFrame(function() { opts.classList.remove('no-anim'); }); });
 }
@@ -2765,7 +2774,7 @@ async function renderNotifications() {
       '<button type="button" class="notif-remove" data-remove-device="' + esc(d.id) + '"' + (mine ? ' data-mine="1"' : '') + '>Remove</button></span></div>';
   }).join('');
   notifSettingsLoaded = true;
-  notifSettings = st.data || { purchases: true, deposits: true, bills: true, min_amount: 0, quiet: true };
+  notifSettings = st.data || { purchases: true, deposits: true, card_payments: true, transfers: true, bills: true, min_amount: 0, quiet: true };
   try {
     localStorage.setItem(NOTIF_CACHE, JSON.stringify(notifSettings));
     localStorage.setItem(notifViewKey(), JSON.stringify(view));
@@ -2830,6 +2839,8 @@ async function sendTestPush(endpoint) {
   });
   $('#notif-purchases').addEventListener('change', function() { saveNotifSettings({ purchases: this.checked }); });
   $('#notif-deposits').addEventListener('change', function() { saveNotifSettings({ deposits: this.checked }); });
+  $('#notif-card-payments').addEventListener('change', function() { saveNotifSettings({ card_payments: this.checked }); });
+  $('#notif-transfers').addEventListener('change', function() { saveNotifSettings({ transfers: this.checked }); });
   $('#notif-bills').addEventListener('change', function() { saveNotifSettings({ bills: this.checked }); });
   $('#notif-quiet').addEventListener('change', function() { saveNotifSettings({ quiet: this.checked }); });
   $('#notif-min').addEventListener('change', function() {
@@ -2837,8 +2848,10 @@ async function sendTestPush(endpoint) {
     if (!isFinite(v) || v < 0) v = 0;
     v = Math.round(v * 100) / 100;
     this.value = v ? String(v) : '';
+    fitNotifMin();
     saveNotifSettings({ min_amount: v });
   });
+  $('#notif-min').addEventListener('input', fitNotifMin);
   async function testThisDevice(btn) {
     btn.disabled = true;
     var sub = await currentSubscription();

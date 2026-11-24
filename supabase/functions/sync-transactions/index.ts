@@ -87,11 +87,25 @@ function sameSecret(a: string, b: string) {
   return d === 0;
 }
 
-// Everything that shows up in Activity notifies: purchases, deposits, Venmo/Zelle, card
-// payments and moves between your own accounts. Marking something ignored only hides it
-// from your totals; it never silences notifications.
-function notifiable(_tx: any, _accountType: string | undefined) {
-  return true;
+// Everything that shows up in Activity notifies ("ignored" never silences it). Each one gets a
+// kind so Settings can switch off card payments or moves between your own accounts separately.
+const OWN_MONEY_IN = new Set([
+  'TRANSFER_IN_ACCOUNT_TRANSFER',
+  'TRANSFER_IN_SAVINGS',
+  'TRANSFER_IN_INVESTMENT_AND_RETIREMENT_FUNDS',
+]);
+const OWN_MONEY_OUT = new Set([
+  'TRANSFER_OUT_SAVINGS',
+  'TRANSFER_OUT_ACCOUNT_TRANSFER',
+  'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS',
+]);
+function notifyKind(tx: any, accountType: string | undefined) {
+  const cat = tx.personal_finance_category || {};
+  if (cat.primary === 'LOAN_PAYMENTS') return 'card_payment';
+  // Money in under "transfer" on a card or loan is a payment toward it
+  if (cat.primary === 'TRANSFER_IN' && (accountType === 'credit' || accountType === 'loan')) return 'card_payment';
+  if (OWN_MONEY_IN.has(cat.detailed) || OWN_MONEY_OUT.has(cat.detailed)) return 'transfer';
+  return null;   // a purchase or a deposit
 }
 
 Deno.serve(async (req: Request) => {
@@ -280,7 +294,7 @@ Deno.serve(async (req: Request) => {
           if (!firstSync) {
             if (internal) {
               const day = tx.authorized_date || tx.date;
-              if (notifiable(tx, plaidToAccount[tx.account_id]?.type) && day >= recentCutoff && tx.amount) {
+              if (day >= recentCutoff && tx.amount) {
                 if (!accountLabels) {
                   const { data: labels } = await adminClient.rpc('get_account_labels', { p_user_id: user.id });
                   accountLabels = Object.fromEntries((labels || []).map((l: any) => [l.plaid_account_id, l.label]));
@@ -292,6 +306,7 @@ Deno.serve(async (req: Request) => {
                   amount: tx.amount,
                   account: accountLabels[tx.account_id] || 'Account',
                   pending: !!tx.pending,
+                  kind: notifyKind(tx, plaidToAccount[tx.account_id]?.type),
                 });
               }
             } else {
