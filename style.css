@@ -3961,3 +3961,58 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 /* "the total you made": tap to see income */
 .act-made-link { display: inline; min-height: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dashed var(--success); text-decoration-thickness: 1.5px; text-underline-offset: 4px; -webkit-tap-highlight-color: transparent; }
 .act-made-link:active { opacity: 0.6; }
+
+/* ==== Transaction popup, laid out like Robinhood's transaction page ==== */
+#tx-action-sheet .action-sheet { max-height: 94vh; max-height: 94dvh; padding-top: 10px; }
+#tx-action-sheet .txs-pen { flex: none; color: var(--text-muted); opacity: 0.7; }
+#tx-action-sheet .txs-edit { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: none; background: none; color: var(--text); cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; }
+/* Big amount first */
+#tx-action-sheet .txs-amount { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 6px 4px 6px; text-align: left; }
+#tx-action-sheet .txs-amt { font: 600 2.75rem/1.05 'Inter', sans-serif; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+#tx-action-sheet .txs-amt-edit { font: 600 2.25rem 'Inter', sans-serif; display: inline-flex; align-items: baseline; gap: 2px; }
+#tx-action-sheet .txs-amt-edit input { width: 7ch; font: inherit; }
+#tx-action-sheet .txs-sub { font-size: 0.8125rem; color: var(--text-muted); text-align: left; }
+#tx-action-sheet .txs-sub:empty { display: none; }
+/* Then the name, with a small logo */
+#tx-action-sheet .txs-head { display: flex; align-items: center; gap: 12px; margin: 10px 4px 4px; }
+#tx-action-sheet .txs-avatar-btn { flex: none; }
+#tx-action-sheet .txs-avatar { width: 40px; height: 40px; font-size: 1rem; }
+#tx-action-sheet .txs-title { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+#tx-action-sheet .txs-name { font: 500 1.625rem/1.15 'Inter', sans-serif; letter-spacing: -0.015em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62vw; }
+#tx-action-sheet .txs-adj { align-self: flex-start; }
+/* Then the date and time */
+.txs-when-row { display: flex; align-items: center; gap: 12px; margin: 6px 4px 0; }
+.txs-when { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 1rem; color: var(--text-muted); cursor: pointer; }
+.txs-when input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+.txs-when-sub { display: block; margin: 0 4px; font-size: 0.75rem; color: var(--text-muted); opacity: 0.85; }
+/* Details grid: two columns, label over value */
+.txs-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 16px; margin: 22px 4px 18px; }
+.txs-fact { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; padding: 0; border: none; background: none; color: var(--text); text-align: left; font: inherit; cursor: default; }
+button.txs-fact { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.txs-fact-label { font-size: 0.8125rem; color: var(--text-muted); }
+.txs-fact-val { display: inline-flex; align-items: center; gap: 7px; font-size: 1.0625rem; font-weight: 500; min-width: 0; }
+.txs-fact-val > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.txs-fact-val i { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+/* The card it was on, with your card art */
+.txs-card { display: flex; align-items: center; gap: 16px; width: 100%; padding: 14px 18px 14px 14px; margin-bottom: 14px; border: 1px solid var(--hairline); border-radius: 18px; background: var(--group-bg); color: var(--text); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.txs-card[hidden] { display: none; }
+.txs-card-art { flex: none; display: flex; align-items: center; justify-content: center; width: 72px; height: 46px; border-radius: 6px; background: var(--sheet-bg) center/cover no-repeat; color: var(--text-muted); font-weight: 600; box-shadow: 0 0 0 1px var(--hairline); }
+.txs-card-art.is-logo { background-size: 60%; background-color: #fff; }
+.txs-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.txs-card-text > span:first-child { font-size: 1.0625rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.txs-card-mask { font-size: 0.875rem; color: var(--text-muted); }
+.txs-card-go { flex: none; color: var(--accent); }
+/* Map + address + website */
+.txs-map { position: relative; display: block; height: 180px; margin-bottom: 4px; border-radius: 18px; overflow: hidden; background: var(--group-bg); }
+.txs-map[hidden] { display: none; }
+.txs-map iframe { position: absolute; inset: -40px 0 0; width: 100%; height: calc(100% + 80px); border: 0; pointer-events: none; filter: saturate(0.4) contrast(0.95); }
+:root[data-theme="dark"] .txs-map iframe { filter: invert(0.92) hue-rotate(180deg) saturate(0.35) brightness(0.9); }
+.txs-map-pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); filter: drop-shadow(0 2px 3px rgba(0,0,0,.3)); }
+.txs-places { margin: 0 4px 14px; }
+.txs-places[hidden] { display: none; }
+.txs-place { display: flex; align-items: center; gap: 16px; min-height: 56px; color: var(--text); text-decoration: none; font-size: 1rem; }
+.txs-place[hidden] { display: none; }
+.txs-place svg { flex: none; color: var(--text-muted); }
+.txs-place + .txs-place { border-top: 1px solid var(--hairline); }
+#txs-site-text { color: var(--accent); }
+#tx-action-sheet .txs-group { margin-top: 4px; }

@@ -44,6 +44,11 @@ function buildTxRow(tx: any, userId: string, itemId: string) {
     enriched_payment_channel: tx.payment_channel || null,
     enriched_location_city: tx.location?.city || null,
     enriched_location_region: tx.location?.region || null,
+    enriched_location_address: tx.location?.address || null,
+    enriched_location_postal_code: tx.location?.postal_code || null,
+    enriched_location_lat: typeof tx.location?.lat === 'number' ? tx.location.lat : null,
+    enriched_location_lon: typeof tx.location?.lon === 'number' ? tx.location.lon : null,
+    enriched_location_store: tx.location?.store_number || null,
     // Sent again by Plaid: no longer set aside as removed
     removed_at: null,
   };

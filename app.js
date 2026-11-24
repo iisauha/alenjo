@@ -5594,6 +5594,7 @@ function renderTxSheet(tx) {
   if (tx.enriched_payment_channel === 'online') parts.push('Online');
   else if (tx.enriched_payment_channel === 'in store') parts.push('In store');
   $('#tx-action-detail').textContent = parts.join(' · ');
+  renderTxFacts(tx);
 
   var income = tx.amount < 0, total = Math.abs(tx.amount);
   var counted = (eff.isSplit || eff.isAdjusted) && !eff.excluded ? Math.abs(eff.amount) : total;
@@ -5892,6 +5893,62 @@ function renderMonthMove(tx) {
     : base !== tx.date ? 'Swiped · posted ' + friendlyDay(tx.date)
     : 'Swiped and posted the same day';
   $('#tx-date-sub').textContent = sub;
+  // The big date line: the day it counts on, plus the swipe time when the bank shares it
+  var when = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }).replace(/,/g, '');
+  if (!moved && tx.authorized_datetime && /T\d/.test(tx.authorized_datetime)) {
+    var t = new Date(tx.authorized_datetime);
+    if (!isNaN(t)) when += ', ' + t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  $('#txs-when-text').textContent = when;
+}
+
+// Transaction details: status, how it was paid, the card it was on, where, and the store's site
+function renderTxFacts(tx) {
+  $('#txs-status').textContent = tx.pending ? 'Pending' : tx.removed_at ? 'Removed by bank' : 'Completed';
+  var ch = tx.enriched_payment_channel;
+  $('#txs-paid').textContent = ch === 'in store' ? 'In store' : ch === 'online' ? 'Online' : !tx.plaid_account_id ? 'Added by you' : 'Other';
+  // The card or account it was on, with your card art
+  var acct = (cachedAccounts || []).filter(function(a) { return a.plaid_account_id && a.plaid_account_id === tx.plaid_account_id; })[0];
+  var card = $('#txs-card');
+  card.hidden = !acct;
+  if (acct) {
+    var design = acct.card_design_id ? getCardDesignById(acct.card_design_id) : null;
+    var logo = !design && typeof getLogoUrl === 'function' ? getLogoUrl(acct) : null;
+    var art = $('#txs-card-art');
+    art.className = 'txs-card-art' + (design ? ' is-art' : logo ? ' is-logo' : '');
+    art.style.backgroundImage = design ? 'url("' + design.url + '")' : logo ? 'url("' + logo + '")' : '';
+    art.textContent = design || logo ? '' : (acct.institution || acct.name || '?').charAt(0).toUpperCase();
+    $('#txs-card-name').textContent = acct.nickname || acct.name || 'Account';
+    $('#txs-card-mask').textContent = [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ');
+    card.dataset.id = acct.id;
+  }
+  // Where: a small map when Plaid shares the spot, plus the address
+  var lat = tx.enriched_location_lat, lon = tx.enriched_location_lon;
+  var street = tx.enriched_location_address;
+  var cityLine = [tx.enriched_location_city, [tx.enriched_location_region, tx.enriched_location_postal_code].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  var addr = [street, cityLine].filter(Boolean).join(', ');
+  var place = tx.merchant_name || tx.name || '';
+  var mapQ = lat != null && lon != null ? 'll=' + lat + ',' + lon + '&q=' + encodeURIComponent(place) : 'q=' + encodeURIComponent([place, addr].filter(Boolean).join(', '));
+  var map = $('#txs-map');
+  if (lat != null && lon != null) {
+    var dx = 0.006, dy = 0.003;
+    map.href = 'https://maps.apple.com/?' + mapQ;
+    map.innerHTML = '<iframe title="Map" loading="lazy" tabindex="-1" src="https://www.openstreetmap.org/export/embed.html?bbox=' +
+      (lon - dx) + ',' + (lat - dy) + ',' + (lon + dx) + ',' + (lat + dy) + '&layer=mapnik"></iframe>' +
+      '<span class="txs-map-pin" aria-hidden="true"><svg width="34" height="44" viewBox="0 0 24 32"><path d="M12 1C6 1 1.5 5.4 1.5 11.2 1.5 19 12 31 12 31s10.5-12 10.5-19.8C22.5 5.4 18 1 12 1z" fill="var(--accent)" stroke="rgba(0,0,0,.25)"/><circle cx="12" cy="11" r="4" fill="#fff" opacity=".9"/></svg></span>';
+    map.hidden = false;
+  } else { map.hidden = true; map.innerHTML = ''; }
+  var a = $('#txs-addr');
+  a.hidden = !addr;
+  if (addr) { a.href = 'https://maps.apple.com/?' + mapQ; $('#txs-addr-text').textContent = addr; }
+  var site = (tx.enriched_website || '').trim();
+  var sEl = $('#txs-site');
+  sEl.hidden = !site;
+  if (site) {
+    sEl.href = /^https?:\/\//.test(site) ? site : 'https://' + site;
+    $('#txs-site-text').textContent = site.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+  }
+  $('#txs-places').hidden = !addr && !site;
 }
 (function() {
   var input = $('#tx-date-input');
@@ -5936,6 +5993,19 @@ function autoGrowNote() {
   if (!el) return;
   el.addEventListener('input', autoGrowNote);
   el.addEventListener('blur', saveTxNote);
+})();
+// Tap the card in a transaction: open that account's settings
+(function() {
+  var c = $('#txs-card');
+  if (!c) return;
+  c.addEventListener('click', function() {
+    var id = c.dataset.id;
+    closeActionSheet();
+    setTimeout(function() {
+      var home = document.querySelector('.account-card[data-id="' + id + '"]');
+      if (home) home.click();
+    }, 250);
+  });
 })();
 function closeActionSheet() {
   saveTxNote();
