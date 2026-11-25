@@ -457,7 +457,6 @@ async function keepOrSignOut() {
   clearTrusted();
   return sb.auth.signOut({ scope: 'local' });
 }
-function keptSessionTrusted() { var t = trustedFor(); return !!(t && currentUser && t.uid === currentUser.id); }
 async function verifyOnSide(kind, email, password) {
   var c = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'alenjo-side-check' } });
   var r = kind === 'passkey' ? await c.auth.signInWithPasskey() : await c.auth.signInWithPassword({ email: email, password: password });
@@ -1413,7 +1412,6 @@ function refreshSettingsSummary() {
     var banks = document.querySelectorAll('#accounts-list .settings-institution').length;
     put('set-sum-banks', banks ? banks + ' connected' : 'None connected yet');
   }
-  var fid = $('#faceid-status'), mins = $('#pref-lock-minutes');
   // Built only from this phone's settings (no server check), so it reads the same every time
   put('set-sum-lock', (hasPasskeyHere() ? 'Face ID on' : 'Face ID off') + ' · locks after ' + Math.round(getLockMs() / 60000) + ' min');
   if (changed) try { localStorage.setItem(SET_SUMS_KEY, JSON.stringify(saved)); } catch (e) {}
@@ -2714,13 +2712,11 @@ async function updateFaceIdSetting() {
     : count === 0 ? (on ? 'On for this device' : 'Not set up yet')
     : (known || (on ? 'On for this device' : 'Not set up yet'));
   try { localStorage.setItem('alenjo_faceid_text', text); } catch (e) {}
-  faceIdStatusKnown = true;
   if (status.textContent !== text) status.textContent = text;
   btn.textContent = on ? 'Add device' : 'Set up';
   refreshSettingsSummary();
 }
 // Show the last known Face ID line right away instead of the page's placeholder
-var faceIdStatusKnown = false;
 (function() {
   try { var t = localStorage.getItem('alenjo_faceid_text'); if (t && $('#faceid-status')) $('#faceid-status').textContent = t; } catch (e) {}
 })();
@@ -4109,18 +4105,14 @@ function renderAccounts(accounts) {
     });
   }
 
-  // Available Cash (banks - credit) and Net Worth (everything)
+  // Available Cash (banks - credit)
   var netCashEl = $('#net-cash');
   if (hasAnyAccounts) {
     var heroBank = banks.filter(inTotals).reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
     var heroCredit = credits.filter(inTotals).reduce(function(s, a) { return s + getDisplayBalance(a, 'credit').amount; }, 0);
-    var savingsSum = savings.filter(inTotals).reduce(function(s, a) { return s + getDisplayBalance(a, 'bank').amount; }, 0);
-    var investSum = 0;
-    investments.filter(inTotals).forEach(function(a) { investSum += getInvestmentValue(a); });
     var bankSum = heroBank, creditSum = heroCredit;
     var availableCash = bankSum - creditSum;
     lastAvailableCash = availableCash;
-    var netWorth = bankSum - creditSum + savingsSum + investSum;
     netCashEl.hidden = false;
 
     var availEl = $('#available-value');
@@ -4445,12 +4437,12 @@ async function renderAccountsSettings() {
 // Disconnect: keep the history (default) or delete everything. Plaid is disconnected either way.
 (function wireDisconnect() {
   var sheet = $('#disconnect-sheet'), keepBtn = $('#disconnect-keep'), delBtn = $('#disconnect-delete'), err = $('#disconnect-error');
-  var itemId = null, sourceBtn = null;
+  var itemId = null;
   function close() { sheet.classList.remove('visible'); sheet.setAttribute('aria-hidden', 'true'); itemId = null; keepBtn.disabled = delBtn.disabled = false; err.hidden = true; }
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('.btn-disconnect-inst');
     if (!btn) return;
-    itemId = btn.dataset.item; sourceBtn = btn;
+    itemId = btn.dataset.item;
     var group = cachedAccounts.filter(function(a) { return a.plaid_item_id === itemId; });
     var instName = group.length ? (group[0].institution || 'this institution') : 'this institution';
     $('#disconnect-title').textContent = 'Disconnect ' + instName + '?';
@@ -5979,14 +5971,14 @@ function renderTransactionMonth() {
   }
 
   // ---- Summary: spent / money in / transfers (effective amounts, skip excluded)
-  var byCategory = {}, spent = 0, moneyIn = 0, transfers = 0, byDay = {};
+  var byCategory = {}, spent = 0, moneyIn = 0, byDay = {};
   var outByCat = {};
   filtered.forEach(function(tx) {
     var eff = getEffectiveTx(tx);
     if (eff.excluded) return;
     var cat = normalizeCategory(eff.category);
     // Transfers stay out of spending even if you renamed or deleted that category
-    if (isTransferCategory(baseCategory(eff.category))) { transfers += Math.abs(eff.amount); return; }
+    if (isTransferCategory(baseCategory(eff.category))) return;
     // The chart, chips and big number follow whichever side you're looking at
     var amt = Math.abs(eff.amount), isOut = eff.amount > 0;
     if (isOut) { spent += amt; outByCat[cat] = (outByCat[cat] || 0) + amt; } else moneyIn += amt;
@@ -6084,10 +6076,6 @@ function renderTransactionMonth() {
   else { barsEl._focusDay = activeDay || lastDay; scrollBarsToFocus(); }
   barsEl.dataset.month = month; barsEl.dataset.vis = String(vis);
   $('#act-range').querySelectorAll('button').forEach(function(b) { b.classList.toggle('on', Math.min(+b.dataset.range, daysInMonth) === vis); });
-  // ---- Budgets: this month's own, shown on the category pills (whole month, all accounts)
-  var B = monthBudgets(month, 'out'), BI = monthBudgets(month, 'in');
-  var expectedIn = Object.keys(BI).reduce(function(t, c) { return t + BI[c].amount; }, 0);
-  var budgetOn = cardId === 'all' && !activeDay && (Object.keys(B).length > 0 || expectedIn > 0);
   if (activeDay) net.innerHTML = '';
 
   if (activeDay) {
@@ -6096,7 +6084,6 @@ function renderTransactionMonth() {
     $('#act-spent').textContent = formatMoney(dayAmt);
     $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-clear-day">Show all of ' + MONTH_LONG[m - 1] + '</button>';
   } else if (cardId === 'all') {
-    var anyB = Object.keys(B).length > 0;
     $('#act-daily-note').innerHTML = '<button type="button" class="signin-link" id="act-set-budget">Budgets</button>';
   } else {
     $('#act-daily-note').textContent = '';
@@ -6163,7 +6150,6 @@ function renderTransactionMonth() {
       var name = eff.nickname || tx.enriched_merchant_name || tx.merchant_name || tx.name || 'Unknown';
       var cat = normalizeCategory(eff.category);
       var acctName = accountMap[tx.plaid_account_id] || (tx.plaid_account_id ? 'Account' : 'Cash');
-      var color = accountColor(tx.plaid_account_id);
       var income = tx.amount < 0;
       var tags = '';
       if (tx.pending) tags += '<span class="act-tag act-tag-pending">Pending</span>';
@@ -6443,14 +6429,6 @@ function friendlyDay(dateStr) {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
-// Each account keeps the same color everywhere (chips, dots)
-var ACCOUNT_COLORS = ['#2F6FDB', '#0F8A95', '#7A4CC2', '#C27A1A', '#B0476A', '#3E8E5E', '#5E7FA3', '#9C5B3C'];
-function accountColor(plaidAccountId) {
-  if (!plaidAccountId || !cachedAccounts) return 'var(--track)';
-  var ids = cachedAccounts.map(function(a) { return a.plaid_account_id; }).filter(Boolean);
-  var i = ids.indexOf(plaidAccountId);
-  return i === -1 ? 'var(--track)' : ACCOUNT_COLORS[i % ACCOUNT_COLORS.length];
-}
 // Account filter hugs whatever is selected (capped by CSS max-width, long names still get "…")
 var _measureCtx = null;
 function sizeAcctFilter() {
@@ -6506,11 +6484,6 @@ function updateMonthButtons() {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('tx-row')) { e.preventDefault(); e.target.click(); }
   });
 })();
-
-window._clearCatFilter = function() {
-  activeCategoryFilter = null;
-  renderTransactionMonth();
-};
 
 // Excel export: a formatted workbook (table with category and status chips,
 // a Summary tab with live monthly totals, and charts). The builder loads only
@@ -6726,19 +6699,6 @@ $('#add-tx-save').addEventListener('click', async function() {
   });
 });
 
-function formatTxDate(dateStr, datetimeStr) {
-  if (!dateStr) return '';
-  var parts = dateStr.split('-');
-  var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var datePart = monthNames[parseInt(parts[1]) - 1] + ' ' + parseInt(parts[2]);
-  var thisYear = new Date().getFullYear();
-  if (parseInt(parts[0]) !== thisYear) datePart += ', ' + parts[0];
-  if (datetimeStr) {
-    var d = new Date(datetimeStr);
-    datePart += ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  }
-  return datePart;
-}
 
 // Plaid's category codes in plain words (also maps older saved overrides
 // like "FOOD AND DRINK"). Your own custom category names pass through.
@@ -7303,10 +7263,6 @@ function fitInput(el) {
 
 // Count a transaction in another month (e.g. rent paid on the 31st that posts on the 1st)
 var MONTH_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-function shiftMonth(ym, delta) {
-  var p = ym.split('-'), d = new Date(+p[0], +p[1] - 1 + delta, 1);
-  return { y: d.getFullYear(), m: d.getMonth() + 1, key: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') };
-}
 function renderMonthMove(tx) {
   var eff = getEffectiveTx(tx), base = swipeDate(tx), moved = eff.date !== base;
   var p = eff.date.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]);
@@ -7352,27 +7308,8 @@ function renderTxFacts(tx) {
     $('#txs-card-mask').textContent = [acct.institution, acct.mask ? shownMask(acct.mask) : ''].filter(Boolean).join(' · ');
     card.dataset.id = acct.id;
   }
-  // Where: a small map when Plaid shares the spot, plus the address
-  // Map and address are off: Plaid rarely shares them, and the city it does send is often
-  // just the company's billing city (Amazon: Seattle). The website still shows.
-  var lat = null, lon = null;
-  var street = tx.enriched_location_address;
-  var cityLine = [tx.enriched_location_city, [tx.enriched_location_region, tx.enriched_location_postal_code].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-  var addr = '';
-  var place = tx.merchant_name || tx.name || '';
-  var mapQ = lat != null && lon != null ? 'll=' + lat + ',' + lon + '&q=' + encodeURIComponent(place) : 'q=' + encodeURIComponent([place, addr].filter(Boolean).join(', '));
-  var map = $('#txs-map');
-  if (lat != null && lon != null) {
-    var dx = 0.006, dy = 0.003;
-    map.href = 'https://maps.apple.com/?' + mapQ;
-    map.innerHTML = '<iframe title="Map" loading="lazy" tabindex="-1" src="https://www.openstreetmap.org/export/embed.html?bbox=' +
-      (lon - dx) + ',' + (lat - dy) + ',' + (lon + dx) + ',' + (lat + dy) + '&layer=mapnik"></iframe>' +
-      '<span class="txs-map-pin" aria-hidden="true"><svg width="34" height="44" viewBox="0 0 24 32"><path d="M12 1C6 1 1.5 5.4 1.5 11.2 1.5 19 12 31 12 31s10.5-12 10.5-19.8C22.5 5.4 18 1 12 1z" fill="var(--accent)" stroke="rgba(0,0,0,.25)"/><circle cx="12" cy="11" r="4" fill="#fff" opacity=".9"/></svg></span>';
-    map.hidden = false;
-  } else { map.hidden = true; map.innerHTML = ''; }
-  var a = $('#txs-addr');
-  a.hidden = !addr;
-  if (addr) { a.href = 'https://maps.apple.com/?' + mapQ; $('#txs-addr-text').textContent = addr; }
+  // Where: the merchant's website. Map and address are off: Plaid rarely shares the spot, and
+  // the city it does send is often just the company's billing city (Amazon: Seattle).
   var site = (tx.enriched_website || '').trim();
   var sEl = $('#txs-site');
   sEl.hidden = !site;
@@ -7380,7 +7317,7 @@ function renderTxFacts(tx) {
     sEl.href = /^https?:\/\//.test(site) ? site : 'https://' + site;
     $('#txs-site-text').textContent = site.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
   }
-  $('#txs-places').hidden = !addr && !site;
+  $('#txs-places').hidden = !site;
 }
 (function() {
   var input = $('#tx-date-input');
@@ -7871,12 +7808,6 @@ document.getElementById('bottom-nav').addEventListener('click', function(e) {
   }
 });
 
-// Legend section toggle
-var legendToggle = $('#btn-toggle-legend');
-if (legendToggle) legendToggle.addEventListener('click', function() {
-  this.closest('.tx-legend-section').classList.toggle('collapsed');
-});
-
 // ============================================
 // UTILS
 // ============================================
@@ -7911,13 +7842,6 @@ function formatMoney(amount) {
   }).format(Math.abs(amount));
 }
 
-function formatPct(value) {
-  // 3 significant figures: 45.2%, 5.03%, 0.482%, 0.0312%
-  if (value >= 10) return value.toFixed(1) + '%';
-  if (value >= 1) return value.toFixed(2) + '%';
-  if (value >= 0.1) return value.toFixed(3) + '%';
-  return value.toFixed(4) + '%';
-}
 
 // Tick all visible relative timestamps every 60s (no API calls)
 setInterval(function() {
@@ -7998,11 +7922,6 @@ function flashSaved(btn) {
       if (cancel) cancel.click();
     }
   }, true);
-  // Same as tapping outside
-  window.closePopupOverlay = function(t) {
-    downOn = t;
-    t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-  };
 })();
 
 // Settings > Your logos: rename in place, delete with a second tap
