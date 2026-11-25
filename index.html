@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-7UJWrp2Jj5r51tC69e4CdmaAah44qAiFLZeAEBWa2gI=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-+cplUiz4m1s5Dnvx1lNiIUfySeTv+PQVoCYS/qFk2qE=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MwIhONDr9terlVgaDowJvFn9JMHPot58/xw+YcuJny8=' 'sha256-yvYH4vQhXKQUx2BdS0jID8RcuhoiygWYzIP5J2PP21c=' 'sha256-WvEh6WACgVlM9/shvfoweZtZMMCLE57IhrsPAEDmgU8=' 'sha256-8rUxQ6Yx7HnmJvPEUkyo5D9kgtFwJOT0RGlgS0n+yo4=' 'sha256-wyxfoJWXHZkdi4Yx9mkcS18RXTiJ9LIZToVt4VqU8k0=' 'sha256-/V+OC+/fp3WYmF8W/dhv8jP1P6ME5WetM8tkoma7esc=' 'sha256-A+/zbYPBdij3C7AdfbaNCjVSxWFATh/M4hTXb+6YPDs=' https://cdn.plaid.com https://cdn.jsdelivr.net; worker-src 'self'; connect-src 'self' https://itkufrockebnlzcroigc.supabase.co wss://itkufrockebnlzcroigc.supabase.co https://*.plaid.com data: blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src https://cdn.plaid.com https://*.plaid.com; manifest-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -88,14 +88,15 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <!-- Version is stamped by ./release.sh; installed apps compare it with /version.json and update themselves -->
-  <script>var _v = '20261125020044';</script>
+  <script>var _v = '20261125021832';</script>
   <style>
     /* Paint the background and hide every screen until style.css arrives,
        so the raw page never flashes on load */
-    html, body { background: #060B14; margin: 0; }
+    html, body { background: #E6E2D8; margin: 0; }
+    html[data-theme="dark"], html[data-theme="dark"] body { background: #1C1B17; }
     .screen { display: none; }
   </style>
-  <link rel="stylesheet" href="style.css?v=20261125020044">
+  <link rel="stylesheet" href="style.css?v=20261125021832">
 </head>
 <body>
 
@@ -1162,7 +1163,7 @@
       if (!window._appLoaded) {
         var b = document.createElement('button');
         b.textContent = 'Tap to reload';
-        b.style.cssText = 'display:block;margin:1rem auto;padding:0.75rem 2rem;background:#3C82F6;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;';
+        b.style.cssText = 'display:block;margin:1rem auto;padding:0.75rem 2rem;background:var(--accent);color:var(--on-accent);border:none;border-radius:14px;font-size:1rem;cursor:pointer;';
         b.onclick = function() { localStorage.clear(); location.href = location.pathname + '?_=' + Date.now(); };
         (el || document.body).appendChild(b);
       }

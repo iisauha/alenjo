@@ -99,8 +99,6 @@ over `--bg-card` with a 30% border (`--pending` for a warning); a colored tag is
   `#9C5B3C` `#C04F86` `#A8956B` `#8C6A4F`. Never green.
 - **Income sources** (`INCOME_COLORS`): `var(--success)` `#4E9A73` `#3F7F86` `#7FB08F` `#5C8A5A`
   `#2F5F6E`. Greens and teals only.
-- **Accounts** (`ACCOUNT_COLORS`): `#2F6FDB` `#0F8A95` `#7A4CC2` `#C27A1A` `#B0476A` `#3E8E5E`
-  `#5E7FA3` `#9C5B3C`. Each account keeps its color everywhere (dots on rows, chips, filters).
 - Chart colors are the same in light and dark mode.
 
 ### Color do and don't
@@ -364,9 +362,9 @@ Rules the app follows, and should keep following:
 
 ## Cleanup notes
 
-Found while writing this. None of it is changed yet.
+Found while writing this and still open. (Already fixed: `--pending` declared twice, the unused
+`ACCOUNT_COLORS`, the `#ef4444` fallback, and early rules that a later rule fully overrode.)
 
-- `--pending` is declared twice (`#B5582F` then `#A95E0C`); the second wins.
 - `--bg-input` is identical to `--bg-card`.
 - `--text-dim` and `--text-muted` are almost the same grey, and `--text-dim` fails contrast on
   `--bg` in light mode (4.2). Replacing it with `--text-muted` would fix both.
@@ -381,14 +379,9 @@ Found while writing this. None of it is changed yet.
 - Radii 4, 6, 8, 9, 12, 16, 18, 19, 20, 22 and 24 are written out by hand; only 10 and 14 have
   variables. The `--space-*` variables are defined but not used anywhere.
 - Hard-coded colors: Split tag blue (`#5B7FD6` / `#8EA8EA`), Adjusted tag purple (`#A07FE0`, no
-  dark version), white text on delete buttons, the switch knob, and a `#ef4444` fallback left
-  from the old red.
-- `ACCOUNT_COLORS` includes a green (`#3E8E5E`), which breaks "green means money in".
+  dark version), white text on delete buttons and the switch knob.
 - In dark mode `--accent` and `--success` are the same color, so "tap this" and "money in" look
   identical. In light mode they differ by a hair.
 - Icon stroke widths drift (1.8, 1.9, 2, 2.2, 2.5) for icons of the same size.
-- Several components are styled twice: an early rule and a later "design refresh" rule that
-  overrides it (`.set-group`, `.btn-primary`, `.bottom-nav`, `.action-sheet`). The early rules
-  are dead weight.
 - Error toasts are worded several ways ("Delete failed", "Could not save order", "Couldn't save
   that. Try again.").

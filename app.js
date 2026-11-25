@@ -32,7 +32,7 @@ var demoStore = {};
 })();
 
 // Fake tables (reads), keyed by table or function name
-var DEMO_FAKED = { profiles: 1, accounts: 1, plaid_items: 1, synced_transactions: 1, transaction_actions: 1, category_budgets: 1, merchant_logos: 1 };
+var DEMO_FAKED = { profiles: 1, accounts: 1, plaid_items: 1, synced_transactions: 1, transaction_actions: 1, category_budgets: 1 };
 function demoRows(table) {
   if (table === 'profiles') return [demo.profile];
   if (table === 'accounts') return demo.accounts;
@@ -293,7 +293,6 @@ var hideMoney = (function() { try { return localStorage.getItem('alenjo_hide_mon
 var cachedAccounts = null;
 
 // ============================================
-// ============================================
 // BETA GATE + SIGNUP
 // ============================================
 var betaForm = $('#beta-form');
@@ -396,7 +395,7 @@ signupForm.addEventListener('submit', async function(e) {
 });
 
 // ============================================
-// AUTH (sign-in only, no new signups)
+// AUTH (sign-in; new accounts go through the beta gate above)
 // ============================================
 var signingIn = false;
 function setSigningIn(on) {
