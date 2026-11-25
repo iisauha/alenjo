@@ -24,7 +24,7 @@ policy = '; '.join([
     "img-src 'self' data: blob: https:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "frame-src https://cdn.plaid.com https://*.plaid.com https://www.openstreetmap.org",
+    "frame-src https://cdn.plaid.com https://*.plaid.com",
     "manifest-src 'self'",
     "media-src 'self' blob: data:",
     "object-src 'none'",

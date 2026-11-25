@@ -200,7 +200,7 @@
 
     // ---- sheet 2: Summary ----
     var mc = months.length, totCol = col(1 + mc), budCol = col(2 + mc), leftCol = col(3 + mc);
-    var s2 = [], r = 1;
+    var s2 = [];
     s2.push('<row r="1" ht="30" customHeight="1">' + str('A1', data.title || 'Spending summary', 5) + '</row>');
     s2.push('<row r="2">' + str('A2', 'Exported ' + data.exported + ' from Alenjo · edit a category on Transactions and these totals update', 6) + '</row>');
     var H = 4;

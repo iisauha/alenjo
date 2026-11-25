@@ -27,3 +27,7 @@ Alenjo is a personal finance manager aimed at a broader consumer audience. Users
 - Run `./release.sh` before committing app changes (new version + CSP hashes).
 - Deploy a server function with `./tools/deploy-function.sh <name>`; shared code lives in `supabase/functions/_shared/`.
 - New database changes go in `supabase/migrations/<UTC timestamp>_<name>.sql`.
+- No build step, linter or test suite: check syntax with `node --check app.js` before committing.
+- Show balances and amounts exactly as Plaid sends them. Don't recalculate to fix rounding (Robinhood and Amex send whole dollars).
+- Plaid calls go through `plaidRequest` in `_shared/plaid.js` only; its allow list keeps per-call and new-product billing out (see README, Plaid costs).
+- Keep GitHub's built-in CodeQL default setup off; the repo's own `security-scan.yml` is the scan.
