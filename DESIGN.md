@@ -153,17 +153,15 @@ Two families, loaded from Google Fonts: **Newsreader** (500) for titles, names a
 
 Found while writing this. None of it is changed yet.
 
-- `.impeccable.md` still describes the old look (navy-black background, DM Sans, blue accent).
-  The Design Context in `CLAUDE.md` is the current one.
 - `--pending` is declared twice (`#B5582F` then `#A95E0C`); the second wins.
-- `--accent-glow` is identical to `--accent-subtle`, and `--bg-input` to `--bg-card`.
+- `--bg-input` is identical to `--bg-card`.
 - `--text-dim` and `--text-muted` are almost the same grey. One would do.
 - `--sheet-bg`, `--group-bg`, `--hairline` and `--pending` are declared halfway down the file
   instead of with the other theme variables at the top.
-- About 200 font sizes are written as literal rem values; the `--text-*` sizes are used about
-  100 times. `--text-hero` (36px) is not the hero size actually used (41.6px).
+- About 180 font sizes are written as literal rem values; the `--text-*` sizes are used about
+  55 times. `--text-hero` (36px) is not the hero size actually used (41.6px).
 - Radii 6, 8, 9, 12, 16, 18, 19, 20, 22 and 24 are written out by hand; only 10 and 14 have
-  variables. Spacing variables are used 7 times.
+  variables. The `--space-*` variables are defined but not used anywhere.
 - Hard-coded colors: Split tag blue (`#5B7FD6` / `#8EA8EA`), Adjusted tag purple (`#A07FE0`, no
   dark version), white text on the delete button, the switch knob, and a `#ef4444` fallback left
   from the old red.
