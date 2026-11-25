@@ -9,8 +9,7 @@ recategorize, rename, change the logo, split, adjust, mark as reimbursed, ignore
 it to another month, and each change applies to that one transaction only. No ads, no
 upsells, no guessing.
 
-Design: colors, type, components and the design philosophy are in [DESIGN.md](DESIGN.md)
-(with a [Figma file](https://www.figma.com/design/M8RyMyGrvamfjZRzeNjV8Z)).
+Design: colors, type, components and the design philosophy are in [DESIGN.md](DESIGN.md).
 
 ## How it fits together
 
